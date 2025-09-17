@@ -1,0 +1,76 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+jspm_packages/
+
+# Build output
+android/app/build/
+ios/build/
+web-build/
+
+# Expo
+.expo/
+.expo-shared/
+
+# macOS
+.DS_Store
+
+# Environment files
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# Misc
+*.keystore
+*.jks
+
+# Coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Others
+*.swp
+*.swo
+
+# IDEs
+.idea/
+*.iml
+
+# Pods (iOS)
+ios/Pods/
+
+# Xcode
+*.xcworkspace
+*.xcuserstate
+*.xcuserdata
+*.xcodeproj
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Gradle
+.gradle/
+android/.gradle/
+
+# Misc
+*.apk
+*.ap_

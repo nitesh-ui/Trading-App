@@ -1,0 +1,82 @@
+{
+  "expo": {
+    "name": "Virtual Trading App",
+    "slug": "virtual-trading-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "virtualtrading",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "description": "A comprehensive virtual trading app for stocks, forex, and cryptocurrency",
+    "sdkVersion": "54.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.virtualtrading.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "UIBackgroundModes": ["background-fetch", "background-processing"],
+        "CFBundleAllowMixedLocalizations": true,
+        "NSCameraUsageDescription": "This app uses camera for document scanning",
+        "NSMicrophoneUsageDescription": "This app uses microphone for voice commands"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.virtualtrading.app",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED"
+      ],
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "jsEngine": "hermes",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ce36e228-1201-4e06-bcaa-22bf13f0783c"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ce36e228-1201-4e06-bcaa-22bf13f0783c"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}
