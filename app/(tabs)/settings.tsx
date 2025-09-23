@@ -233,8 +233,13 @@ export default function SettingsScreen() {
   return (
     <ScreenErrorBoundary screenName="Settings">
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <StatusBar
+          barStyle={themeType === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={themeType === 'light' ? '#FFFFFF' : 'transparent'}
+          translucent
+        />
         {/* Fixed Header */}
-        <View style={[styles.fixedHeader, { backgroundColor: theme.colors.background + 'E6' }]}>
+        <View style={[styles.fixedHeader, { backgroundColor: theme.colors.background }]}>
           <View style={styles.statusBarSpacer} />
           <View style={styles.header}>
             <View style={styles.headerLeft}>
