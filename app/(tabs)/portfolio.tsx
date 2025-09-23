@@ -122,7 +122,7 @@ const MemoizedHoldingCard = memo<{
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-      <Card padding="medium" style={styles.holdingCard}>
+      <Card style={{ ...styles.holdingCard, padding: 12 }}>
         <View style={styles.holdingHeader}>
           <View style={styles.stockInfo}>
             <Text variant="body" weight="semibold" color="text">
@@ -359,19 +359,21 @@ export default function PortfolioScreen() {
                   <View style={styles.summaryRow}>
                     <View style={styles.summaryItem}>
                       <Text variant="caption" color="textSecondary">Today's P&L</Text>
-                      <Text 
-                        variant="body" 
-                        weight="semibold"
-                        style={{ color: getPnLColor(portfolioSummary.todaysPnL) }}
-                      >
-                        {portfolioSummary.todaysPnL >= 0 ? '+' : ''}{formatIndianCurrency(portfolioSummary.todaysPnL)}
-                      </Text>
-                      <Text 
-                        variant="caption"
-                        style={{ color: getPnLColor(portfolioSummary.todaysPnL) }}
-                      >
-                        ({portfolioSummary.todaysPnLPercent >= 0 ? '+' : ''}{portfolioSummary.todaysPnLPercent.toFixed(2)}%)
-                      </Text>
+                      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                        <Text 
+                          variant="body" 
+                          weight="semibold"
+                          style={{ color: getPnLColor(portfolioSummary.todaysPnL), display: 'contents' }}
+                        >
+                          {portfolioSummary.todaysPnL >= 0 ? '+' : ''}{formatIndianCurrency(portfolioSummary.todaysPnL)}
+                        </Text>
+                        <Text 
+                          variant="caption"
+                          style={{ color: getPnLColor(portfolioSummary.todaysPnL), marginLeft: 8 }}
+                        >
+                          ({portfolioSummary.todaysPnLPercent >= 0 ? '+' : ''}{portfolioSummary.todaysPnLPercent.toFixed(2)}%)
+                        </Text>
+                      </View>
                     </View>
                     <View style={styles.summaryItem}>
                       {/* Empty for alignment */}
@@ -512,6 +514,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderRadius: 8,
+    padding: 12,
   },
   holdingHeader: {
     flexDirection: 'row',

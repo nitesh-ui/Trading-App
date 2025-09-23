@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
+    Dimensions,
     FlatList,
     Platform,
     Text as RNText,
@@ -97,7 +98,7 @@ const DUMMY_TRANSACTIONS: Transaction[] = [
 ];
 
 export default function ReportScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { showNotification } = useNotification();
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'buy' | 'sell'>('all');
   const [notificationCount, setNotificationCount] = useState(0);
@@ -210,12 +211,26 @@ export default function ReportScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar 
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background + 'E6'}
+        translucent
+      />
       {/* Fixed Header */}
       <View style={[styles.fixedHeader, { backgroundColor: theme.colors.background + 'E6' }]}>
         <View style={styles.statusBarSpacer} />
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text variant="headline" weight="bold" color="text">
+            <Text 
+              variant="headline" 
+              weight="bold" 
+              color="text"
+              style={
+                Dimensions.get('window').width < 375
+                  ? { fontSize: 16, lineHeight: 18 }
+                  : undefined
+              }
+            >
               Transaction Report
             </Text>
             <Text variant="body" color="textSecondary">
@@ -293,6 +308,10 @@ const createStyles = (theme: any) =>
     container: {
       flex: 1,
       backgroundColor: theme.colors.background,
+    },
+    smallScreenTitle: {
+      fontSize: 16,
+      lineHeight: 18,
     },
     fixedHeader: {
       position: 'absolute',
@@ -436,7 +455,7 @@ const createStyles = (theme: any) =>
       color: 'white',
     },
     transactionDetails: {
-      marginBottom: 12,
+      marginBottom: 0,
     },
     detailRow: {
       flexDirection: 'row',

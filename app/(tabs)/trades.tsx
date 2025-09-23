@@ -5,7 +5,31 @@
  * 1. React Query for efficient data fetching and caching
  * 2. Memoized components to prevent unnecessary re-renders
  * 3. OptimizedFlatList with ListHeaderComponent to avoid VirtualizedList nesting
- * 4. Debounced search to reduce filtering operations
+ * 4. Debounced sear          <ScrollView 
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterContainer}
+          >
+            {['ALL', 'COMPLETED', 'PENDING', 'CANCELLED'].map((filter) => (
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.filterTab,
+                  selectedFilter === filter && { backgroundColor: theme.colors.primary }
+                ]}
+                onPress={() => setSelectedFilter(filter)}
+              >
+                <Text 
+                  variant="caption" 
+                  weight="medium"
+                  style={{ color: selectedFilter === filter ? 'white' : theme.colors.text }}
+                >
+                  {filter}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>ng operations
  * 5. Callback memoization for stable references
  * 6. Custom comparison in memo() for selective re-renders
  * 7. Suspense boundary for loading states
@@ -23,7 +47,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import React, { memo, Suspense, useCallback, useMemo, useState } from 'react';
-import { Platform, RefreshControl, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Card, Text } from '../../components/atomic';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { StockCardSkeleton } from '../../components/LoadingComponents';
@@ -130,7 +154,7 @@ const MemoizedTradeCard = memo<{
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-      <Card padding="medium" style={styles.tradeCard}>
+      <Card style={styles.tradeCard}>
         <View style={styles.tradeHeader}>
           <View style={styles.tradeSymbol}>
             <Text variant="body" weight="semibold" color="text">
@@ -298,7 +322,12 @@ export default function TradesScreen() {
           </View>
 
           {/* Filter Tabs */}
-          <View style={[styles.filterContainer, { backgroundColor: 'transparent' }]}>
+          <ScrollView 
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[styles.filterContainer, { backgroundColor: 'transparent' }]}
+            contentContainerStyle={styles.filterContainer}
+          >
             {['ALL', 'COMPLETED', 'PENDING', 'CANCELLED'].map((filter) => (
               <TouchableOpacity
                 key={filter}
@@ -311,13 +340,13 @@ export default function TradesScreen() {
                 <Text 
                   variant="caption" 
                   weight="medium"
-                  style={{ color: selectedFilter === filter ? 'white' : theme.colors.text }}
+                  style={{ color: selectedFilter === filter ? 'white' : theme.colors.text, textAlign: 'center' }}
                 >
                   {filter}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         {/* Single Optimized FlatList with Header - No Nesting */}
@@ -422,9 +451,12 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 4,
   },
+  filterScroll: {
+    flexGrow: 0,
+  },
   filterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     gap: 8,
   },
@@ -432,6 +464,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    minWidth: 80, // Ensure minimum width for better touch targets
   },
   tradesList: {
     flex: 1,
@@ -442,8 +475,9 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   tradeCard: {
-    marginBottom: 12,
+    marginBottom: 8,
     marginHorizontal: 0, // Remove horizontal margin to match other cards
+    padding: 12
   },
   tradeHeader: {
     flexDirection: 'row',
@@ -472,7 +506,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
-    paddingVertical: 8,
+    paddingVertical: 0,
   },
   tradeDetailLeft: {
     alignItems: 'flex-start',
