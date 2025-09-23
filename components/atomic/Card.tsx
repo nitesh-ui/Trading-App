@@ -88,6 +88,6 @@ export const Card: React.FC<CardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: 1,
+    // Removed default border
   },
 });
