@@ -46,6 +46,13 @@ export default function LoginScreen() {
   const slideAnimation = useSlideUpAnimation(true, 200);
   const buttonSlideAnimation = useSlideUpAnimation(true, 400);
 
+  const getMaxLength = () => {
+    if (/^\d/.test(form.identifier)) {
+      return 10;
+    }
+    return 50;
+  };
+
   const validateForm = (): boolean => {
     const newErrors: LoginErrors = {};
 
@@ -55,7 +62,7 @@ export default function LoginScreen() {
     } else {
       // Enhanced validation patterns
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const mobileRegex = /^[+]?[\d\s\-\(\)]{7,15}$/; // More flexible mobile pattern
+      const mobileRegex = /^[0-9]{10}$/; // More flexible mobile pattern
       const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/; // Username: alphanumeric + underscore, 3-20 chars
       
       const cleanIdentifier = form.identifier.replace(/\s/g, '');
@@ -310,12 +317,13 @@ export default function LoginScreen() {
               label="Username, Email, or Mobile"
               value={form.identifier}
               onChangeText={(text) => setForm({ ...form, identifier: text })}
-              placeholder="Enter username, email, or mobile"
+              placeholder="Email or mobile"
               error={errors.identifier}
               keyboardType={getIdentifierKeyboardType()}
               autoCapitalize="none"
               leftIcon={getIdentifierIcon()}
               style={styles.input}
+              maxLength={getMaxLength()}
             />
 
             {/* Password Input */}

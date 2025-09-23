@@ -42,6 +42,13 @@ export default function ForgotPasswordScreen() {
   const fadeAnimation = useFadeAnimation(true);
   const slideAnimation = useSlideUpAnimation(true, 200);
 
+  const getMaxLength = () => {
+    if (/^\d/.test(form.identifier)) {
+      return 10;
+    }
+    return 50;
+  };
+
   const validateIdentifier = (): boolean => {
     const newErrors: ForgotPasswordErrors = {};
 
@@ -49,7 +56,7 @@ export default function ForgotPasswordScreen() {
       newErrors.identifier = 'Email or mobile number is required';
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const mobileRegex = /^[+]?[\d\s\-\(\)]{10,}$/;
+      const mobileRegex = /^[0-9]{10}$/;
       const isEmail = emailRegex.test(form.identifier);
       const isMobile = mobileRegex.test(form.identifier.replace(/\s/g, ''));
 
@@ -232,12 +239,13 @@ export default function ForgotPasswordScreen() {
             label="Email or Mobile Number"
             value={form.identifier}
             onChangeText={(text) => setForm({ ...form, identifier: text })}
-            placeholder="Enter email or mobile number"
+            placeholder="Email/mobile number"
             error={errors.identifier}
             keyboardType="email-address"
             autoCapitalize="none"
             leftIcon={getIdentifierIcon()}
             style={styles.input}
+            maxLength={getMaxLength()}
           />
 
           {errors.general && (
