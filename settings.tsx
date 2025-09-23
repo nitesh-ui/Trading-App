@@ -556,7 +556,10 @@ export default function SettingsScreen() {
           variant="outline"
           size="large"
           fullWidth={true}
-          style={styles.logoutButton}
+          style={{
+            ...styles.logoutButton,
+            backgroundColor: theme.colors.background
+          }}
         />
       </View>
 
