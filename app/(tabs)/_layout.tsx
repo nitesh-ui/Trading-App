@@ -29,14 +29,25 @@ export default function TabLayout() {
           fontWeight: '500',
         },
       }}>
-      
-      {/* Watchlist - Main landing page */}
+
+      {/* Watchlist - Original version */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Watchlist',
           tabBarIcon: ({ color, size = 22 }) => (
             <Ionicons name="list-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* Optimized Watchlist */}
+      <Tabs.Screen
+        name="optimized-index"
+        options={{
+          title: 'Optimized',
+          tabBarIcon: ({ color, size = 22 }) => (
+            <Ionicons name="speedometer-outline" size={size} color={color} />
           ),
         }}
       />

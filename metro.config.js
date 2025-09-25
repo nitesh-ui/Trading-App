@@ -7,6 +7,11 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
+// Enable async require support
+config.transformer.asyncRequireModulePath = require.resolve(
+  '@expo/metro-config/build/async-require'
+);
+
 // Production optimizations
 if (process.env.NODE_ENV === 'production') {
   // Enable Hermes for better performance

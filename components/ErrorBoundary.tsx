@@ -130,7 +130,24 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({
   resetError,
   retry,
 }) => {
-  const { theme } = useTheme();
+  let theme;
+  try {
+    const { theme: contextTheme } = useTheme();
+    theme = contextTheme;
+  } catch (error) {
+    // Fallback theme when ThemeProvider is not available
+    theme = {
+      colors: {
+        background: '#ffffff',
+        text: '#000000',
+        textSecondary: '#666666',
+        error: '#ff4444',
+        primary: '#007AFF',
+        card: '#f5f5f5',
+        border: '#e0e0e0',
+      }
+    };
+  }
 
   const handleReportError = () => {
     Alert.alert(
