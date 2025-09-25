@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
 import {
     Alert,
+    Animated,
+    Dimensions,
+    Easing,
+    FlatList,
     Platform,
     RefreshControl,
     ScrollView,
@@ -12,13 +16,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text } from '../../components/atomic';
-import { PriceDisplay } from '../../components/trading';
+import { PriceDisplay, StockCard, ForexCard, CryptoCard } from '../../components/trading';
 import {
     AssetItem,
-    AssetList,
     FilterDrawer,
     MarketTabs,
     OptimizedSearch,
+    SkeletonLoader,
     StockExchangeFilter,
     UnifiedDrawer,
     WatchlistProvider,
@@ -26,6 +30,517 @@ import {
 } from '../../components/watchlist';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Memoized Market Indices Components
+const StockIndices = memo(() => {
+  const { theme } = useTheme();
+  
+  return (
+    <View style={styles.indicesContainer}>
+      <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+        Market Indices
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.indicesRow}>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>NIFTY 50</Text>
+            <PriceDisplay
+              price={19674.25}
+              change={123.45}
+              changePercent={0.63}
+              size="medium"
+              showSymbol={false}
+              showChange={true}
+              align="center"
+            />
+          </Card>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>SENSEX</Text>
+            <PriceDisplay
+              price={65953.48}
+              change={245.67}
+              changePercent={0.37}
+              size="medium"
+              showSymbol={false}
+              showChange={true}
+              align="center"
+            />
+          </Card>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>BANK NIFTY</Text>
+            <PriceDisplay
+              price={45234.80}
+              change={-89.25}
+              changePercent={-0.20}
+              size="medium"
+              showSymbol={false}
+              showChange={true}
+              align="center"
+            />
+          </Card>
+        </View>
+      </ScrollView>
+    </View>
+  );
+});
+
+const ForexIndices = memo(() => {
+  return (
+    <View style={styles.indicesContainer}>
+      <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+        Forex Indices
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.indicesRow}>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>DXY</Text>
+            <PriceDisplay
+              price={103.45}
+              change={-0.12}
+              changePercent={-0.12}
+              size="medium"
+              showSymbol={false}
+              showChange={true}
+              align="center"
+            />
+          </Card>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>EUR/USD</Text>
+            <PriceDisplay
+              price={1.0845}
+              change={0.0023}
+              changePercent={0.21}
+              size="medium"
+              showSymbol={false}
+              showChange={true}
+              align="center"
+            />
+          </Card>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>GBP/USD</Text>
+            <PriceDisplay
+              price={1.2634}
+              change={-0.0045}
+              changePercent={-0.35}
+              size="medium"
+              showSymbol={false}
+              showChange={true}
+              align="center"
+            />
+          </Card>
+        </View>
+      </ScrollView>
+    </View>
+  );
+});
+
+const CryptoIndices = memo(() => {
+  return (
+    <View style={styles.indicesContainer}>
+      <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+        Crypto Market
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.indicesRow}>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>Market Cap</Text>
+            <Text variant="body" weight="semibold" color="text" style={styles.indexValue}>
+              $1.20T
+            </Text>
+          </Card>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>24h Volume</Text>
+            <Text variant="body" weight="semibold" color="text" style={styles.indexValue}>
+              $25.4B
+            </Text>
+          </Card>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>BTC Dominance</Text>
+            <Text variant="body" weight="semibold" color="text" style={styles.indexValue}>
+              54.2%
+            </Text>
+          </Card>
+          <Card padding="medium" style={styles.indexCard}>
+            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>Fear & Greed</Text>
+            <Text variant="body" weight="semibold" color="success" style={styles.indexValue}>
+              72
+            </Text>
+          </Card>
+        </View>
+      </ScrollView>
+    </View>
+  );
+});
+
+// Sliding Tab Container with super-fast animations like Kite
+const SlidingTabContainer = memo(({ 
+  currentTab, 
+  children 
+}: { 
+  currentTab: any; 
+  children: React.ReactNode;
+}) => {
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const previousTab = useRef<any>('stocks');
+  
+  const tabOrder = ['stocks', 'forex', 'crypto'];
+  
+  React.useEffect(() => {
+    const currentIndex = tabOrder.indexOf(currentTab);
+    const targetX = -currentIndex * SCREEN_WIDTH;
+    
+    Animated.timing(slideAnim, {
+      toValue: targetX,
+      duration: 200, // Fast animation
+      useNativeDriver: true,
+      easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
+    }).start();
+    
+    previousTab.current = currentTab;
+  }, [currentTab, slideAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.slidingContainer,
+        {
+          transform: [{ translateX: slideAnim }]
+        }
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+});
+
+// Individual Tab Content Components - Using FlatList with ListHeaderComponent to avoid nesting
+const StocksTabContent = memo(({ 
+  onAssetPress, 
+  onBuyPress, 
+  onSellPress, 
+  onRemovePress 
+}: {
+  onAssetPress: (asset: AssetItem) => void;
+  onBuyPress: (asset: AssetItem) => void;
+  onSellPress: (asset: AssetItem) => void;
+  onRemovePress: (symbol: string) => void;
+}) => {
+  const { theme } = useTheme();
+  const { watchlistState, filteredAssets } = useWatchlist();
+
+  // Render header with indices and assets info
+  const renderListHeader = useCallback(() => (
+    <View>
+      {/* Stock Indices */}
+      <View style={styles.indicesSection}>
+        {watchlistState.isLoadingIndices ? (
+          <SkeletonLoader type="indices" count={3} theme={theme} fast />
+        ) : (
+          <StockIndices />
+        )}
+      </View>
+      
+      {/* Assets Header */}
+      <View style={styles.assetsHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+            Your Stocks
+            {watchlistState.exchangeFilter !== 'All' && ` - ${watchlistState.exchangeFilter}`}
+          </Text>
+          <Text variant="caption" color="textSecondary">
+            {filteredAssets.length} {filteredAssets.length === 1 ? 'asset' : 'assets'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  ), [theme, watchlistState.isLoadingIndices, watchlistState.exchangeFilter, filteredAssets.length]);
+
+  // Render asset item
+  const renderAssetItem = useCallback(({ item }: { item: AssetItem }) => {
+    const commonProps = {
+      theme: theme,
+      onPress: () => onAssetPress(item),
+      onBuyPress: () => onBuyPress(item),
+      onSellPress: () => onSellPress(item),
+      onRemovePress: () => onRemovePress(item.symbol),
+    };
+
+    return (
+      <View style={styles.assetItemContainer}>
+        <StockCard stock={item} {...commonProps} />
+      </View>
+    );
+  }, [theme, onAssetPress, onBuyPress, onSellPress, onRemovePress]);
+
+  // Key extractor
+  const keyExtractor = useCallback((item: AssetItem) => `${item.symbol}-${item.exchange}`, []);
+
+  // Empty component
+  const renderEmptyComponent = useCallback(() => (
+    <View style={[styles.emptyContainer, { backgroundColor: theme.colors.background }]}>
+      <Text variant="body" color="textSecondary" style={styles.emptyText}>
+        No stocks in your watchlist
+      </Text>
+      <Text variant="caption" color="textSecondary" style={styles.emptySubtext}>
+        Use the search to add stocks to your watchlist
+      </Text>
+    </View>
+  ), [theme]);
+
+  if (watchlistState.isLoadingAssets && filteredAssets.length === 0) {
+    // Only show loading if we have no assets at all
+    return (
+      <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
+        {renderListHeader()}
+        <SkeletonLoader type="assetList" count={6} theme={theme} fast />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
+      <FlatList
+        data={filteredAssets}
+        renderItem={renderAssetItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={renderEmptyComponent}
+        contentContainerStyle={styles.flatListContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={10}
+        removeClippedSubviews={true}
+      />
+    </View>
+  );
+});
+
+const ForexTabContent = memo(({ 
+  onAssetPress, 
+  onBuyPress, 
+  onSellPress, 
+  onRemovePress 
+}: {
+  onAssetPress: (asset: AssetItem) => void;
+  onBuyPress: (asset: AssetItem) => void;
+  onSellPress: (asset: AssetItem) => void;
+  onRemovePress: (symbol: string) => void;
+}) => {
+  const { theme } = useTheme();
+  const { watchlistState, filteredAssets } = useWatchlist();
+
+  // Render header with indices and assets info
+  const renderListHeader = useCallback(() => (
+    <View>
+      {/* Forex Indices */}
+      <View style={styles.indicesSection}>
+        {watchlistState.isLoadingIndices ? (
+          <SkeletonLoader type="indices" count={3} theme={theme} fast />
+        ) : (
+          <ForexIndices />
+        )}
+      </View>
+      
+      {/* Assets Header */}
+      <View style={styles.assetsHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+            Your Forex
+          </Text>
+          <Text variant="caption" color="textSecondary">
+            {filteredAssets.length} {filteredAssets.length === 1 ? 'pair' : 'pairs'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  ), [theme, watchlistState.isLoadingIndices, filteredAssets.length]);
+
+  // Render asset item
+  const renderAssetItem = useCallback(({ item }: { item: AssetItem }) => {
+    const commonProps = {
+      theme: theme,
+      onPress: () => onAssetPress(item),
+      onBuyPress: () => onBuyPress(item),
+      onSellPress: () => onSellPress(item),
+      onRemovePress: () => onRemovePress(item.symbol),
+    };
+
+    return (
+      <View style={styles.assetItemContainer}>
+        <ForexCard pair={item} {...commonProps} />
+      </View>
+    );
+  }, [theme, onAssetPress, onBuyPress, onSellPress, onRemovePress]);
+
+  // Key extractor
+  const keyExtractor = useCallback((item: AssetItem) => `${item.symbol}-${item.exchange}`, []);
+
+  // Empty component
+  const renderEmptyComponent = useCallback(() => (
+    <View style={[styles.emptyContainer, { backgroundColor: theme.colors.background }]}>
+      <Text variant="body" color="textSecondary" style={styles.emptyText}>
+        No forex pairs in your watchlist
+      </Text>
+      <Text variant="caption" color="textSecondary" style={styles.emptySubtext}>
+        Use the search to add forex pairs to your watchlist
+      </Text>
+    </View>
+  ), [theme]);
+
+  if (watchlistState.isLoadingAssets && filteredAssets.length === 0) {
+    // Only show loading if we have no assets at all
+    return (
+      <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
+        {renderListHeader()}
+        <SkeletonLoader type="assetList" count={6} theme={theme} fast />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
+      <FlatList
+        data={filteredAssets}
+        renderItem={renderAssetItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={renderEmptyComponent}
+        contentContainerStyle={styles.flatListContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={10}
+        removeClippedSubviews={true}
+      />
+    </View>
+  );
+});
+
+const CryptoTabContent = memo(({ 
+  onAssetPress, 
+  onBuyPress, 
+  onSellPress, 
+  onRemovePress 
+}: {
+  onAssetPress: (asset: AssetItem) => void;
+  onBuyPress: (asset: AssetItem) => void;
+  onSellPress: (asset: AssetItem) => void;
+  onRemovePress: (symbol: string) => void;
+}) => {
+  const { theme } = useTheme();
+  const { watchlistState, filteredAssets } = useWatchlist();
+
+  // Render header with indices and assets info
+  const renderListHeader = useCallback(() => (
+    <View>
+      {/* Crypto Indices */}
+      <View style={styles.indicesSection}>
+        {watchlistState.isLoadingIndices ? (
+          <SkeletonLoader type="indices" count={3} theme={theme} fast />
+        ) : (
+          <CryptoIndices />
+        )}
+      </View>
+      
+      {/* Assets Header */}
+      <View style={styles.assetsHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+            Your Crypto
+          </Text>
+          <Text variant="caption" color="textSecondary">
+            {filteredAssets.length} {filteredAssets.length === 1 ? 'coin' : 'coins'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  ), [theme, watchlistState.isLoadingIndices, filteredAssets.length]);
+
+  // Render asset item
+  const renderAssetItem = useCallback(({ item }: { item: AssetItem }) => {
+    const commonProps = {
+      theme: theme,
+      onPress: () => onAssetPress(item),
+      onBuyPress: () => onBuyPress(item),
+      onSellPress: () => onSellPress(item),
+      onRemovePress: () => onRemovePress(item.symbol),
+    };
+
+    // Convert AssetItem to CryptoData format for CryptoCard
+    const cryptoData = {
+      id: item.symbol.toLowerCase(),
+      symbol: item.symbol,
+      name: item.name,
+      price: item.price,
+      change24h: item.change,
+      changePercent24h: item.changePercent,
+      volume24h: item.volume || 0,
+      marketCap: item.marketCap || 0,
+      rank: 1, // Default rank
+    };
+
+    return (
+      <View style={styles.assetItemContainer}>
+        <CryptoCard crypto={cryptoData} {...commonProps} />
+      </View>
+    );
+  }, [theme, onAssetPress, onBuyPress, onSellPress, onRemovePress]);
+
+  // Key extractor
+  const keyExtractor = useCallback((item: AssetItem) => `${item.symbol}-${item.exchange}`, []);
+
+  // Empty component
+  const renderEmptyComponent = useCallback(() => (
+    <View style={[styles.emptyContainer, { backgroundColor: theme.colors.background }]}>
+      <Text variant="body" color="textSecondary" style={styles.emptyText}>
+        No crypto coins in your watchlist
+      </Text>
+      <Text variant="caption" color="textSecondary" style={styles.emptySubtext}>
+        Use the search to add crypto coins to your watchlist
+      </Text>
+    </View>
+  ), [theme]);
+
+  if (watchlistState.isLoadingAssets && filteredAssets.length === 0) {
+    // Only show loading if we have no assets at all
+    return (
+      <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
+        {renderListHeader()}
+        <SkeletonLoader type="assetList" count={6} theme={theme} fast />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
+      <FlatList
+        data={filteredAssets}
+        renderItem={renderAssetItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={renderEmptyComponent}
+        contentContainerStyle={styles.flatListContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={10}
+        removeClippedSubviews={true}
+      />
+    </View>
+  );
+});
+
+// Set display names
+StockIndices.displayName = 'StockIndices';
+ForexIndices.displayName = 'ForexIndices';
+CryptoIndices.displayName = 'CryptoIndices';
+SlidingTabContainer.displayName = 'SlidingTabContainer';
+StocksTabContent.displayName = 'StocksTabContent';
+ForexTabContent.displayName = 'ForexTabContent';
+CryptoTabContent.displayName = 'CryptoTabContent';
 
 // Main content component that uses the context
 const WatchlistContent = memo(() => {
@@ -246,207 +761,29 @@ const WatchlistContent = memo(() => {
         </View>
       </View>
 
-      {/* Scrollable Content */}
-      <ScrollView
-        style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={watchlistState.refreshing}
-            onRefresh={refreshData}
-            tintColor={theme.colors.primary}
-          />
-        }
-      >
-
-        {/* Market Indices */}
-        {watchlistState.marketType === 'stocks' && (
-          <View style={styles.indicesContainer}>
-            <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
-              Market Indices
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.indicesRow}>
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>NIFTY 50</Text>
-                  <PriceDisplay
-                    price={19674.25}
-                    change={123.45}
-                    changePercent={0.63}
-                    size="medium"
-                    showSymbol={false}
-                    showChange={true}
-                    align="center"
-                  />
-                </Card>
-
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>SENSEX</Text>
-                  <PriceDisplay
-                    price={65953.48}
-                    change={245.67}
-                    changePercent={0.37}
-                    size="medium"
-                    showSymbol={false}
-                    showChange={true}
-                    align="center"
-                  />
-                </Card>
-
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>BANK NIFTY</Text>
-                  <PriceDisplay
-                    price={45234.80}
-                    change={-89.25}
-                    changePercent={-0.20}
-                    size="medium"
-                    showSymbol={false}
-                    showChange={true}
-                    align="center"
-                  />
-                </Card>
-              </View>
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Forex Indices */}
-        {watchlistState.marketType === 'forex' && (
-          <View style={styles.indicesContainer}>
-            <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
-              Forex Indices
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.indicesRow}>
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>DXY</Text>
-                  <PriceDisplay
-                    price={103.45}
-                    change={-0.12}
-                    changePercent={-0.12}
-                    size="medium"
-                    showSymbol={false}
-                    showChange={true}
-                    align="center"
-                  />
-                </Card>
-
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>EUR/USD</Text>
-                  <PriceDisplay
-                    price={1.0845}
-                    change={0.0023}
-                    changePercent={0.21}
-                    size="medium"
-                    showSymbol={false}
-                    showChange={true}
-                    align="center"
-                  />
-                </Card>
-
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>GBP/USD</Text>
-                  <PriceDisplay
-                    price={1.2634}
-                    change={-0.0045}
-                    changePercent={-0.35}
-                    size="medium"
-                    showSymbol={false}
-                    showChange={true}
-                    align="center"
-                  />
-                </Card>
-              </View>
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Crypto Indices */}
-        {watchlistState.marketType === 'crypto' && (
-          <View style={styles.indicesContainer}>
-            <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
-              Crypto Market
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.indicesRow}>
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>Market Cap</Text>
-                  <Text variant="body" weight="semibold" color="text" style={styles.indexValue}>
-                    $1.20T
-                  </Text>
-                </Card>
-
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>24h Volume</Text>
-                  <Text variant="body" weight="semibold" color="text" style={styles.indexValue}>
-                    $25.4B
-                  </Text>
-                </Card>
-
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>BTC Dominance</Text>
-                  <Text variant="body" weight="semibold" color="text" style={styles.indexValue}>
-                    54.2%
-                  </Text>
-                </Card>
-
-                <Card padding="medium" style={styles.indexCard}>
-                  <Text variant="caption" color="textSecondary" style={styles.indexLabel}>Fear & Greed</Text>
-                  <Text
-                    variant="body"
-                    weight="semibold"
-                    color="success"
-                    style={styles.indexValue}
-                  >
-                    72
-                  </Text>
-                </Card>
-              </View>
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Assets Section Header */}
-        <View style={styles.assetsHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
-              Your {watchlistState.marketType === 'stocks' ? 'Stocks' : 
-                   watchlistState.marketType === 'forex' ? 'Forex' : 'Crypto'}
-              {watchlistState.exchangeFilter !== 'All' && ` - ${watchlistState.exchangeFilter}`}
-            </Text>
-            <Text variant="caption" color="textSecondary">
-              {filteredAssets.length} {filteredAssets.length === 1 ? 'asset' : 'assets'}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.filterIconButton, { 
-              backgroundColor: theme.colors.card, 
-              borderColor: theme.colors.border,
-              borderWidth: 1,
-            }]}
-            onPress={() => setFilterVisible(true)}
-          >
-            <Text variant="caption" color="primary">⚙️</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Assets List */}
-        <View style={styles.assetsListContainer}>
-          <AssetList
-            data={filteredAssets}
-            marketType={watchlistState.marketType}
+      {/* Sliding Tab Container - Like Kite App */}
+      <View style={styles.tabsContainer}>
+        <SlidingTabContainer currentTab={watchlistState.marketType}>
+          <StocksTabContent 
             onAssetPress={handleAssetPress}
-            onTradePress={(asset: AssetItem, action: 'buy' | 'sell') => {
-              if (action === 'buy') handleBuyPress(asset);
-              else handleSellPress(asset);
-            }}
-            onRemovePress={(symbol: string) => handleRemoveFromWatchlist(symbol)}
-            refreshing={watchlistState.refreshing}
-            onRefresh={refreshData}
-            theme={theme}
+            onBuyPress={handleBuyPress}
+            onSellPress={handleSellPress}
+            onRemovePress={handleRemoveFromWatchlist}
           />
-        </View>
-      </ScrollView>
+          <ForexTabContent 
+            onAssetPress={handleAssetPress}
+            onBuyPress={handleBuyPress}
+            onSellPress={handleSellPress}
+            onRemovePress={handleRemoveFromWatchlist}
+          />
+          <CryptoTabContent 
+            onAssetPress={handleAssetPress}
+            onBuyPress={handleBuyPress}
+            onSellPress={handleSellPress}
+            onRemovePress={handleRemoveFromWatchlist}
+          />
+        </SlidingTabContainer>
+      </View>
 
       {/* Unified Drawer - handles both asset details and trading */}
       <UnifiedDrawer
@@ -636,6 +973,48 @@ const styles = StyleSheet.create({
   assetsListContainer: {
     flex: 1,
     paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  
+  // Sliding Tab Animation styles - Like Kite App
+  tabsContainer: {
+    flex: 1,
+    overflow: 'hidden', // Important for smooth sliding
+  },
+  slidingContainer: {
+    flexDirection: 'row',
+    width: SCREEN_WIDTH * 3, // Width for all 3 tabs
+    height: '100%',
+  },
+  tabContent: {
+    width: SCREEN_WIDTH,
+    flex: 1,
+    paddingTop: Platform.OS === 'ios' ? 200 : 220, // Space for fixed header
+  },
+  indicesSection: {
+    // No flex - fixed height based on content
+  },
+  // Asset item container
+  assetItemContainer: {
+    marginBottom: 12,
+  },
+  // Empty state styles
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 60,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    textAlign: 'center',
+  },
+  // FlatList content styles
+  flatListContent: {
     paddingBottom: 20,
   },
 });

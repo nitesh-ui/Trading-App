@@ -11,6 +11,8 @@ type WatchlistAction =
   | { type: 'SET_SEARCH_QUERY'; payload: string }
   | { type: 'SET_SEARCH_EXPANDED'; payload: boolean }
   | { type: 'SET_REFRESHING'; payload: boolean }
+  | { type: 'SET_LOADING_INDICES'; payload: boolean }
+  | { type: 'SET_LOADING_ASSETS'; payload: boolean }
   | { type: 'UPDATE_STOCKS'; payload: IndianStock[] }
   | { type: 'UPDATE_FOREX'; payload: ForexPair[] }
   | { type: 'UPDATE_CRYPTO'; payload: CryptoPair[] }
@@ -29,7 +31,9 @@ const initialWatchlistState: WatchlistState = {
   isFilterVisible: false,
   refreshing: false,
   notificationCount: 0,
-  watchlistItems: [],
+  watchlistItems: ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ITC', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTC', 'ETH', 'ADA'], // Pre-populated for instant switching
+  isLoadingIndices: false,
+  isLoadingAssets: false,
 };
 
 const initialTradeState: TradeState = {
@@ -61,6 +65,10 @@ function watchlistReducer(state: WatchlistState, action: WatchlistAction): Watch
       return { ...state, isFilterVisible: action.payload };
     case 'SET_REFRESHING':
       return { ...state, refreshing: action.payload };
+    case 'SET_LOADING_INDICES':
+      return { ...state, isLoadingIndices: action.payload };
+    case 'SET_LOADING_ASSETS':
+      return { ...state, isLoadingAssets: action.payload };
     case 'ADD_TO_WATCHLIST':
       return {
         ...state,
@@ -234,10 +242,46 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   }, [watchlistState.searchQuery, filteredAssets]);
 
-  // Action creators
+  // Action creators with instant tab switching - NO delays
   const setMarketType = useCallback((type: MarketType) => {
+    // INSTANT tab switch - this happens immediately
     watchlistDispatch({ type: 'SET_MARKET_TYPE', payload: type });
-  }, []);
+    
+    // Check if we have data for this market type
+    let hasData = false;
+    let hasWatchlistItems = watchlistState.watchlistItems.length > 0;
+    
+    switch (type) {
+      case 'stocks':
+        hasData = stocks.length > 0;
+        break;
+      case 'forex':
+        hasData = forexPairs.length > 0;
+        break;
+      case 'crypto':
+        hasData = cryptoPairs.length > 0;
+        break;
+    }
+    
+    // Only show loading if we have absolutely no data AND no watchlist items
+    const shouldShowLoading = !hasData && !hasWatchlistItems;
+    
+    if (shouldShowLoading) {
+      // Show skeleton loaders immediately only if no data exists at all
+      watchlistDispatch({ type: 'SET_LOADING_INDICES', payload: true });
+      watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: true });
+      
+      // Simulate quick data loading
+      setTimeout(() => {
+        watchlistDispatch({ type: 'SET_LOADING_INDICES', payload: false });
+        watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: false });
+      }, 300); // Very fast loading simulation
+    } else {
+      // If we have any data, don't show loading at all
+      watchlistDispatch({ type: 'SET_LOADING_INDICES', payload: false });
+      watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: false });
+    }
+  }, [stocks.length, forexPairs.length, cryptoPairs.length, watchlistState.watchlistItems.length]);
 
   const setExchangeFilter = useCallback((filter: StockExchangeFilter) => {
     watchlistDispatch({ type: 'SET_EXCHANGE_FILTER', payload: filter });

@@ -38,4 +38,7 @@ export interface WatchlistState {
   refreshing: boolean;
   notificationCount: number;
   watchlistItems: string[];
+  // Loading states for skeleton loaders
+  isLoadingIndices: boolean;
+  isLoadingAssets: boolean;
 }
