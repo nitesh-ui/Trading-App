@@ -249,7 +249,7 @@ const StocksTabContent = memo(({
       {/* Assets Header */}
       <View style={styles.assetsHeader}>
         <View style={styles.sectionTitleContainer}>
-          <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+          <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitleStocks}>
             Your Stocks
             {watchlistState.exchangeFilter !== 'All' && ` - ${watchlistState.exchangeFilter}`}
           </Text>
@@ -1040,6 +1040,10 @@ const styles = StyleSheet.create({
   // Section styles
   sectionTitle: {
     marginBottom: 12,
+  },
+  // Section styles
+  sectionTitleStocks: {
+    marginBottom: 0,
   },
   assetsHeader: {
     flexDirection: 'row',
