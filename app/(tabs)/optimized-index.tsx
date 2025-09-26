@@ -1026,6 +1026,8 @@ const styles = StyleSheet.create({
   // Asset item container
   assetItemContainer: {
     marginBottom: 12,
+    marginRight: 20,
+    marginLeft: 20,
   },
   // Empty state styles
   emptyContainer: {
@@ -1044,6 +1046,7 @@ const styles = StyleSheet.create({
   },
   // FlatList content styles
   flatListContent: {
+   // paddingHorizontal: 20,
     paddingBottom: 20,
   },
 });
