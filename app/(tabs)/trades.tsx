@@ -52,6 +52,8 @@ import { Card, Text } from '../../components/atomic';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { StockCardSkeleton } from '../../components/LoadingComponents';
 import { OptimizedFlatList } from '../../components/OptimizedList';
+import NotificationsPage from '../../components/ui/NotificationsPage';
+import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useDebounce, useRenderPerformance } from '../../hooks/usePerformance';
@@ -216,6 +218,10 @@ export default function TradesScreen() {
   const [selectedFilter, setSelectedFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  // Modal states
+  const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
+  const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
 
   // React Query for optimized data fetching
   const { 
@@ -256,22 +262,20 @@ export default function TradesScreen() {
   }, []);
 
   const handleWalletPress = useCallback(() => {
-    showNotification({
-      type: 'info',
-      title: 'Coming Soon',
-      message: 'Wallet feature is under development',
-      duration: 3000,
-    });
-  }, [showNotification]);
+    setIsWalletPageVisible(true);
+  }, []);
 
   const handleNotificationPress = useCallback(() => {
-    showNotification({
-      type: 'info',
-      title: 'Coming Soon',
-      message: 'Notifications feature is under development',
-      duration: 3000,
-    });
-  }, [showNotification]);
+    setIsNotificationsPageVisible(true);
+  }, []);
+
+  const handleCloseNotificationsPage = useCallback(() => {
+    setIsNotificationsPageVisible(false);
+  }, []);
+
+  const handleCloseWalletPage = useCallback(() => {
+    setIsWalletPageVisible(false);
+  }, []);
 
   const onRefresh = useCallback(() => {
     refetch();
@@ -374,6 +378,18 @@ export default function TradesScreen() {
             }
           />
         </Suspense>
+
+        {/* Notifications Page */}
+        <NotificationsPage
+          visible={isNotificationsPageVisible}
+          onClose={handleCloseNotificationsPage}
+        />
+
+        {/* Wallet Page */}
+        <WalletPage
+          visible={isWalletPageVisible}
+          onClose={handleCloseWalletPage}
+        />
       </View>
     </ScreenErrorBoundary>
   );

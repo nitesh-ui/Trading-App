@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import React, { memo, Suspense, useCallback } from 'react';
+import React, { memo, Suspense, useCallback, useState } from 'react';
 import { Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Card, Text } from '../../components/atomic';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { StockCardSkeleton } from '../../components/LoadingComponents';
+import NotificationsPage from '../../components/ui/NotificationsPage';
+import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useRenderPerformance } from '../../hooks/usePerformance';
@@ -184,6 +186,10 @@ export default function PortfolioScreen() {
   // Performance monitoring
   useRenderPerformance('PortfolioScreen');
 
+  // Modal states
+  const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
+  const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
+
   // React Query for optimized data fetching
   const { 
     data: holdings = [], 
@@ -214,22 +220,20 @@ export default function PortfolioScreen() {
   }, []);
 
   const handleWalletPress = useCallback(() => {
-    showNotification({
-      type: 'info',
-      title: 'Coming Soon',
-      message: 'Wallet feature is under development',
-      duration: 3000,
-    });
-  }, [showNotification]);
+    setIsWalletPageVisible(true);
+  }, []);
 
   const handleNotificationPress = useCallback(() => {
-    showNotification({
-      type: 'info',
-      title: 'Coming Soon',
-      message: 'Notifications feature is under development',
-      duration: 3000,
-    });
-  }, [showNotification]);
+    setIsNotificationsPageVisible(true);
+  }, []);
+
+  const handleCloseNotificationsPage = useCallback(() => {
+    setIsNotificationsPageVisible(false);
+  }, []);
+
+  const handleCloseWalletPage = useCallback(() => {
+    setIsWalletPageVisible(false);
+  }, []);
 
   const onRefresh = useCallback(() => {
     refetchHoldings();
@@ -409,6 +413,18 @@ export default function PortfolioScreen() {
             )}
           </View>
         </ScrollView>
+
+        {/* Notifications Page */}
+        <NotificationsPage
+          visible={isNotificationsPageVisible}
+          onClose={handleCloseNotificationsPage}
+        />
+
+        {/* Wallet Page */}
+        <WalletPage
+          visible={isWalletPageVisible}
+          onClose={handleCloseWalletPage}
+        />
       </View>
     </ScreenErrorBoundary>
   );
