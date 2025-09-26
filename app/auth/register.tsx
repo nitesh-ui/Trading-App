@@ -196,7 +196,7 @@ export default function RegisterScreen() {
               label="Full Name"
               value={form.fullName}
               onChangeText={(text) => setForm({ ...form, fullName: text })}
-              placeholder="Enter your full name"
+              placeholder="Enter full name"
               error={errors.fullName}
               leftIcon={<Ionicons name="person-outline" size={20} color={theme.colors.textSecondary} />}
               style={styles.input}
@@ -207,7 +207,7 @@ export default function RegisterScreen() {
               label="Email Address"
               value={form.email}
               onChangeText={(text) => setForm({ ...form, email: text })}
-              placeholder="Enter your email"
+              placeholder="Enter email"
               error={errors.email}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -220,7 +220,7 @@ export default function RegisterScreen() {
               label="Mobile Number"
               value={form.mobile}
               onChangeText={(text) => setForm({ ...form, mobile: text })}
-              placeholder="Enter your mobile number"
+              placeholder="Enter mobile number"
               error={errors.mobile}
               keyboardType="phone-pad"
               leftIcon={<Ionicons name="phone-portrait-outline" size={20} color={theme.colors.textSecondary} />}
@@ -232,7 +232,7 @@ export default function RegisterScreen() {
               label="Username"
               value={form.username}
               onChangeText={(text) => setForm({ ...form, username: text.toLowerCase() })}
-              placeholder="Choose a username"
+              placeholder="Choose username"
               error={errors.username}
               autoCapitalize="none"
               leftIcon={<Ionicons name="at-outline" size={20} color={theme.colors.textSecondary} />}
@@ -244,7 +244,7 @@ export default function RegisterScreen() {
               label="Password"
               value={form.password}
               onChangeText={(text) => setForm({ ...form, password: text })}
-              placeholder="Create a strong password"
+              placeholder="Create password"
               error={errors.password}
               secureTextEntry={!showPassword}
               leftIcon={<Ionicons name="lock-closed-outline" size={20} color={theme.colors.textSecondary} />}
@@ -264,7 +264,7 @@ export default function RegisterScreen() {
               label="Confirm Password"
               value={form.confirmPassword}
               onChangeText={(text) => setForm({ ...form, confirmPassword: text })}
-              placeholder="Confirm your password"
+              placeholder="Confirm password"
               error={errors.confirmPassword}
               secureTextEntry={!showConfirmPassword}
               leftIcon={<Ionicons name="lock-closed-outline" size={20} color={theme.colors.textSecondary} />}
@@ -284,7 +284,7 @@ export default function RegisterScreen() {
               label="Sponser Id (Optional)"
               value={form.sponserId}
               onChangeText={(text) => setForm({ ...form, sponserId: text })}
-              placeholder="Enter your sponser id"
+              placeholder="Enter sponser id"
               error={errors.sponserId}
               leftIcon={<Ionicons name="person-outline" size={20} color={theme.colors.textSecondary} />}
               style={styles.input}

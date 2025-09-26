@@ -42,7 +42,7 @@ const MemoizedSettingsItem = memo<{
   return (
     <TouchableOpacity 
       onPress={onPress} 
-      style={[styles.settingsItem, { borderBottomColor: theme.colors.border }]}
+      style={styles.settingsItem}
       activeOpacity={0.7}
     >
       <View style={styles.settingsItemLeft}>
@@ -202,7 +202,7 @@ export default function SettingsScreen() {
     isExpanded?: boolean;
   }) => (
     <TouchableOpacity 
-      style={[styles.settingItem, { borderBottomColor: theme.colors.border }]}
+      style={styles.settingItem}
       onPress={onPress}
     >
       <View style={styles.settingLeft}>
@@ -233,8 +233,13 @@ export default function SettingsScreen() {
   return (
     <ScreenErrorBoundary screenName="Settings">
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <StatusBar
+          barStyle={themeType === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={themeType === 'light' ? '#FFFFFF' : 'transparent'}
+          translucent
+        />
         {/* Fixed Header */}
-        <View style={[styles.fixedHeader, { backgroundColor: theme.colors.background + 'E6' }]}>
+        <View style={[styles.fixedHeader, { backgroundColor: theme.colors.background }]}>
           <View style={styles.statusBarSpacer} />
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -556,7 +561,10 @@ export default function SettingsScreen() {
           variant="outline"
           size="large"
           fullWidth={true}
-          style={styles.logoutButton}
+          style={{
+            ...styles.logoutButton,
+            backgroundColor: theme.colors.background
+          }}
         />
       </View>
 
@@ -645,6 +653,7 @@ const styles = StyleSheet.create({
   section: {
     marginHorizontal: 16,
     marginBottom: 16,
+    overflow: 'hidden',
   },
   sectionHeader: {
     paddingHorizontal: 16,
@@ -658,7 +667,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -673,7 +681,13 @@ const styles = StyleSheet.create({
     margin: 16,
   },
   logoutButton: {
-    height: 50,
+    height: 56,  // Further increased height
+    justifyContent: 'center',
+    paddingVertical: 4, // Added padding for extra space
+  },
+  logoutButtonText: {
+    lineHeight: 36,  // Further increased line height
+    includeFontPadding: false, // Removes default font padding
   },
   footer: {
     alignItems: 'center',
@@ -701,9 +715,7 @@ const styles = StyleSheet.create({
   },
   expandedSection: {
     backgroundColor: 'rgba(0,0,0,0.02)',
-    marginLeft: 16,
-    borderLeftWidth: 2,
-    borderLeftColor: 'rgba(0,0,0,0.1)',
+    borderLeftWidth: 0,
   },
   whatsappButton: {
     flexDirection: 'row',
@@ -731,7 +743,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   settingsItemLeft: {
     flexDirection: 'row',
