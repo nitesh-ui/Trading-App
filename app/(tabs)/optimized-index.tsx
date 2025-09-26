@@ -224,12 +224,14 @@ const StocksTabContent = memo(({
   onAssetPress, 
   onBuyPress, 
   onSellPress, 
-  onRemovePress 
+  onRemovePress,
+  onFilterPress
 }: {
   onAssetPress: (asset: AssetItem) => void;
   onBuyPress: (asset: AssetItem) => void;
   onSellPress: (asset: AssetItem) => void;
   onRemovePress: (symbol: string) => void;
+  onFilterPress: () => void;
 }) => {
   const { theme } = useTheme();
   const { watchlistState, filteredAssets } = useWatchlist();
@@ -257,6 +259,12 @@ const StocksTabContent = memo(({
             {filteredAssets.length} {filteredAssets.length === 1 ? 'asset' : 'assets'}
           </Text>
         </View>
+        <TouchableOpacity
+          style={[styles.filterIconButton, { backgroundColor: theme.colors.surface }]}
+          onPress={onFilterPress}
+        >
+          <Ionicons name="filter" size={16} color={theme.colors.text} />
+        </TouchableOpacity>
       </View>
     </View>
   ), [theme, watchlistState.isLoadingIndices, watchlistState.exchangeFilter, filteredAssets.length]);
@@ -815,6 +823,7 @@ const WatchlistContent = memo(() => {
             onBuyPress={handleBuyPress}
             onSellPress={handleSellPress}
             onRemovePress={handleRemoveFromWatchlist}
+            onFilterPress={() => setFilterVisible(true)}
           />
           <ForexTabContent 
             onAssetPress={handleAssetPress}
