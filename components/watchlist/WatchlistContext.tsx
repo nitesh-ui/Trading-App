@@ -242,46 +242,16 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   }, [watchlistState.searchQuery, filteredAssets]);
 
-  // Action creators with instant tab switching - NO delays
+  // Action creators - INSTANT tab switching with smooth content animation
   const setMarketType = useCallback((type: MarketType) => {
-    // INSTANT tab switch - this happens immediately
+    // 🚀 INSTANT tab switch - UI shows new tab immediately
     watchlistDispatch({ type: 'SET_MARKET_TYPE', payload: type });
     
-    // Check if we have data for this market type
-    let hasData = false;
-    let hasWatchlistItems = watchlistState.watchlistItems.length > 0;
-    
-    switch (type) {
-      case 'stocks':
-        hasData = stocks.length > 0;
-        break;
-      case 'forex':
-        hasData = forexPairs.length > 0;
-        break;
-      case 'crypto':
-        hasData = cryptoPairs.length > 0;
-        break;
-    }
-    
-    // Only show loading if we have absolutely no data AND no watchlist items
-    const shouldShowLoading = !hasData && !hasWatchlistItems;
-    
-    if (shouldShowLoading) {
-      // Show skeleton loaders immediately only if no data exists at all
-      watchlistDispatch({ type: 'SET_LOADING_INDICES', payload: true });
-      watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: true });
-      
-      // Simulate quick data loading
-      setTimeout(() => {
-        watchlistDispatch({ type: 'SET_LOADING_INDICES', payload: false });
-        watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: false });
-      }, 300); // Very fast loading simulation
-    } else {
-      // If we have any data, don't show loading at all
-      watchlistDispatch({ type: 'SET_LOADING_INDICES', payload: false });
-      watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: false });
-    }
-  }, [stocks.length, forexPairs.length, cryptoPairs.length, watchlistState.watchlistItems.length]);
+    // Never block tab switching with loading states
+    // Content can load asynchronously while tab is already switched
+    watchlistDispatch({ type: 'SET_LOADING_INDICES', payload: false });
+    watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: false });
+  }, []);
 
   const setExchangeFilter = useCallback((filter: StockExchangeFilter) => {
     watchlistDispatch({ type: 'SET_EXCHANGE_FILTER', payload: filter });

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Animated,
@@ -21,6 +21,7 @@ import {
     AssetItem,
     FilterDrawer,
     MarketTabs,
+    MarketType,
     OptimizedSearch,
     SkeletonLoader,
     StockExchangeFilter,
@@ -28,6 +29,7 @@ import {
     WatchlistProvider,
     useWatchlist,
 } from '../../components/watchlist';
+import SearchPage from '../../components/watchlist/SearchPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -174,31 +176,29 @@ const CryptoIndices = memo(() => {
   );
 });
 
-// Sliding Tab Container with super-fast animations like Kite
+// Optimized Sliding Tab Container - Tab switches instantly, content slides smoothly
 const SlidingTabContainer = memo(({ 
   currentTab, 
   children 
 }: { 
-  currentTab: any; 
+  currentTab: MarketType; 
   children: React.ReactNode;
 }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const previousTab = useRef<any>('stocks');
   
-  const tabOrder = ['stocks', 'forex', 'crypto'];
+  const tabOrder: MarketType[] = ['stocks', 'forex', 'crypto'];
   
   React.useEffect(() => {
     const currentIndex = tabOrder.indexOf(currentTab);
     const targetX = -currentIndex * SCREEN_WIDTH;
     
+    // Smooth slide animation that doesn't block tab switching
     Animated.timing(slideAnim, {
       toValue: targetX,
-      duration: 200, // Fast animation
+      duration: 300, // Smooth animation
       useNativeDriver: true,
-      easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1), // Material Design easing
     }).start();
-    
-    previousTab.current = currentTab;
   }, [currentTab, slideAnim]);
 
   return (
@@ -546,6 +546,7 @@ CryptoTabContent.displayName = 'CryptoTabContent';
 const WatchlistContent = memo(() => {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
+  const [isSearchPageVisible, setIsSearchPageVisible] = useState(false);
   const {
     watchlistState,
     tradeState,
@@ -689,6 +690,14 @@ const WatchlistContent = memo(() => {
     });
   }, [addToWatchlist, showNotification]);
 
+  const handleOpenSearchPage = useCallback(() => {
+    setIsSearchPageVisible(true);
+  }, []);
+
+  const handleCloseSearchPage = useCallback(() => {
+    setIsSearchPageVisible(false);
+  }, []);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar
@@ -738,13 +747,7 @@ const WatchlistContent = memo(() => {
 
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}
-              onPress={() => {
-                showNotification({ 
-                  type: 'info', 
-                  title: 'Coming Soon',
-                  message: 'Search functionality will be available soon'
-                });
-              }}
+              onPress={handleOpenSearchPage}
             >
               <Ionicons name="search" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
@@ -817,6 +820,12 @@ const WatchlistContent = memo(() => {
         onTradeExecute={handleTradeExecute}
         onTradeStateChange={updateTradeState}
         theme={theme}
+      />
+
+      {/* Search Page */}
+      <SearchPage
+        visible={isSearchPageVisible}
+        onClose={handleCloseSearchPage}
       />
 
       {/* Filter Drawer */}
