@@ -30,6 +30,8 @@ import {
     useWatchlist,
 } from '../../components/watchlist';
 import SearchPage from '../../components/watchlist/SearchPage';
+import NotificationsPage from '../../components/ui/NotificationsPage';
+import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -547,6 +549,8 @@ const WatchlistContent = memo(() => {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
   const [isSearchPageVisible, setIsSearchPageVisible] = useState(false);
+  const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
+  const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
   const {
     watchlistState,
     tradeState,
@@ -698,6 +702,22 @@ const WatchlistContent = memo(() => {
     setIsSearchPageVisible(false);
   }, []);
 
+  const handleOpenNotificationsPage = useCallback(() => {
+    setIsNotificationsPageVisible(true);
+  }, []);
+
+  const handleCloseNotificationsPage = useCallback(() => {
+    setIsNotificationsPageVisible(false);
+  }, []);
+
+  const handleOpenWalletPage = useCallback(() => {
+    setIsWalletPageVisible(true);
+  }, []);
+
+  const handleCloseWalletPage = useCallback(() => {
+    setIsWalletPageVisible(false);
+  }, []);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar
@@ -721,26 +741,14 @@ const WatchlistContent = memo(() => {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}
-              onPress={() => {
-                showNotification({ 
-                  type: 'info', 
-                  title: 'Coming Soon',
-                  message: 'Wallet features will be available soon'
-                });
-              }}
+              onPress={handleOpenWalletPage}
             >
               <Ionicons name="wallet" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, position: 'relative' }]}
-              onPress={() => {
-                showNotification({ 
-                  type: 'info', 
-                  title: 'Coming Soon',
-                  message: 'Advanced notification features will be available soon'
-                });
-              }}
+              onPress={handleOpenNotificationsPage}
             >
               <Ionicons name="notifications" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
@@ -826,6 +834,18 @@ const WatchlistContent = memo(() => {
       <SearchPage
         visible={isSearchPageVisible}
         onClose={handleCloseSearchPage}
+      />
+
+      {/* Notifications Page */}
+      <NotificationsPage
+        visible={isNotificationsPageVisible}
+        onClose={handleCloseNotificationsPage}
+      />
+
+      {/* Wallet Page */}
+      <WalletPage
+        visible={isWalletPageVisible}
+        onClose={handleCloseWalletPage}
       />
 
       {/* Filter Drawer */}
