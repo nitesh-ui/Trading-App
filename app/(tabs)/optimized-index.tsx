@@ -32,6 +32,8 @@ import {
 import SearchPage from '../../components/watchlist/SearchPage';
 import NotificationsPage from '../../components/ui/NotificationsPage';
 import WalletPage from '../../components/ui/WalletPage';
+import ChartPage from '../../components/ui/ChartPage';
+import TradePage from '../../components/ui/TradePage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -551,6 +553,11 @@ const WatchlistContent = memo(() => {
   const [isSearchPageVisible, setIsSearchPageVisible] = useState(false);
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
+  const [isChartPageVisible, setIsChartPageVisible] = useState(false);
+  const [chartAsset, setChartAsset] = useState<AssetItem | null>(null);
+  const [isTradePageVisible, setIsTradePageVisible] = useState(false);
+  const [tradeAsset, setTradeAsset] = useState<AssetItem | null>(null);
+  const [tradeAction, setTradeAction] = useState<'buy' | 'sell'>('buy');
   const {
     watchlistState,
     tradeState,
@@ -620,24 +627,16 @@ const WatchlistContent = memo(() => {
   }, [setSelectedAssetForDetails]);
 
   const handleBuyPress = useCallback((asset: AssetItem) => {
-    updateTradeState({
-      isVisible: true,
-      selectedAsset: asset,
-      assetType: watchlistState.marketType,
-      action: 'buy',
-      quantity: 1,
-    });
-  }, [updateTradeState, watchlistState.marketType]);
+    setTradeAsset(asset);
+    setTradeAction('buy');
+    setIsTradePageVisible(true);
+  }, []);
 
   const handleSellPress = useCallback((asset: AssetItem) => {
-    updateTradeState({
-      isVisible: true,
-      selectedAsset: asset,
-      assetType: watchlistState.marketType,
-      action: 'sell',
-      quantity: 1,
-    });
-  }, [updateTradeState, watchlistState.marketType]);
+    setTradeAsset(asset);
+    setTradeAction('sell');
+    setIsTradePageVisible(true);
+  }, []);
 
   const handleRemoveFromWatchlist = useCallback((symbol: string) => {
     Alert.alert(
@@ -718,6 +717,42 @@ const WatchlistContent = memo(() => {
     setIsWalletPageVisible(false);
   }, []);
 
+  const handleOpenChartPage = useCallback((asset: AssetItem) => {
+    setChartAsset(asset);
+    setIsChartPageVisible(true);
+  }, []);
+
+  const handleCloseChartPage = useCallback(() => {
+    setIsChartPageVisible(false);
+    setChartAsset(null);
+  }, []);
+
+  const handleCloseTradePage = useCallback(() => {
+    setIsTradePageVisible(false);
+    setTradeAsset(null);
+  }, []);
+
+  const handleTradePageExecute = useCallback((tradeData: any) => {
+    // Simulate trade execution
+    Alert.alert(
+      'Trade Executed',
+      `${tradeData.action.toUpperCase()} ${tradeData.quantity} ${tradeData.asset.symbol}`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            setIsTradePageVisible(false);
+            setTradeAsset(null);
+            showNotification({ 
+              type: 'success', 
+              title: 'Trade executed successfully' 
+            });
+          },
+        },
+      ]
+    );
+  }, [showNotification]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar
@@ -796,17 +831,15 @@ const WatchlistContent = memo(() => {
         </SlidingTabContainer>
       </View>
 
-      {/* Unified Drawer - handles both asset details and trading */}
+      {/* Unified Drawer - handles asset details only, trading moved to TradePage */}
       <UnifiedDrawer
-        visible={!!selectedAssetForDetails || tradeState.isVisible}
-        asset={selectedAssetForDetails || tradeState.selectedAsset}
+        visible={!!selectedAssetForDetails}
+        asset={selectedAssetForDetails}
         marketType={watchlistState.marketType}
-        drawerType={selectedAssetForDetails ? 'asset-details' : 'trading'}
-        tradeState={tradeState}
+        drawerType="asset-details"
         availableBalance={availableBalance}
         onClose={() => {
           setSelectedAssetForDetails(null);
-          resetTradeState();
         }}
         onBuyPress={() => {
           if (selectedAssetForDetails) {
@@ -825,8 +858,12 @@ const WatchlistContent = memo(() => {
             handleRemoveFromWatchlist(selectedAssetForDetails.symbol);
           }
         }}
-        onTradeExecute={handleTradeExecute}
-        onTradeStateChange={updateTradeState}
+        onViewChart={() => {
+          if (selectedAssetForDetails) {
+            handleOpenChartPage(selectedAssetForDetails);
+            setSelectedAssetForDetails(null);
+          }
+        }}
         theme={theme}
       />
 
@@ -847,6 +884,29 @@ const WatchlistContent = memo(() => {
         visible={isWalletPageVisible}
         onClose={handleCloseWalletPage}
       />
+
+      {/* Chart Page */}
+      {chartAsset && (
+        <ChartPage
+          visible={isChartPageVisible}
+          onClose={handleCloseChartPage}
+          asset={chartAsset}
+          marketType={watchlistState.marketType}
+        />
+      )}
+
+      {/* Trade Page */}
+      {tradeAsset && (
+        <TradePage
+          visible={isTradePageVisible}
+          onClose={handleCloseTradePage}
+          asset={tradeAsset}
+          marketType={watchlistState.marketType}
+          action={tradeAction}
+          availableBalance={50000} // Mock balance
+          onTradeExecute={handleTradePageExecute}
+        />
+      )}
 
       {/* Filter Drawer */}
       <FilterDrawer
