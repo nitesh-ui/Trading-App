@@ -30,24 +30,13 @@ export default function TabLayout() {
         },
       }}>
 
-      {/* Watchlist - Original version */}
+      {/* Watchlist - Main landing page */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Watchlist',
           tabBarIcon: ({ color, size = 22 }) => (
             <Ionicons name="list-outline" size={size} color={color} />
-          ),
-        }}
-      />
-
-      {/* Optimized Watchlist */}
-      <Tabs.Screen
-        name="optimized-index"
-        options={{
-          title: 'Optimized',
-          tabBarIcon: ({ color, size = 22 }) => (
-            <Ionicons name="speedometer-outline" size={size} color={color} />
           ),
         }}
       />

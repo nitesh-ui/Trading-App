@@ -8,6 +8,7 @@ import {
   Platform,
   Easing,
   Pressable,
+  BackHandler,
 } from 'react-native';
 import { Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -54,6 +55,16 @@ const SlidingPage = memo(({
           useNativeDriver: true,
         }),
       ]).start();
+
+      // Handle Android back button/gesture
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+        onClose();
+        return true; // Prevent default behavior
+      });
+
+      return () => {
+        backHandler.remove();
+      };
     } else {
       // Slide out to right
       Animated.parallel([
@@ -70,7 +81,7 @@ const SlidingPage = memo(({
         }),
       ]).start();
     }
-  }, [visible, slideAnim, overlayOpacity]);
+  }, [visible, slideAnim, overlayOpacity, onClose]);
 
   if (!visible) return null;
 
