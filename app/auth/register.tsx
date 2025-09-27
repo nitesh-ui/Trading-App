@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { tradingApiService } from '../../services/tradingApiService';
 import { Button, Card, Input, Text } from '../../components/atomic';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -129,7 +130,6 @@ export default function RegisterScreen() {
     setErrors({});
 
     try {
-      // Simulate API call
       showNotification({
         type: 'info',
         title: 'Creating Account...',
@@ -137,25 +137,53 @@ export default function RegisterScreen() {
         duration: 2000
       });
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      showNotification({
-        type: 'success',
-        title: 'Registration Successful!',
-        message: 'Your demo account has been created successfully. You can now log in.',
-        duration: 3000
+      const result = await tradingApiService.register({
+        fullname: form.fullName,
+        email: form.email,
+        mobilenumber: form.mobile,
+        password: form.password,
+        confirmPassword: form.confirmPassword,
+        domainURL: 'uat.sanaitatechnologies.com',
+        sponserId: form.sponserId || 'NEW'
       });
 
-      // Navigate back to login after a short delay
-      setTimeout(() => {
-        router.back();
-      }, 1500);
+      // Check if we have a success message, even if data is null
+      if (result.message?.includes('Registration Successful')) {
+        showNotification({
+          type: 'success',
+          title: 'Registration Successful!',
+          message: 'Your account has been created successfully. Please log in with your credentials.',
+          duration: 3000
+        });
+
+        // Navigate back to login after a short delay
+        setTimeout(() => {
+          router.back();
+        }, 1500);
+      } else {
+        // Handle specific error cases
+        if (result.message?.toLowerCase().includes('already exists')) {
+          setErrors({
+            email: 'An account with this email or mobile number already exists',
+            mobile: 'An account with this email or mobile number already exists'
+          });
+        } else {
+          setErrors({ general: result.message || 'Registration failed. Please try again.' });
+        }
+
+        showNotification({
+          type: 'error',
+          title: 'Registration Failed',
+          message: result.message || 'Please try again or contact support'
+        });
+      }
     } catch (error) {
-      setErrors({ general: 'Registration failed. Please try again.' });
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setErrors({ general: errorMessage });
       showNotification({
         type: 'error',
         title: 'Registration Failed',
-        message: 'Please try again or contact support'
+        message: errorMessage
       });
     } finally {
       setIsLoading(false);

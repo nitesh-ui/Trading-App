@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { tradingApiService } from '../../services/tradingApiService';
 import { Button, Card, Input, Text } from '../../components/atomic';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -76,7 +77,6 @@ export default function ForgotPasswordScreen() {
     setErrors({});
 
     try {
-      // Simulate API call
       showNotification({
         type: 'info',
         title: 'Sending OTP...',
@@ -84,20 +84,40 @@ export default function ForgotPasswordScreen() {
         duration: 1500
       });
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      showNotification({
-        type: 'success',
-        title: 'OTP Sent!',
-        message: `A verification code has been sent to ${form.identifier}`
+      const result = await tradingApiService.sendForgotPasswordOtp({
+        email: form.identifier,
+        domainURL: 'uat.sanaitatechnologies.com'
       });
-      setStep('otp');
+
+      if (result.success) {
+        showNotification({
+          type: 'success',
+          title: 'OTP Sent!',
+          message: result.message || `A verification code has been sent to ${form.identifier}`
+        });
+        
+        // Store the userID if it's returned by the API
+        if (result.data?.userID) {
+          // We'll use this userID when resetting the password
+          localStorage.setItem('resetPasswordUserID', result.data.userID);
+        }
+        
+        setStep('otp');
+      } else {
+        setErrors({ general: result.message || 'Failed to send OTP. Please try again.' });
+        showNotification({
+          type: 'error',
+          title: 'Failed to Send OTP',
+          message: result.message || 'Please try again or contact support'
+        });
+      }
     } catch (error) {
-      setErrors({ general: 'Failed to send OTP. Please try again.' });
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setErrors({ general: errorMessage });
       showNotification({
         type: 'error',
         title: 'Failed to Send OTP',
-        message: 'Please try again or contact support'
+        message: errorMessage
       });
     } finally {
       setIsLoading(false);
@@ -171,10 +191,18 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
+    if (!otp || otp.length !== 6) {
+      showNotification({
+        type: 'warning',
+        title: 'Invalid OTP',
+        message: 'Please enter a valid 6-digit OTP'
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Simulate API call
       showNotification({
         type: 'info',
         title: 'Resetting Password...',
@@ -182,19 +210,43 @@ export default function ForgotPasswordScreen() {
         duration: 1500
       });
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      showNotification({
-        type: 'success',
-        title: 'Password Reset Successful!',
-        message: 'Your password has been reset successfully. You can now log in with your new password.',
-        duration: 3000
+      const userID = localStorage.getItem('resetPasswordUserID');
+      if (!userID) {
+        showNotification({
+          type: 'error',
+          title: 'Reset Failed',
+          message: 'User ID not found. Please try the forgot password process again.'
+        });
+        setStep('input');
+        return;
+      }
+
+      const result = await tradingApiService.updateForgotPassword({
+        password: newPassword,
+        email: form.identifier,
+        userID: userID,
+        otp: otp
       });
 
-      // Navigate back to login after a short delay
-      setTimeout(() => {
-        router.back();
-      }, 1500);
+      if (result.success) {
+        showNotification({
+          type: 'success',
+          title: 'Password Reset Successful!',
+          message: result.message || 'Your password has been reset successfully. You can now log in with your new password.',
+          duration: 3000
+        });
+
+        // Navigate back to login after a short delay
+        setTimeout(() => {
+          router.back();
+        }, 1500);
+      } else {
+        showNotification({
+          type: 'error',
+          title: 'Reset Failed',
+          message: result.message || 'Failed to reset password. Please try again.'
+        });
+      }
     } catch (error) {
       showNotification({
         type: 'error',

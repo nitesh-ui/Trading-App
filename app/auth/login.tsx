@@ -110,25 +110,25 @@ export default function LoginScreen() {
       });
 
       // Call real API - COMMENTED FOR TESTING
-      // const response = await tradingApiService.login({
-      //   emailOrUsername: form.identifier.trim(),
-      //   password: form.password,
-      // });
+      const response = await tradingApiService.login({
+        emailOrUsername: form.identifier.trim(),
+        password: form.password,
+      });
 
       // Simulate API success for testing
-      const response = {
-        success: true,
-        message: 'Login successful',
-        data: {
-          user: {
-            id: '12345',
-            name: form.identifier.includes('@') ? form.identifier.split('@')[0] : form.identifier,
-            email: form.identifier.includes('@') ? form.identifier : `${form.identifier}@demo.com`,
-            username: form.identifier,
-          },
-          token: 'mock_jwt_token_' + Date.now(),
-        }
-      };
+      // const response = {
+      //   success: true,
+      //   message: 'Login successful',
+      //   data: {
+      //     user: {
+      //       id: '12345',
+      //       name: form.identifier.includes('@') ? form.identifier.split('@')[0] : form.identifier,
+      //       email: form.identifier.includes('@') ? form.identifier : `${form.identifier}@demo.com`,
+      //       username: form.identifier,
+      //     },
+      //     token: 'mock_jwt_token_' + Date.now(),
+      //   }
+      // };
 
       if (response.success) {
         // Store user session
