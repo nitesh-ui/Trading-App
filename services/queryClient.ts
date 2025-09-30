@@ -5,6 +5,8 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import { QueryClient } from '@tanstack/react-query';
+import { indianStockService } from './indianStockService';
+import { forexService } from './forexService';
 
 // Create query client with optimized defaults for mobile
 export const queryClient = new QueryClient({
@@ -109,17 +111,17 @@ export const prefetchCriticalData = async () => {
   await Promise.allSettled([
     queryClient.prefetchQuery({
       queryKey: queryKeys.stockList('indian'),
-      queryFn: () => import('./indianStockService').then(m => m.indianStockService.getStocks()),
+      queryFn: () => indianStockService.getStocks(),
       staleTime: 5 * 60 * 1000, // 5 minutes
     }),
     queryClient.prefetchQuery({
       queryKey: queryKeys.market,
-      queryFn: () => import('./indianStockService').then(m => m.indianStockService.getIndices()),
+      queryFn: () => indianStockService.getIndices(),
       staleTime: 60 * 1000, // 1 minute
     }),
     queryClient.prefetchQuery({
       queryKey: queryKeys.forexList(),
-      queryFn: () => import('./forexService').then(m => m.forexService.getPairs()),
+      queryFn: () => forexService.getPairs(),
       staleTime: 60 * 1000, // 1 minute
     }),
   ]);

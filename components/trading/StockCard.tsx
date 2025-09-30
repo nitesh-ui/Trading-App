@@ -20,14 +20,17 @@ interface StockCardProps {
   stock: StockData;
   onPress?: () => void;
   showDetails?: boolean;
+  theme?: any; // Optional theme prop
 }
 
 export const StockCard: React.FC<StockCardProps> = React.memo(({
   stock,
   onPress,
   showDetails = false,
+  theme: providedTheme,
 }) => {
-  const { theme } = useTheme();
+  const { theme: contextTheme } = useTheme();
+  const theme = providedTheme || contextTheme;
   const animatedHeight = React.useRef(new Animated.Value(showDetails ? 1 : 0)).current;
 
   React.useEffect(() => {

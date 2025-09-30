@@ -14,6 +14,7 @@ interface PriceDisplayProps {
   showChange?: boolean; // For compatibility
   align?: 'left' | 'center' | 'right'; // New prop for alignment
   style?: any;
+  theme?: any; // Optional theme prop
 }
 
 export const PriceDisplay: React.FC<PriceDisplayProps> = ({
@@ -27,8 +28,10 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
   showChange = true, // For compatibility
   align = 'right', // Default to right alignment
   style,
+  theme: providedTheme,
 }) => {
-  const { theme } = useTheme();
+  const { theme: contextTheme } = useTheme();
+  const theme = providedTheme || contextTheme;
   
   const isPositive = change >= 0;
   const changeColor = isPositive ? theme.colors.success : theme.colors.error;

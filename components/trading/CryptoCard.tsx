@@ -20,6 +20,7 @@ interface CryptoCardProps {
   onPress?: () => void;
   style?: any;
   showDetails?: boolean;
+  theme?: any; // Optional theme prop
 }
 
 export const CryptoCard: React.FC<CryptoCardProps> = React.memo(({
@@ -27,8 +28,10 @@ export const CryptoCard: React.FC<CryptoCardProps> = React.memo(({
   onPress,
   style,
   showDetails = false,
+  theme: providedTheme,
 }) => {
-  const { theme } = useTheme();
+  const { theme: contextTheme } = useTheme();
+  const theme = providedTheme || contextTheme;
   const animatedHeight = React.useRef(new Animated.Value(showDetails ? 1 : 0)).current;
 
   React.useEffect(() => {
