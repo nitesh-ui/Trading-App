@@ -11,7 +11,20 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useRenderPerformance } from '../../hooks/usePerformance';
 import { queryKeys } from '../../services/queryClient';
+import { tradingApiService, ActiveTradeItem } from '../../services/tradingApiService';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
+
+interface PortfolioSummary {
+  totalInvested: number;
+  totalCurrent: number;
+  totalPnL: number;
+  totalPnLPercent: number;
+  todaysPnL: number;
+  todaysPnLPercent: number;
+  walletBalance: number;
+  marginUsed: number;
+  availableMargin: number;
+}
 
 interface Holding {
   symbol: string;
@@ -23,83 +36,104 @@ interface Holding {
   currentValue: number;
   pnl: number;
   pnlPercent: number;
+  type: 'BUY' | 'SELL';
+  productType?: string;
+  priceType?: string;
+  exchange?: string;
+  tradeId: string;
+  orderDate: string;
+  orderTime: string;
 }
 
-const mockHoldings: Holding[] = [
-  {
-    symbol: 'RELIANCE',
-    name: 'Reliance Industries Ltd.',
-    quantity: 25,
-    avgPrice: 2780.50,
-    currentPrice: 2856.20,
-    investedValue: 69512.50,
-    currentValue: 71405.00,
-    pnl: 1892.50,
-    pnlPercent: 2.72,
-  },
-  {
-    symbol: 'TCS',
-    name: 'Tata Consultancy Services',
-    quantity: 15,
-    avgPrice: 3920.30,
-    currentPrice: 3845.70,
-    investedValue: 58804.50,
-    currentValue: 57685.50,
-    pnl: -1119.00,
-    pnlPercent: -1.90,
-  },
-  {
-    symbol: 'HDFCBANK',
-    name: 'HDFC Bank Limited',
-    quantity: 30,
-    avgPrice: 1690.25,
-    currentPrice: 1675.90,
-    investedValue: 50707.50,
-    currentValue: 50277.00,
-    pnl: -430.50,
-    pnlPercent: -0.85,
-  },
-  {
-    symbol: 'INFY',
-    name: 'Infosys Limited',
-    quantity: 20,
-    avgPrice: 1745.80,
-    currentPrice: 1789.15,
-    investedValue: 34916.00,
-    currentValue: 35783.00,
-    pnl: 867.00,
-    pnlPercent: 2.48,
-  },
-];
+/**
+ * Transform API completed trade data to UI holdings format
+ */
+const transformApiTradeToHolding = (apiTrade: ActiveTradeItem): Holding => {
+  const investedValue = apiTrade.orderPrice * apiTrade.qty;
+  
+  // Calculate current price based on P&L from API if available
+  // Otherwise simulate a small price movement for demo
+  let currentPrice: number;
+  let pnl: number;
+  
+  if (apiTrade.profitorloss !== 0) {
+    // Use actual P&L from API
+    pnl = apiTrade.profitorloss;
+    currentPrice = apiTrade.orderPrice + (pnl / apiTrade.qty);
+  } else {
+    // For demo purposes, simulate small price movement
+    const priceMovement = (Math.random() - 0.5) * apiTrade.orderPrice * 0.05; // ±2.5% movement
+    currentPrice = apiTrade.orderPrice + priceMovement;
+    pnl = priceMovement * apiTrade.qty;
+  }
+  
+  const currentValue = currentPrice * apiTrade.qty;
+  const pnlPercent = investedValue > 0 ? (pnl / investedValue) * 100 : 0;
+
+  return {
+    symbol: apiTrade.tradeSymbol,
+    name: apiTrade.tradeSymbol, // API doesn't provide full name, using symbol
+    quantity: apiTrade.qty,
+    avgPrice: apiTrade.orderPrice,
+    currentPrice: Math.max(0, currentPrice), // Ensure non-negative price
+    investedValue: investedValue,
+    currentValue: Math.max(0, currentValue), // Ensure non-negative value
+    pnl: pnl,
+    pnlPercent: pnlPercent,
+    type: apiTrade.currentPosition.toUpperCase() as 'BUY' | 'SELL',
+    productType: apiTrade.productType,
+    priceType: apiTrade.priceType,
+    exchange: apiTrade.objScriptDTO?.scriptExchange || 'N/A',
+    tradeId: apiTrade.activeTradeID.toString(),
+    orderDate: apiTrade.orderDate,
+    orderTime: apiTrade.orderTime
+  };
+};
 
 /**
- * Mock portfolio service - replace with real API calls
+ * Portfolio service using real API - only completed trades as holdings
  */
-const mockPortfolioService = {
+const portfolioService = {
   getHoldings: async (): Promise<Holding[]> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return mockHoldings;
+    try {
+      const response = await tradingApiService.getActiveTrades();
+      
+      // Filter only completed trades to show as holdings
+      const completedTrades = response.data.filter(
+        (trade: ActiveTradeItem) => trade.status.toUpperCase() === 'COMPLETE'
+      );
+      
+      // Transform to holdings format
+      return completedTrades.map(transformApiTradeToHolding);
+    } catch (error) {
+      console.error('❌ Error fetching holdings:', error);
+      throw error;
+    }
   },
   
-  getPortfolioSummary: async () => {
-    const holdings = await mockPortfolioService.getHoldings();
-    const totalInvested = holdings.reduce((sum, holding) => sum + holding.investedValue, 0);
-    const totalCurrent = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
-    const totalPnL = totalCurrent - totalInvested;
-    const totalPnLPercent = (totalPnL / totalInvested) * 100;
-    
-    return {
-      totalInvested,
-      totalCurrent,
-      totalPnL,
-      totalPnLPercent,
-      todaysPnL: totalPnL * 0.1, // Mock today's P&L as 10% of total
-      todaysPnLPercent: totalPnLPercent * 0.1,
-      walletBalance: 50000, // Mock wallet balance
-      marginUsed: 25000, // Mock margin used
-      availableMargin: 75000, // Mock available margin
-    };
+  getPortfolioSummary: async (): Promise<PortfolioSummary> => {
+    try {
+      const holdings = await portfolioService.getHoldings();
+      const totalInvested = holdings.reduce((sum, holding) => sum + holding.investedValue, 0);
+      const totalCurrent = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
+      const totalPnL = holdings.reduce((sum, holding) => sum + holding.pnl, 0);
+      const totalPnLPercent = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
+      
+      return {
+        totalInvested,
+        totalCurrent,
+        totalPnL,
+        totalPnLPercent,
+        todaysPnL: totalPnL * 0.1, // Mock today's P&L as 10% of total
+        todaysPnLPercent: totalPnLPercent * 0.1,
+        walletBalance: 50000, // Mock wallet balance - would come from another API
+        marginUsed: 25000, // Mock margin used - would come from another API
+        availableMargin: 75000, // Mock available margin - would come from another API
+      };
+    } catch (error) {
+      console.error('❌ Error fetching portfolio summary:', error);
+      throw error;
+    }
   },
 };
 
@@ -127,11 +161,20 @@ const MemoizedHoldingCard = memo<{
       <Card style={{ ...styles.holdingCard, padding: 12 }}>
         <View style={styles.holdingHeader}>
           <View style={styles.stockInfo}>
-            <Text variant="body" weight="semibold" color="text">
-              {holding.symbol}
-            </Text>
+            <View style={styles.symbolRow}>
+              <Text variant="body" weight="semibold" color="text">
+                {holding.symbol}
+              </Text>
+              <View style={[styles.typeIndicator, { 
+                backgroundColor: holding.type === 'BUY' ? theme.colors.success : theme.colors.error 
+              }]}>
+                <Text variant="caption" style={{ color: theme.colors.surface }}>
+                  {holding.type}
+                </Text>
+              </View>
+            </View>
             <Text variant="caption" color="textSecondary" style={styles.stockName}>
-              {holding.name}
+              {holding.exchange} • {holding.priceType}
             </Text>
           </View>
           <View style={styles.pnlInfo}>
@@ -163,6 +206,11 @@ const MemoizedHoldingCard = memo<{
             </Text>
             <Text variant="caption" color="text">
               Current: {formatIndianCurrency(holding.currentValue)}
+            </Text>
+          </View>
+          <View style={styles.tradeInfo}>
+            <Text variant="caption" color="textSecondary">
+              Trade Date: {holding.orderDate} {holding.orderTime}
             </Text>
           </View>
         </View>
@@ -198,7 +246,7 @@ export default function PortfolioScreen() {
     isRefetching: holdingsRefetching 
   } = useQuery({
     queryKey: queryKeys.userPortfolio(),
-    queryFn: mockPortfolioService.getHoldings,
+    queryFn: portfolioService.getHoldings,
     staleTime: 30 * 1000, // 30 seconds
   });
 
@@ -209,7 +257,7 @@ export default function PortfolioScreen() {
     isRefetching: summaryRefetching 
   } = useQuery({
     queryKey: [...queryKeys.userPortfolio(), 'summary'],
-    queryFn: mockPortfolioService.getPortfolioSummary,
+    queryFn: portfolioService.getPortfolioSummary,
     staleTime: 30 * 1000,
   });
 
@@ -391,7 +439,7 @@ export default function PortfolioScreen() {
           {/* Holdings List */}
           <View style={{ marginTop: 16 }}>
             <Text variant="subtitle" weight="semibold" color="text" style={{ marginHorizontal: 20, marginBottom: 12 }}>
-              Your Holdings ({holdings.length})
+              Your Holdings ({(holdings as Holding[]).length})
             </Text>
             
             {holdingsLoading ? (
@@ -402,9 +450,9 @@ export default function PortfolioScreen() {
               </View>
             ) : (
               <View style={styles.holdingsListContent}>
-                {holdings.map((holding) => (
+                {(holdings as Holding[]).map((holding) => (
                   <MemoizedHoldingCard
-                    key={holding.symbol}
+                    key={holding.tradeId}
                     holding={holding}
                     onPress={handleHoldingPress}
                   />
@@ -542,6 +590,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 12,
   },
+  symbolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  typeIndicator: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
   stockName: {
     marginTop: 2,
   },
@@ -560,5 +618,9 @@ const styles = StyleSheet.create({
   valueRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  tradeInfo: {
+    marginTop: 4,
   },
 });

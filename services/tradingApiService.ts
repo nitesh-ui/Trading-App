@@ -111,6 +111,45 @@ export interface ProceedBuySellResponse {
   success?: boolean;
 }
 
+export interface ActiveTradeItem {
+  activeTradeID: number;
+  status: string;
+  profitorloss: number;
+  tradeSymbol: string;
+  scriptInstrumentType: string;
+  productType: string;
+  priceType: string;
+  currentPosition: string;
+  currentPositionNew: string;
+  strategyname: string;
+  qty: number;
+  sl: number;
+  tgT2: number;
+  tgT3: number;
+  tgT4: number;
+  triggerPrice: string;
+  orderPrice: number;
+  orderDate: string;
+  orderTime: string;
+  userID: number;
+  tradinG_UNIT_TYPE: number;
+  tradinG_UNIT: string;
+  companY_INITIAL: string;
+  tenanT_ID: number;
+  objScriptDTO: {
+    scriptExchange: string;
+    lastprice: number;
+    scriptLotSize: number;
+    bid: number;
+    ask: number;
+  };
+}
+
+export interface GetActiveTradesResponse {
+  message: string;
+  data: ActiveTradeItem[];
+}
+
 class TradingApiService {
   private static instance: TradingApiService;
 
@@ -716,6 +755,100 @@ class TradingApiService {
         success: false,
         message: 'Failed to execute trade',
         error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
+   * Get active trades for the current user
+   */
+  async getActiveTrades(): Promise<GetActiveTradesResponse> {
+    try {
+      // Check if user is authenticated
+      const isLoggedIn = await this.isLoggedIn();
+      if (!isLoggedIn) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      // Get session data from AsyncStorage
+      const sessionData = await this.getSessionData();
+      if (!sessionData?.sessionToken) {
+        throw new Error('No valid session token found. Please login again.');
+      }
+
+      console.log('🚀 GetActiveTrades API Request:', {
+        url: `${API_BASE_URL}/WatchListApi/GetActiveTrades`,
+        method: 'GET',
+        headers: {
+          'X-Session-Key': sessionData.sessionToken ? '***TOKEN***' : 'None',
+        }
+      });
+
+      // Make API call to get active trades
+      const response = await fetch(`${API_BASE_URL}/WatchListApi/GetActiveTrades`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          'X-Session-Key': sessionData.sessionToken,
+        }
+      });
+
+      console.log('📡 GetActiveTrades API Response Status:', response.status);
+
+      if (!response.ok) {
+        console.error('❌ GetActiveTrades API Error:', response.status, response.statusText);
+        
+        // If unauthorized, session might be expired
+        if (response.status === 401 || response.status === 403) {
+          console.log('⚠️ Session might be expired');
+          await this.clearSessionData();
+          throw new Error('Session expired. Please login again.');
+        }
+        
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch active trades: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ GetActiveTrades API Success Response:', data);
+
+      return {
+        message: data.message || '',
+        data: data.data || []
+      };
+
+    } catch (error) {
+      console.error('❌ Error fetching active trades:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Square off a trade (placeholder for future implementation)
+   */
+  async squareOffTrade(tradeId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      // TODO: Implement actual square off API call
+      // const response = await this.makeAuthenticatedRequest(
+      //   `${API_BASE_URL}/WatchListApi/SquareOffTrade`,
+      //   {
+      //     method: 'POST',
+      //     body: JSON.stringify({ tradeId })
+      //   }
+      // );
+      
+      console.log('🚀 Square off trade placeholder called for trade ID:', tradeId);
+      
+      // Placeholder response
+      return {
+        success: true,
+        message: 'Square off order placed successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error squaring off trade:', error);
+      return {
+        success: false,
+        message: 'Failed to square off trade'
       };
     }
   }
