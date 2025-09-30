@@ -647,25 +647,39 @@ const WatchlistContent = memo(() => {
   }, []);
 
   const handleRemoveFromWatchlist = useCallback((symbol: string) => {
-    Alert.alert(
-      'Remove from Watchlist',
-      `Are you sure you want to remove ${symbol} from your watchlist?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            removeFromWatchlist(symbol);
-            setSelectedAssetForDetails(null);
-            showNotification({ 
-              type: 'success', 
-              title: `${symbol} removed from watchlist` 
-            });
+    // Web-compatible confirmation dialog
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Are you sure you want to remove ${symbol} from your watchlist?`);
+      if (confirmed) {
+        removeFromWatchlist(symbol);
+        setSelectedAssetForDetails(null);
+        showNotification({ 
+          type: 'success', 
+          title: `${symbol} removed from watchlist` 
+        });
+      }
+    } else {
+      // Native mobile alert
+      Alert.alert(
+        'Remove from Watchlist',
+        `Are you sure you want to remove ${symbol} from your watchlist?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: () => {
+              removeFromWatchlist(symbol);
+              setSelectedAssetForDetails(null);
+              showNotification({ 
+                type: 'success', 
+                title: `${symbol} removed from watchlist` 
+              });
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   }, [removeFromWatchlist, setSelectedAssetForDetails, showNotification]);
 
   const handleTradeExecute = useCallback((tradeData: any) => {
