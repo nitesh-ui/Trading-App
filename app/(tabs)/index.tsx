@@ -683,24 +683,11 @@ const WatchlistContent = memo(() => {
   }, [removeFromWatchlist, setSelectedAssetForDetails, showNotification]);
 
   const handleTradeExecute = useCallback((tradeData: any) => {
-    // Simulate trade execution
-    Alert.alert(
-      'Trade Executed',
-      `${tradeData.action.toUpperCase()} ${tradeData.quantity} ${tradeData.asset.symbol} at ${tradeData.asset.price}`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            resetTradeState();
-            showNotification({ 
-              type: 'success', 
-              title: 'Trade executed successfully' 
-            });
-          },
-        },
-      ]
-    );
-  }, [resetTradeState, showNotification]);
+    // Legacy trade execution callback - now handled by TradePage with real API
+    // Just reset the trade state as the TradePage already shows proper notifications
+    resetTradeState();
+    // Note: TradePage now handles the actual API call and success notifications
+  }, [resetTradeState]);
 
   const handleSearchAssetSelect = useCallback((asset: AssetItem) => {
     setSelectedAssetForDetails(asset);

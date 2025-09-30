@@ -6,13 +6,16 @@ import {
   TouchableOpacity, 
   ScrollView,
   TextInput,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Card, Text, Button } from '../atomic';
 import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { AssetItem, MarketType, TradeState } from '../watchlist/types';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
+import { tradingApiService, ProceedBuySellRequest } from '../../services/tradingApiService';
 
 interface TradePageProps {
   visible: boolean;
@@ -36,6 +39,7 @@ const TradePage: React.FC<TradePageProps> = ({
   onTradeExecute 
 }) => {
   const { theme } = useTheme();
+  const { showNotification } = useNotification();
   const [quantity, setQuantity] = useState(1);
   const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT' | 'SL' | 'SL-M'>('MARKET');
   const [unitType, setUnitType] = useState<'Lot' | 'Share'>('Lot');
@@ -44,6 +48,7 @@ const TradePage: React.FC<TradePageProps> = ({
   const [stopLossPrice, setStopLossPrice] = useState('0');
   const [limitPrice, setLimitPrice] = useState('0');
   const [triggerPrice, setTriggerPrice] = useState('0');
+  const [isExecutingTrade, setIsExecutingTrade] = useState(false);
 
   const formatPrice = (price: number) => {
     if (marketType === 'stocks') {
@@ -102,23 +107,86 @@ const TradePage: React.FC<TradePageProps> = ({
     setQuantity(newQuantity);
   };
 
-  const handleExecuteTrade = () => {
-    const tradeData = {
-      asset,
-      action,
-      quantity,
-      orderType,
-      unitType,
-      productType,
-      price: orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price,
-      targetPrice: parseFloat(targetPrice),
-      stopLossPrice: parseFloat(stopLossPrice),
-      triggerPrice: parseFloat(triggerPrice),
-      totalAmount: calculateRequiredAmount()
-    };
+  const handleExecuteTrade = async () => {
+    // Prevent multiple simultaneous executions
+    if (isExecutingTrade) return;
     
-    onTradeExecute(tradeData);
-    onClose();
+    setIsExecutingTrade(true);
+    
+    try {
+      // Prepare the API request data
+      const apiRequest: ProceedBuySellRequest = {
+        intWID: 0, // Default value as per API
+        scriptCode: 0, // Default value as per API
+        currentPosition: action, // 'buy' or 'sell'
+        quantity: quantity.toString(),
+        price: (orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price).toString(),
+        triggerPrice: triggerPrice || '0',
+        productType: productType, // 'MIS' or 'NRML'
+        marketType: orderType, // 'MARKET', 'LIMIT', 'SL', 'SL-M'
+        tradeID: '', // Default empty string
+        status: '', // Default empty string
+        target: targetPrice || '0',
+        stopLoss: stopLossPrice || '0',
+        tradinG_UNIT: 0 // Default value as per API
+      };
+
+      console.log('🔄 Executing trade with API:', apiRequest);
+      console.log('📊 Asset data for trade:', {
+        symbol: asset.symbol,
+        name: asset.name,
+        price: asset.price,
+        exchange: asset.exchange
+      });
+
+      // Call the real trading API
+      const response = await tradingApiService.proceedBuySell(apiRequest);
+
+      if (response.success) {
+        // Success - show success notification and close
+        showNotification({
+          type: 'success',
+          title: `${action.toUpperCase()} order placed successfully`,
+          message: `${quantity} ${asset.symbol} order has been executed`
+        });
+
+        // Also call the original onTradeExecute for any UI updates
+        const legacyTradeData = {
+          asset,
+          action,
+          quantity,
+          orderType,
+          unitType,
+          productType,
+          price: orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price,
+          targetPrice: parseFloat(targetPrice),
+          stopLossPrice: parseFloat(stopLossPrice),
+          triggerPrice: parseFloat(triggerPrice),
+          totalAmount: calculateRequiredAmount()
+        };
+        onTradeExecute(legacyTradeData);
+        onClose();
+      } else {
+        // Error - show error notification
+        showNotification({
+          type: 'error',
+          title: 'Trade Failed',
+          message: response.message || response.error || 'Failed to execute trade. Please try again.'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error executing trade:', error);
+      const errorMessage = 'An unexpected error occurred. Please try again.';
+      
+      // Use notification toast for error feedback
+      showNotification({
+        type: 'error',
+        title: 'Trade Failed',
+        message: errorMessage
+      });
+    } finally {
+      setIsExecutingTrade(false);
+    }
   };
 
   return (
@@ -423,12 +491,14 @@ const TradePage: React.FC<TradePageProps> = ({
 
         {/* Execute Button */}
         <Button
-          title={`Tap to ${action.charAt(0).toUpperCase() + action.slice(1)}`}
+          title={isExecutingTrade ? 'Executing...' : `Tap to ${action.charAt(0).toUpperCase() + action.slice(1)}`}
           onPress={handleExecuteTrade}
           variant="primary"
+          disabled={isExecutingTrade}
           style={{
             ...styles.executeButton,
-            backgroundColor: action === 'buy' ? theme.colors.primary : theme.colors.error
+            backgroundColor: action === 'buy' ? theme.colors.primary : theme.colors.error,
+            opacity: isExecutingTrade ? 0.7 : 1
           }}
         />
       </ScrollView>

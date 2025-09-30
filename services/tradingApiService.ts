@@ -88,6 +88,29 @@ export interface UpdatePasswordResponse {
   success?: boolean;
 }
 
+export interface ProceedBuySellRequest {
+  intWID: number;
+  scriptCode: number;
+  currentPosition: string;
+  quantity: string;
+  price: string;
+  triggerPrice: string;
+  productType: string;
+  marketType: string;
+  tradeID: string;
+  status: string;
+  target: string;
+  stopLoss: string;
+  tradinG_UNIT: number;
+}
+
+export interface ProceedBuySellResponse {
+  message?: string;
+  data?: any;
+  error?: string;
+  success?: boolean;
+}
+
 class TradingApiService {
   private static instance: TradingApiService;
 
@@ -614,6 +637,86 @@ class TradingApiService {
     } catch (error) {
       console.error('❌ Error getting watchlist access:', error);
       return [];
+    }
+  }
+
+  /**
+   * Execute buy/sell trade
+   */
+  async proceedBuySell(tradeData: ProceedBuySellRequest): Promise<ProceedBuySellResponse> {
+    try {
+      // Check if user is authenticated
+      const isLoggedIn = await this.isLoggedIn();
+      if (!isLoggedIn) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      // Get session data from AsyncStorage
+      const sessionData = await this.getSessionData();
+      if (!sessionData?.sessionToken) {
+        throw new Error('No valid session token found. Please login again.');
+      }
+
+      console.log('🚀 ProceedBuySell API Request:', {
+        url: `${API_BASE_URL}/WatchListApi/ProceedBuySell`,
+        method: 'POST',
+        headers: {
+          'X-Session-Key': sessionData.sessionToken ? '***TOKEN***' : 'None',
+        },
+        body: tradeData
+      });
+
+      // Make API call to execute trade
+      const response = await fetch(`${API_BASE_URL}/WatchListApi/ProceedBuySell`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'X-Session-Key': sessionData.sessionToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tradeData),
+      });
+
+      console.log('📡 ProceedBuySell API Response Status:', response.status);
+
+      if (!response.ok) {
+        console.error('❌ ProceedBuySell API Error:', response.status, response.statusText);
+        
+        // If unauthorized, session might be expired
+        if (response.status === 401 || response.status === 403) {
+          console.log('⚠️ Session might be expired');
+          await this.clearSessionData();
+          return {
+            success: false,
+            message: 'Session expired. Please login again.',
+            error: 'Session expired'
+          };
+        }
+        
+        const errorText = await response.text();
+        return {
+          success: false,
+          message: `Trade execution failed: ${response.status} ${response.statusText}`,
+          error: errorText || 'Network error occurred'
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ ProceedBuySell API Success Response:', data);
+
+      return {
+        success: true,
+        message: data.message || 'Trade executed successfully',
+        data: data.data || data
+      };
+
+    } catch (error) {
+      console.error('❌ Error executing trade:', error);
+      return {
+        success: false,
+        message: 'Failed to execute trade',
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
     }
   }
 }
