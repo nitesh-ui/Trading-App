@@ -13,6 +13,16 @@ export interface AssetItem {
   volume?: number;
   high?: number;
   low?: number;
+  // Additional fields for trading
+  lotSize?: number;
+  size?: number;
+  currency?: string;
+  sector?: string;
+  type?: string;
+  open?: number;
+  previousClose?: number;
+  marketStatus?: string;
+  lastUpdated?: string;
 }
 
 export interface TradeState {

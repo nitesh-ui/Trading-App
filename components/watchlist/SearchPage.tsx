@@ -8,10 +8,12 @@ import {
   Pressable,
   Keyboard,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWatchlist } from '../watchlist/WatchlistContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { watchlistApiService, SearchResult } from '../../services/watchlistApiService';
 import { Ionicons } from '@expo/vector-icons';
 import SlidingPage from '../ui/SlidingPage';
@@ -40,21 +42,37 @@ const FILTER_OPTIONS: FilterOption[] = [
 
 const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
   const { theme } = useTheme();
+  const { showNotification } = useNotification();
   const { 
     filteredAssets, 
     watchlistState,
     setSearchQuery,
     addToWatchlist,
     setMarketType,
+    refreshData,
   } = useWatchlist();
 
   const [selectedFilter, setSelectedFilter] = useState<MarketType | 'all'>('all');
   const [localSearchQuery, setLocalSearchQuery] = useState('');
-  const [recentSearches] = useState<string[]>(['AAPL', 'MSFT', 'BTC-USD', 'EUR/USD']);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [apiSearchResults, setApiSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [addingSymbol, setAddingSymbol] = useState<string | null>(null);
+  const [addedSymbols, setAddedSymbols] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<TextInput>(null);
+
+  // Function to add search query to recent searches
+  const addToRecentSearches = useCallback((query: string) => {
+    if (!query.trim() || query.length < 2) return;
+    
+    setRecentSearches(prev => {
+      // Remove if already exists to avoid duplicates
+      const filtered = prev.filter(item => item.toLowerCase() !== query.toLowerCase());
+      // Add to beginning and limit to 5 items
+      return [query.trim(), ...filtered].slice(0, 5);
+    });
+  }, []);
 
   // Debounced API search function
   const performApiSearch = useCallback(async (query: string) => {
@@ -69,6 +87,9 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
       setHasSearched(true);
       
       console.log('🔍 Searching for:', query);
+      
+      // Add to recent searches when API search is triggered
+      addToRecentSearches(query);
       
       // Get exchange filter based on selected filter
       let exchangeFilter = '';
@@ -111,7 +132,15 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     } finally {
       setIsSearching(false);
     }
-  }, [selectedFilter]);
+  }, [selectedFilter, addToRecentSearches]);
+
+  // Reset added symbols when component unmounts or page closes
+  useEffect(() => {
+    if (!visible) {
+      setAddedSymbols(new Set());
+      setAddingSymbol(null);
+    }
+  }, [visible]);
 
   // Debounce search
   useEffect(() => {
@@ -126,7 +155,19 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
   const searchResults = useMemo((): SearchResult[] => {
     // If we have searched via API, use API results
     if (hasSearched) {
-      return apiSearchResults;
+      // Update API results to reflect recently added symbols
+      return apiSearchResults.map(result => {
+        const isRecentlyAdded = addedSymbols.has(result.symbol);
+        if (isRecentlyAdded) {
+          // If we recently added this symbol, show it as in watchlist
+          return {
+            ...result,
+            isInWatchlist: true,
+            canAdd: false
+          };
+        }
+        return result;
+      });
     }
 
     // Fallback to local search for immediate feedback - convert AssetItem to SearchResult
@@ -147,12 +188,18 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     }
 
     // Convert AssetItem to SearchResult for local fallback
-    return assets.map(asset => ({
-      ...asset,
-      isInWatchlist: watchlistState.watchlistItems.includes(asset.symbol),
-      canAdd: !watchlistState.watchlistItems.includes(asset.symbol)
-    }));
-  }, [filteredAssets, selectedFilter, localSearchQuery, watchlistState.marketType, watchlistState.watchlistItems, hasSearched, apiSearchResults]);
+    // Since these are from filteredAssets (already in watchlist), they should all show checkmarks
+    return assets.map(asset => {
+      const isRecentlyAdded = addedSymbols.has(asset.symbol);
+      return {
+        ...asset,
+        isInWatchlist: true, // These are always in watchlist since they come from filteredAssets
+        canAdd: false, // Cannot add again since they're already in watchlist
+        lotSize: asset.lotSize,
+        size: asset.size,
+      };
+    });
+  }, [filteredAssets, selectedFilter, localSearchQuery, watchlistState.marketType, watchlistState.watchlistItems, hasSearched, apiSearchResults, addedSymbols]);
 
   const handleSearch = useCallback((query: string) => {
     setLocalSearchQuery(query);
@@ -175,17 +222,86 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     searchInputRef.current?.focus();
   }, [handleSearch]);
 
-  const handleAddToWatchlist = useCallback((item: SearchResult) => {
-    if (item.canAdd) {
-      addToWatchlist(item.symbol);
+  const handleAddToWatchlist = useCallback(async (item: SearchResult) => {
+    if (!item.canAdd || addingSymbol) {
+      return; // Prevent multiple simultaneous add operations
     }
-  }, [addToWatchlist]);
+
+    try {
+      setAddingSymbol(item.symbol); // Set loading state
+      
+      // Use the lot size from the API response if available, otherwise default to "1"
+      const lotSize = item.lotSize ? item.lotSize.toString() : "1";
+      
+      console.log('🔄 Adding to watchlist:', { 
+        symbol: item.symbol, 
+        exchange: item.exchange, 
+        lotSize,
+        size: item.size
+      });
+
+      // Call the real API to add to watchlist
+      const success = await watchlistApiService.addToWatchlist(
+        item.symbol, 
+        item.exchange || 'NSE', 
+        lotSize
+      );
+
+      if (success) {
+        // Clear loading state first to show checkmark
+        setAddingSymbol(null);
+        
+        // Mark symbol as successfully added
+        setAddedSymbols(prev => new Set(prev).add(item.symbol));
+        
+        // Show success notification
+        showNotification({
+          type: 'success',
+          title: 'Added to Watchlist',
+          message: `${item.symbol} added successfully! Returning to watchlist...`
+        });
+
+        // Also add to local watchlist context for immediate UI update
+        addToWatchlist(item.symbol);
+
+        // Refresh watchlist data to get latest from server
+        refreshData();
+
+        // Auto-navigate back to watchlist after showing success state
+        setTimeout(() => {
+          onClose(); // Close search page to reveal watchlist
+        }, 2000); // Give more time to see the checkmark
+
+        // Remove the confirmation alert since we're auto-navigating
+        console.log('✅ Successfully added to watchlist, showing success state...');
+        return; // Exit early to avoid clearing addingSymbol in finally block
+      } else {
+        // Show error notification
+        showNotification({
+          type: 'error',
+          title: 'Failed to Add',
+          message: `Could not add ${item.symbol} to watchlist. Please try again.`
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error adding to watchlist:', error);
+      showNotification({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to add asset to watchlist. Please check your connection and try again.'
+      });
+      // Clear loading state on error
+      setAddingSymbol(null);
+    }
+    // Note: No finally block needed as we handle state clearing in success and error cases separately
+  }, [addToWatchlist, showNotification, refreshData, onClose, addingSymbol]);
 
   const handleClearSearch = useCallback(() => {
     setLocalSearchQuery('');
     setSearchQuery('');
     setApiSearchResults([]);
     setHasSearched(false);
+    setAddedSymbols(new Set()); // Clear added symbols state
     searchInputRef.current?.focus();
   }, [setSearchQuery]);
 
@@ -224,12 +340,17 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
   const renderSearchResult = useCallback(({ item }: { item: SearchResult }) => {
     const isInWatchlist = item.isInWatchlist;
     const canAdd = item.canAdd;
+    const isAdding = addingSymbol === item.symbol;
+    const wasAdded = addedSymbols.has(item.symbol);
+    
+    // Determine the final state: if was added locally or originally in watchlist
+    const showAsAdded = isInWatchlist || wasAdded;
     
     return (
       <Pressable
         style={[styles.searchResultItem, { backgroundColor: theme.colors.card }]}
         android_ripple={{ color: theme.colors.primary + '10' }}
-        onPress={() => canAdd && handleAddToWatchlist(item)}
+        onPress={() => canAdd && !isAdding && !wasAdded && handleAddToWatchlist(item)}
       >
         <View style={styles.resultInfo}>
           <Text variant="body" weight="semibold" color="text">
@@ -252,7 +373,7 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
                 {item.exchange || 'N/A'}
               </Text>
             </View>
-            {isInWatchlist && (
+            {showAsAdded && (
               <View
                 style={[
                   styles.watchlistTag,
@@ -263,7 +384,7 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
                   variant="caption"
                   color="success"
                 >
-                  In Watchlist
+                  {wasAdded ? 'Added' : 'In Watchlist'}
                 </Text>
               </View>
             )}
@@ -276,27 +397,13 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
               ${item.price.toFixed(item.exchange === 'CRYPTO' ? 4 : 2)}
             </Text>
           )}
-          {canAdd ? (
-            <Pressable
-              style={[
-                styles.addButton,
-                { backgroundColor: theme.colors.primary }
-              ]}
-              onPress={() => handleAddToWatchlist(item)}
-            >
-              <Ionicons
-                name="add"
-                size={16}
-                color="#FFFFFF"
-              />
-            </Pressable>
-          ) : (
+          {showAsAdded ? (
             <View
               style={[
                 styles.addButton,
                 { 
                   backgroundColor: theme.colors.success,
-                  opacity: 0.7
+                  opacity: 0.8
                 }
               ]}
             >
@@ -306,11 +413,33 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
                 color="#FFFFFF"
               />
             </View>
-          )}
+          ) : canAdd ? (
+            <Pressable
+              style={[
+                styles.addButton,
+                { 
+                  backgroundColor: isAdding ? theme.colors.textSecondary : theme.colors.primary,
+                  opacity: isAdding ? 0.7 : 1.0
+                }
+              ]}
+              onPress={() => !isAdding && handleAddToWatchlist(item)}
+              disabled={isAdding}
+            >
+              {isAdding ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons
+                  name="add"
+                  size={16}
+                  color="#FFFFFF"
+                />
+              )}
+            </Pressable>
+          ) : null}
         </View>
       </Pressable>
     );
-  }, [theme.colors, handleAddToWatchlist]);
+  }, [theme.colors, handleAddToWatchlist, addingSymbol, addedSymbols]);
 
   const renderRecentSearch = useCallback(({ item }: { item: string }) => (
     <Pressable
@@ -377,11 +506,24 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
 
       {/* Search State Headers */}
       {localSearchQuery.length === 0 ? (
-        <View style={styles.sectionHeader}>
-          <Text variant="body" weight="semibold" color="text">
-            Recent Searches
-          </Text>
-        </View>
+        // Only show Recent Searches section if there are actual recent searches
+        recentSearches.length > 0 && (
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <Text variant="body" weight="semibold" color="text">
+                Recent Searches
+              </Text>
+              <Pressable
+                onPress={() => setRecentSearches([])}
+                style={styles.clearButton}
+              >
+                <Text variant="caption" color="primary">
+                  Clear
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )
       ) : (
         <View style={styles.sectionHeader}>
           <Text variant="body" weight="semibold" color="text">
@@ -410,19 +552,35 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     hasSearched,
     isSearching,
     apiSearchResults.length,
+    recentSearches.length,
   ]);
 
   const EmptyComponent = useMemo(() => {
     if (localSearchQuery.length === 0) {
-      // Show recent searches when no query
-      return (
-        <FlatList
-          data={recentSearches}
-          renderItem={renderRecentSearch}
-          keyExtractor={(item) => item}
-          contentContainerStyle={styles.recentSearchesContainer}
-        />
-      );
+      // Show recent searches when no query and there are recent searches
+      if (recentSearches.length > 0) {
+        return (
+          <FlatList
+            data={recentSearches}
+            renderItem={renderRecentSearch}
+            keyExtractor={(item) => item}
+            contentContainerStyle={styles.recentSearchesContainer}
+          />
+        );
+      } else {
+        // Show empty state when no recent searches
+        return (
+          <View style={styles.emptyState}>
+            <Ionicons name="search" size={48} color={theme.colors.textSecondary} />
+            <Text variant="body" color="textSecondary" style={styles.emptyStateText}>
+              Start typing to search for assets
+            </Text>
+            <Text variant="caption" color="textSecondary" style={styles.emptyStateSubtext}>
+              Search for stocks, crypto, forex and more
+            </Text>
+          </View>
+        );
+      }
     }
 
     if (isSearching) {
@@ -527,6 +685,11 @@ const styles = StyleSheet.create({
   sectionHeader: {
     paddingHorizontal: 20,
     marginBottom: 16,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   searchResultItem: {
     flexDirection: 'row',

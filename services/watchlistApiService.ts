@@ -10,6 +10,8 @@ import { tradingApiService } from './tradingApiService';
 export interface SearchResult extends AssetItem {
   isInWatchlist: boolean;
   canAdd: boolean;
+  lotSize?: number;
+  size?: number;
 }
 
 export interface WatchlistApiItem {
@@ -56,6 +58,15 @@ export interface WatchlistApiRequest {
   scriptInstrumentType: string;
   onlyCurrentMonth: number;
   datalimit: number;
+}
+
+export interface AddScriptRequest {
+  scriptTradingSymbol: string;
+  intWID: number;
+  watchlistname: string;
+  scriptExchange: string;
+  lot: string;
+  size: string;
 }
 
 class WatchlistApiService {
@@ -317,21 +328,45 @@ class WatchlistApiService {
   }
 
   /**
-   * Add a symbol to watchlist
+   * Add a symbol to watchlist using the real API
    */
-  async addToWatchlist(symbol: string, exchange: string): Promise<boolean> {
+  async addToWatchlist(symbol: string, exchange: string, lotSize: string = "1"): Promise<boolean> {
     try {
       const sessionData = await tradingApiService.getSessionData();
       if (!sessionData?.sessionToken) {
         throw new Error('No valid session token found.');
       }
 
-      // You would implement the actual API call here
-      // For now, we'll just return true to indicate success
-      console.log(`📝 Adding ${symbol} (${exchange}) to watchlist`);
-      
-      // Placeholder for actual API call
-      // const response = await fetch(`${this.baseUrl}/WatchListApi/AddToWatchList`, {...});
+      console.log('📝 Adding to watchlist:', { symbol, exchange, lotSize });
+
+      const requestBody: AddScriptRequest = {
+        scriptTradingSymbol: symbol,
+        intWID: 0,
+        watchlistname: "",
+        scriptExchange: exchange,
+        lot: lotSize,
+        size: ""
+      };
+
+      const response = await fetch(`${this.baseUrl}/WatchListApi/AddScript`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'X-Session-Key': sessionData.sessionToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('� Add to Watchlist API Response Status:', response.status);
+
+      if (!response.ok) {
+        console.error('❌ Add to Watchlist API Error:', response.status, response.statusText);
+        throw new Error(`Add to watchlist API request failed with status: ${response.status}`);
+      }
+
+      const responseData = await response.json();
+      console.log('✅ Add to Watchlist API Success:', responseData);
       
       return true;
     } catch (error) {
@@ -396,7 +431,7 @@ class WatchlistApiService {
   private transformWatchlistDataForAddToAssets(items: WatchlistDataForAdd[]): AssetItem[] {
     return items.map(item => {
       const symbol = item.scriptTradingSymbol;
-      const name = symbol; // Use symbol as name since name is not provided
+      const name = item.scriptTradingSymbol_NEW || symbol; // Use NEW symbol if available, otherwise original
       const exchange = item.scriptExchange;
       
       return {
@@ -417,6 +452,9 @@ class WatchlistApiService {
         previousClose: 0,
         marketStatus: 'closed',
         lastUpdated: new Date().toISOString(),
+        // Add lot information for proper API calls
+        lotSize: item.lot,
+        size: item.size,
       };
     });
   }
@@ -487,7 +525,9 @@ class WatchlistApiService {
         const availableResults: SearchResult[] = availableAssets.map(asset => ({
           ...asset,
           isInWatchlist: false,
-          canAdd: true
+          canAdd: true,
+          lotSize: asset.lotSize,
+          size: asset.size,
         }));
         results.push(...availableResults);
       }
