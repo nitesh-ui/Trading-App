@@ -13,6 +13,7 @@ import { ThemeProvider } from '../contexts/ThemeContext';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { cleanupNetworkListener, prefetchCriticalData, queryClient, setupNetworkListener } from '../services/queryClient';
 import { sessionManager } from '../services/sessionManager';
+import AuthUtils from '../services/authUtils';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -27,7 +28,10 @@ export default function RootLayout() {
         // Setup network listener for smart query refetching
         setupNetworkListener();
         
-        // Load user session
+        // Initialize authentication using the new auth utilities
+        await AuthUtils.initializeAuth();
+
+        // Load user session for backwards compatibility
         const user = await sessionManager.loadSession();
         if (user) {
           console.log('✅ User session restored:', user.username);

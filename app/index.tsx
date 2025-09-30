@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import AuthUtils from '../services/authUtils';
 import { sessionManager } from '../services/sessionManager';
 
 export default function Index() {
@@ -12,12 +13,19 @@ export default function Index() {
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
-        const user = await sessionManager.loadSession();
-        const isValid = await sessionManager.isSessionValid();
+        // Use AuthUtils for comprehensive authentication check
+        const isAuth = await AuthUtils.isAuthenticated();
         
-        if (user && isValid) {
-          setIsAuthenticated(true);
-          console.log('✅ User session is valid, redirecting to tabs');
+        if (isAuth) {
+          // Double-check session expiry
+          const sessionValid = await AuthUtils.checkSessionExpiry();
+          if (sessionValid) {
+            setIsAuthenticated(true);
+            console.log('✅ User session is valid, redirecting to tabs');
+          } else {
+            setIsAuthenticated(false);
+            console.log('⚠️ Session expired, redirecting to login');
+          }
         } else {
           setIsAuthenticated(false);
           console.log('ℹ️ No valid session, redirecting to login');

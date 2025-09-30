@@ -1,18 +1,4 @@
-
-interface SearchPageProps {
-  visible: boolean;
-  onClose: () => void;
-}
-
-interface FilterOption {
-  id: string;
-  label: string;
-  value: MarketType | 'all';
-  icon: string;
-}
-
-
-import React, { useState, useCallback, useMemo, useRef, memo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, memo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -21,10 +7,12 @@ import {
   Dimensions,
   Pressable,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWatchlist } from '../watchlist/WatchlistContext';
+import { watchlistApiService, SearchResult } from '../../services/watchlistApiService';
 import { Ionicons } from '@expo/vector-icons';
 import SlidingPage from '../ui/SlidingPage';
 import { AssetItem, MarketType } from '../watchlist/types';
@@ -63,15 +51,89 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
   const [selectedFilter, setSelectedFilter] = useState<MarketType | 'all'>('all');
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [recentSearches] = useState<string[]>(['AAPL', 'MSFT', 'BTC-USD', 'EUR/USD']);
+  const [apiSearchResults, setApiSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
 
-  // Filter assets based on search query and selected filter
-  const searchResults = useMemo(() => {
+  // Debounced API search function
+  const performApiSearch = useCallback(async (query: string) => {
+    if (!query.trim() || query.length < 2) {
+      setApiSearchResults([]);
+      setHasSearched(false);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      setHasSearched(true);
+      
+      console.log('🔍 Searching for:', query);
+      
+      // Get exchange filter based on selected filter
+      let exchangeFilter = '';
+      if (selectedFilter === 'stocks') {
+        exchangeFilter = ''; // All stock exchanges (NSE, BSE)
+      } else if (selectedFilter === 'crypto') {
+        exchangeFilter = 'CRYPTO';
+      } else if (selectedFilter === 'forex') {
+        exchangeFilter = 'FOREX';
+      }
+
+      const results = await watchlistApiService.searchSymbols(query, exchangeFilter);
+      
+      // Filter results based on selected filter
+      let filteredResults = results;
+      if (selectedFilter !== 'all') {
+        // Filter by asset type based on the selected filter
+        filteredResults = results.filter(result => {
+          const assetType = watchlistApiService.determineAssetType(result.symbol, result.exchange || '');
+          
+          switch (selectedFilter) {
+            case 'stocks':
+              return assetType === 'stock';
+            case 'crypto':
+              return assetType === 'crypto';
+            case 'forex':
+              return assetType === 'forex';
+            default:
+              return true;
+          }
+        });
+      }
+
+      setApiSearchResults(filteredResults);
+      console.log('✅ Search results:', filteredResults.length, 'items');
+      
+    } catch (error) {
+      console.error('❌ Search error:', error);
+      setApiSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [selectedFilter]);
+
+  // Debounce search
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      performApiSearch(localSearchQuery);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [localSearchQuery, performApiSearch]);
+
+  // Use API search results when available, fallback to local search
+  const searchResults = useMemo((): SearchResult[] => {
+    // If we have searched via API, use API results
+    if (hasSearched) {
+      return apiSearchResults;
+    }
+
+    // Fallback to local search for immediate feedback - convert AssetItem to SearchResult
     let assets = filteredAssets;
 
     // Filter by market type if not 'all'
     if (selectedFilter !== 'all') {
-      // Since we don't have type field in AssetItem, we'll use the current market type
       assets = watchlistState.marketType === selectedFilter ? assets : [];
     }
 
@@ -84,8 +146,13 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
       );
     }
 
-    return assets;
-  }, [filteredAssets, selectedFilter, localSearchQuery, watchlistState.marketType]);
+    // Convert AssetItem to SearchResult for local fallback
+    return assets.map(asset => ({
+      ...asset,
+      isInWatchlist: watchlistState.watchlistItems.includes(asset.symbol),
+      canAdd: !watchlistState.watchlistItems.includes(asset.symbol)
+    }));
+  }, [filteredAssets, selectedFilter, localSearchQuery, watchlistState.marketType, watchlistState.watchlistItems, hasSearched, apiSearchResults]);
 
   const handleSearch = useCallback((query: string) => {
     setLocalSearchQuery(query);
@@ -97,26 +164,30 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     if (filterValue !== 'all') {
       setMarketType(filterValue);
     }
-  }, [setMarketType]);
+    // Re-trigger search with new filter
+    if (localSearchQuery.trim()) {
+      performApiSearch(localSearchQuery);
+    }
+  }, [setMarketType, localSearchQuery, performApiSearch]);
 
   const handleRecentSearch = useCallback((query: string) => {
     handleSearch(query);
     searchInputRef.current?.focus();
   }, [handleSearch]);
 
-  const handleAddToWatchlist = useCallback((item: AssetItem) => {
-    addToWatchlist(item.symbol);
+  const handleAddToWatchlist = useCallback((item: SearchResult) => {
+    if (item.canAdd) {
+      addToWatchlist(item.symbol);
+    }
   }, [addToWatchlist]);
 
   const handleClearSearch = useCallback(() => {
     setLocalSearchQuery('');
     setSearchQuery('');
+    setApiSearchResults([]);
+    setHasSearched(false);
     searchInputRef.current?.focus();
   }, [setSearchQuery]);
-
-  const isInWatchlist = useCallback((symbol: string) => {
-    return watchlistState.watchlistItems.includes(symbol);
-  }, [watchlistState.watchlistItems]);
 
   const renderFilterChip = useCallback(({ item }: { item: FilterOption }) => {
     const isSelected = selectedFilter === item.value;
@@ -150,14 +221,15 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     );
   }, [selectedFilter, theme.colors, handleFilterSelect]);
 
-  const renderSearchResult = useCallback(({ item }: { item: AssetItem }) => {
-    const isAdded = isInWatchlist(item.symbol);
+  const renderSearchResult = useCallback(({ item }: { item: SearchResult }) => {
+    const isInWatchlist = item.isInWatchlist;
+    const canAdd = item.canAdd;
     
     return (
       <Pressable
         style={[styles.searchResultItem, { backgroundColor: theme.colors.card }]}
         android_ripple={{ color: theme.colors.primary + '10' }}
-        onPress={() => !isAdded && handleAddToWatchlist(item)}
+        onPress={() => canAdd && handleAddToWatchlist(item)}
       >
         <View style={styles.resultInfo}>
           <Text variant="body" weight="semibold" color="text">
@@ -177,35 +249,68 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
                 variant="caption"
                 color="textSecondary"
               >
-                {watchlistState.marketType.toUpperCase()}
+                {item.exchange || 'N/A'}
               </Text>
             </View>
+            {isInWatchlist && (
+              <View
+                style={[
+                  styles.watchlistTag,
+                  { backgroundColor: theme.colors.success + '20' }
+                ]}
+              >
+                <Text
+                  variant="caption"
+                  color="success"
+                >
+                  In Watchlist
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
         <View style={styles.resultActions}>
-          <Text variant="body" weight="semibold" color="text">
-            ${item.price.toFixed(watchlistState.marketType === 'crypto' ? 4 : 2)}
-          </Text>
-          <Pressable
-            style={[
-              styles.addButton,
-              {
-                backgroundColor: isAdded ? theme.colors.success : theme.colors.primary,
-              },
-            ]}
-            onPress={() => !isAdded && handleAddToWatchlist(item)}
-          >
-            <Ionicons
-              name={isAdded ? 'checkmark' : 'add'}
-              size={16}
-              color="#FFFFFF"
-            />
-          </Pressable>
+          {item.price > 0 && (
+            <Text variant="body" weight="semibold" color="text">
+              ${item.price.toFixed(item.exchange === 'CRYPTO' ? 4 : 2)}
+            </Text>
+          )}
+          {canAdd ? (
+            <Pressable
+              style={[
+                styles.addButton,
+                { backgroundColor: theme.colors.primary }
+              ]}
+              onPress={() => handleAddToWatchlist(item)}
+            >
+              <Ionicons
+                name="add"
+                size={16}
+                color="#FFFFFF"
+              />
+            </Pressable>
+          ) : (
+            <View
+              style={[
+                styles.addButton,
+                { 
+                  backgroundColor: theme.colors.success,
+                  opacity: 0.7
+                }
+              ]}
+            >
+              <Ionicons
+                name="checkmark"
+                size={16}
+                color="#FFFFFF"
+              />
+            </View>
+          )}
         </View>
       </Pressable>
     );
-  }, [theme.colors, isInWatchlist, handleAddToWatchlist, watchlistState.marketType]);
+  }, [theme.colors, handleAddToWatchlist]);
 
   const renderRecentSearch = useCallback(({ item }: { item: string }) => (
     <Pressable
@@ -236,12 +341,27 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
           returnKeyType="search"
           onSubmitEditing={() => Keyboard.dismiss()}
         />
-        {localSearchQuery.length > 0 && (
+        {isSearching && (
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        )}
+        {localSearchQuery.length > 0 && !isSearching && (
           <Pressable onPress={handleClearSearch} style={styles.clearButton}>
             <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
           </Pressable>
         )}
       </View>
+
+      {/* Search Status */}
+      {hasSearched && !isSearching && (
+        <View style={styles.searchStatus}>
+          <Text variant="caption" color="textSecondary">
+            {apiSearchResults.length > 0 
+              ? `Found ${apiSearchResults.length} result${apiSearchResults.length === 1 ? '' : 's'} for "${localSearchQuery}"`
+              : `No results found for "${localSearchQuery}"`
+            }
+          </Text>
+        </View>
+      )}
 
       {/* Filter Chips */}
       <View style={styles.filtersSection}>
@@ -272,6 +392,11 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
               </Text>
             )}
           </Text>
+          {isSearching && (
+            <Text variant="caption" color="textSecondary">
+              Searching...
+            </Text>
+          )}
         </View>
       )}
     </View>
@@ -282,56 +407,68 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     handleClearSearch,
     renderFilterChip,
     searchResults.length,
+    hasSearched,
+    isSearching,
+    apiSearchResults.length,
   ]);
 
-  const ListEmptyComponent = useMemo(() => {
-    if (localSearchQuery.length > 0) {
+  const EmptyComponent = useMemo(() => {
+    if (localSearchQuery.length === 0) {
+      // Show recent searches when no query
+      return (
+        <FlatList
+          data={recentSearches}
+          renderItem={renderRecentSearch}
+          keyExtractor={(item) => item}
+          contentContainerStyle={styles.recentSearchesContainer}
+        />
+      );
+    }
+
+    if (isSearching) {
+      // Show loading when searching
       return (
         <View style={styles.emptyState}>
-          <Ionicons name="search" size={48} color={theme.colors.textSecondary} />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text variant="body" color="textSecondary" style={styles.emptyStateText}>
-            No results found for "{localSearchQuery}"
-          </Text>
-          <Text variant="body" color="textSecondary">
-            Try adjusting your search or filters
+            Searching for "{localSearchQuery}"...
           </Text>
         </View>
       );
     }
 
-    return null;
-  }, [localSearchQuery, theme.colors.textSecondary]);
+    // Show no results message
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="search" size={48} color={theme.colors.textSecondary} />
+        <Text variant="body" color="textSecondary" style={styles.emptyStateText}>
+          No results found for "{localSearchQuery}"
+        </Text>
+        <Text variant="caption" color="textSecondary" style={styles.emptyStateSubtext}>
+          Try different keywords or check spelling
+        </Text>
+      </View>
+    );
+  }, [localSearchQuery, recentSearches, renderRecentSearch, isSearching, theme.colors]);
 
   return (
     <SlidingPage
       visible={visible}
-      title="Search Assets"
       onClose={onClose}
-      showBackButton={true}
+      title="Search Assets"
     >
-      <FlatList
-        data={localSearchQuery.length === 0 ? recentSearches : searchResults}
-        renderItem={({ item }: { item: any }) => {
-          if (typeof item === 'string') {
-            return renderRecentSearch({ item });
-          } else {
-            return renderSearchResult({ item });
-          }
-        }}
-        keyExtractor={(item, index) => 
-          typeof item === 'string' ? `recent-${item}` : `result-${item.symbol}-${index}`
-        }
-        ListHeaderComponent={ListHeaderComponent}
-        ListEmptyComponent={ListEmptyComponent}
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        removeClippedSubviews={true}
-        getItemLayout={undefined} // Let FlatList handle dynamic heights
-      />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <FlatList
+          data={localSearchQuery.length > 0 ? searchResults : []}
+          renderItem={renderSearchResult}
+          keyExtractor={(item) => `${item.symbol}-${item.exchange}`}
+          ListHeaderComponent={ListHeaderComponent}
+          ListEmptyComponent={EmptyComponent}
+          contentContainerStyle={styles.flatListContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        />
+      </View>
     </SlidingPage>
   );
 });
@@ -339,14 +476,20 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
 SearchPage.displayName = 'SearchPage';
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  flatListContent: {
+    flexGrow: 1,
+  },
   listHeader: {
-    paddingBottom: 8,
+    paddingBottom: 16,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 8,
+    marginHorizontal: 20,
+    marginTop: 16,
     marginBottom: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -356,44 +499,41 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    lineHeight: 20,
+    padding: 0,
   },
   clearButton: {
     padding: 4,
+  },
+  searchStatus: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   filtersSection: {
     marginBottom: 16,
   },
   filtersContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     gap: 8,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     gap: 6,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  listContent: {
-    flexGrow: 1,
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   searchResultItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: 16,
-    marginVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 1,
   },
   resultInfo: {
     flex: 1,
@@ -402,33 +542,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
+    gap: 8,
   },
   typeTag: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
-    fontSize: 10,
-    fontWeight: '500',
+  },
+  watchlistTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   resultActions: {
     alignItems: 'flex-end',
     gap: 8,
   },
   addButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  recentSearchesContainer: {
+    paddingHorizontal: 20,
   },
   recentSearchItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginHorizontal: 16,
-    marginVertical: 2,
     borderRadius: 8,
+    marginBottom: 8,
     gap: 12,
   },
   recentSearchText: {
@@ -438,10 +584,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 48,
-    gap: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 60,
+    gap: 16,
   },
   emptyStateText: {
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
     textAlign: 'center',
   },
 });

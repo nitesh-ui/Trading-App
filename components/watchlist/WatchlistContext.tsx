@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import { binanceService, CryptoPair } from '../../services/binanceService';
 import { ForexPair, forexService } from '../../services/forexService';
 import { IndianStock, indianStockService } from '../../services/indianStockService';
+import { watchlistApiService } from '../../services/watchlistApiService';
 import { AssetItem, MarketType, StockExchangeFilter, TradeState, WatchlistState } from './types';
 
 // Action types
@@ -138,10 +139,38 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [forexPairs, setForexPairs] = React.useState<ForexPair[]>([]);
   const [cryptoPairs, setCryptoPairs] = React.useState<CryptoPair[]>([]);
   const [selectedAssetForDetails, setSelectedAssetForDetails] = React.useState<AssetItem | null>(null);
+  
+  // API-based data state
+  const [apiAssets, setApiAssets] = useState<AssetItem[]>([]);
+  const [isLoadingApiData, setIsLoadingApiData] = useState(false);
 
-  // Subscribe to data services
+  // Load API data function
+  const loadApiData = useCallback(async () => {
+    try {
+      setIsLoadingApiData(true);
+      watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: true });
+      
+      console.log('🔄 Loading watchlist data from API...');
+      const assets = await watchlistApiService.fetchWatchlistData();
+      
+      setApiAssets(assets);
+      console.log('✅ API watchlist data loaded:', assets.length, 'assets');
+      
+    } catch (error) {
+      console.error('❌ Error loading API data:', error);
+      // Fallback to existing mock data
+    } finally {
+      setIsLoadingApiData(false);
+      watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: false });
+    }
+  }, []);
+
+  // Subscribe to data services and load API data
   useEffect(() => {
-    // Stocks
+    // Load API data on mount
+    loadApiData();
+
+    // Stocks (fallback)
     const stocksUnsubscribe = indianStockService.subscribe((updatedStocks) => {
       setStocks(updatedStocks);
     });
@@ -176,8 +205,28 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, []);
 
-  // Memoized computed values
+  // Memoized computed values - prioritize API data when available
   const filteredAssets = useMemo((): AssetItem[] => {
+    // If we have API data, use categorized assets from it
+    if (apiAssets.length > 0) {
+      const categorized = watchlistApiService.categorizeAssets(apiAssets);
+      
+      switch (watchlistState.marketType) {
+        case 'stocks':
+          return categorized.stocks.filter(stock => 
+            watchlistState.exchangeFilter === 'All' || 
+            stock.exchange === watchlistState.exchangeFilter
+          );
+        case 'forex':
+          return categorized.forex;
+        case 'crypto':
+          return categorized.crypto;
+        default:
+          return categorized.stocks;
+      }
+    }
+
+    // Fallback to existing mock data services
     let assets: AssetItem[] = [];
 
     switch (watchlistState.marketType) {
@@ -230,7 +279,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     return assets;
-  }, [watchlistState.marketType, watchlistState.exchangeFilter, stocks, forexPairs, cryptoPairs]);
+  }, [watchlistState.marketType, watchlistState.exchangeFilter, stocks, forexPairs, cryptoPairs, apiAssets]);
 
   const searchResults = useMemo((): AssetItem[] => {
     if (!watchlistState.searchQuery.trim()) return [];
@@ -292,14 +341,17 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const refreshData = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Trigger refresh for all services
+      // Reload API data
+      await loadApiData();
+      
+      // Trigger refresh for mock services as well (fallback)
       await Promise.all([
-        new Promise(resolve => setTimeout(resolve, 1000)), // Simulate API delay
+        new Promise(resolve => setTimeout(resolve, 500)), // Simulate API delay
       ]);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [loadApiData]);
 
   const contextValue = useMemo<WatchlistContextType>(() => ({
     // State
