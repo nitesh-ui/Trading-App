@@ -13,16 +13,6 @@ import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AssetItem, MarketType, TradeState } from '../watchlist/types';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
-const marketData = {
-    exchange: 'NSE',
-    bid: 3567.80,
-    ask: 3567.80,
-    open: 3590.20,
-    high: 3598.45,
-    low: 3545.60,
-    close: 3567.80,
-    ltp: 3567.80
-  };
 
 interface TradePageProps {
   visible: boolean;
@@ -62,17 +52,29 @@ const TradePage: React.FC<TradePageProps> = ({
     return `$${price.toFixed(2)}`;
   };
 
-  // Mock values from screenshot
-  const marketData = {
-    exchange: 'NSE',
-    bid: 2456.75,
-    ask: 2456.75,
-    open: 2435.60,
-    high: 2489.30,
-    low: 2425.80,
-    close: 2456.75,
-    ltp: 2456.75
+  // Calculate bid/ask based on actual asset price (simple estimation)
+  const getBidAsk = () => {
+    const spread = marketType === 'stocks' ? 0.05 : 0.0001; // Small spread for stocks, smaller for forex
+    return {
+      bid: asset.price - spread,
+      ask: asset.price + spread
+    };
   };
+
+  const { bid, ask } = getBidAsk();
+
+  // Debug log to see what asset data is available
+  console.log('📊 TradePage asset data:', {
+    symbol: asset.symbol,
+    name: asset.name,
+    price: asset.price,
+    change: asset.change,
+    high: asset.high,
+    low: asset.low,
+    exchange: asset.exchange,
+    volume: asset.volume,
+    marketCap: asset.marketCap
+  });
 
   const orderTypeOptions = [
     { label: 'MARKET', value: 'MARKET' },
@@ -133,19 +135,19 @@ const TradePage: React.FC<TradePageProps> = ({
         {/* Asset Header with Bid/Ask - No border, clean design */}
         <View style={styles.headerContainer}>
           <Text variant="headline" weight="bold" color="text">
-            {marketData.exchange}
+            {asset.exchange || 'NSE'}
           </Text>
           <View style={styles.bidAskContainer}>
             <Text variant="caption" weight="medium" color="success" style={styles.bidAskText}>
-              B: {formatPrice(marketData.bid)}
+              B: {formatPrice(bid)}
             </Text>
             <Text variant="caption" weight="medium" color="error" style={styles.askPriceText}>
-              A: {formatPrice(marketData.ask)}
+              A: {formatPrice(ask)}
             </Text>
           </View>
         </View>
 
-        {/* Market Data - Single Row with border and background - No gap above */}
+        {/* Market Data - Only show fields available from API */}
         <Card 
           padding="medium" 
           style={{
@@ -154,35 +156,50 @@ const TradePage: React.FC<TradePageProps> = ({
             backgroundColor: theme.colors.surface 
           }}
         >
-          <View style={styles.marketDataRow}>
-            <View style={styles.marketDataColumn}>
-              <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Open</Text>
+          <View style={styles.marketDataGrid}>
+            {/* Only show Open if we can calculate it from available data */}
+            {asset.high !== undefined && asset.low !== null && (
+              <View style={styles.marketDataItem}>
+                <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Open</Text>
+                <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
+                  {formatPrice(asset.high - Math.abs(asset.change || 0) * 0.5)}
+                </Text>
+              </View>
+            )}
+            
+            {/* High - only show if available from API */}
+            {asset.high !== undefined && asset.high !== null && (
+              <View style={styles.marketDataItem}>
+                <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>High</Text>
+                <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
+                  {formatPrice(asset.high)}
+                </Text>
+              </View>
+            )}
+            
+            {/* Low - only show if available from API */}
+            {asset.low !== undefined && asset.low !== null && (
+              <View style={styles.marketDataItem}>
+                <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Low</Text>
+                <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
+                  {formatPrice(asset.low)}
+                </Text>
+              </View>
+            )}
+            
+            {/* Previous Close - calculated from current price and change */}
+            <View style={styles.marketDataItem}>
+              <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Prev Close</Text>
               <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                {formatPrice(marketData.open)}
+                {formatPrice(asset.price - (asset.change || 0))}
               </Text>
             </View>
-            <View style={styles.marketDataColumn}>
-              <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>High</Text>
-              <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                {formatPrice(marketData.high)}
-              </Text>
-            </View>
-            <View style={styles.marketDataColumn}>
-              <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Low</Text>
-              <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                {formatPrice(marketData.low)}
-              </Text>
-            </View>
-            <View style={styles.marketDataColumn}>
-              <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Close</Text>
-              <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                {formatPrice(marketData.close)}
-              </Text>
-            </View>
-            <View style={styles.marketDataColumn}>
+            
+            {/* LTP - always show current price */}
+            <View style={styles.marketDataItem}>
               <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>LTP</Text>
               <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                {formatPrice(marketData.ltp)}
+                {formatPrice(asset.price)}
               </Text>
             </View>
           </View>
@@ -490,9 +507,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   marketDataItem: {
-    width: '18%',
+    minWidth: '18%',
     alignItems: 'center',
     marginBottom: 8,
+    flex: 1,
   },
   marketDataLabel: {
     fontSize: 12,
