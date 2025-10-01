@@ -3,6 +3,50 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = 'https://tradingapi.sanaitatechnologies.com';
 
+export interface NotificationCountResponse {
+  message: string;
+  data: number;
+}
+
+export interface NotificationResponse {
+  message: string;
+  data: Array<{
+    id: number;
+    userID: number;
+    description: string;
+    type: number;
+    seen: number;
+    createdDate: string;
+    createdDateString: string;
+    email: string;
+    source: string;
+    userip: string;
+    total_Page: number;
+    fullname: string;
+    username: string;
+    location: string;
+    deviceName: string;
+  }>;
+}
+
+export interface NotificationItem {
+  id: number;
+  userID: number;
+  description: string;
+  type: number;
+  seen: number;
+  createdDate: string;
+  createdDateString: string;
+  email: string;
+  source: string;
+  userip: string;
+  total_Page: number;
+  fullname: string;
+  username: string;
+  location: string;
+  deviceName: string;
+}
+
 export interface LoginRequest {
   emailOrUsername: string;
   password: string;
@@ -150,6 +194,24 @@ export interface GetActiveTradesResponse {
   data: ActiveTradeItem[];
 }
 
+export interface WalletBalanceResponse {
+  message: string;
+  data: {
+    id: number;
+    activeTradeID: number;
+    email: string;
+    userID: number;
+    amount: string;
+    availablebalance: number;
+    usedbalance: number;
+    totalprofitloss: number;
+    currency: string;
+    description: string;
+    timestamp: Date;
+    status: 'completed' | 'pending' | 'failed';
+  }
+}
+
 class TradingApiService {
   private static instance: TradingApiService;
 
@@ -158,6 +220,118 @@ class TradingApiService {
       TradingApiService.instance = new TradingApiService();
     }
     return TradingApiService.instance;
+  }
+
+  /**
+   * Get total notification count
+   * @returns A promise that resolves to the total notification count
+   * @throws Error if no session token is found or the request fails
+   */
+  async getTotalNotificationCount(): Promise<NotificationCountResponse> {
+    console.log('🔄 Fetching notification count...');
+    const sessionToken = await AsyncStorage.getItem('@trading_app_token');
+    if (!sessionToken) {
+      console.error('❌ No session token found in AsyncStorage');
+      throw new Error('No session token found. Please log in again.');
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/NotificationApi/GetTotalNotificationCount`, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.message || 
+          `Failed to fetch notification count: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data: NotificationCountResponse = await response.json();
+      console.log('✅ Notification count fetched successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error fetching notification count:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all notifications with pagination
+   * @param page The page number to fetch (1-based)
+   * @returns A promise that resolves to the paginated notifications
+   * @throws Error if no session token is found or the request fails
+   */
+  async getNotifications(page: number = 1): Promise<NotificationResponse> {
+    console.log(`🔄 Fetching notifications for page ${page}...`);
+    const sessionToken = await AsyncStorage.getItem('@trading_app_token');
+    if (!sessionToken) {
+      console.error('❌ No session token found in AsyncStorage');
+      throw new Error('No session token found. Please log in again.');
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/NotificationApi/GetNotification?PageNumber=${page}`, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.message || 
+          `Failed to fetch notifications: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data: NotificationResponse = await response.json();
+      console.log(`✅ Notifications fetched successfully for page ${page}:`, data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error fetching notifications:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's wallet balance and details
+   */
+  async getWalletBalance(): Promise<WalletBalanceResponse> {
+    try {
+      const authToken = await AsyncStorage.getItem('sessionToken');
+      if (!authToken) {
+        throw new Error('Authentication token not found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/UserWalletApi/GetBalance`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch wallet balance: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data as WalletBalanceResponse;
+
+    } catch (error) {
+      console.error('❌ Error fetching wallet balance:', error);
+      throw error;
+    }
   }
 
   /**

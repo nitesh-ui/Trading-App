@@ -10,17 +10,27 @@ import { Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import SlidingPage from './SlidingPage';
+import { tradingApiService } from '../../services/tradingApiService';
+import { format, isToday } from 'date-fns';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  type: 'trade_booked' | 'trade_squared' | 'order_placed';
-  timestamp: string;
-  date: string;
-  isRead?: boolean;
+  id: number;
+  userID: number;
+  description: string;
+  type: number;
+  seen: number;
+  createdDate: string;
+  createdDateString: string;
+  email: string;
+  source: string;
+  userip: string;
+  total_Page: number;
+  fullname: string;
+  username: string;
+  location: string;
+  deviceName: string;
 }
 
 interface NotificationsPageProps {
@@ -28,106 +38,38 @@ interface NotificationsPageProps {
   onClose: () => void;
 }
 
-// Sample notification data based on the screenshot
-const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: '1',
-    title: 'Trade Square Off Manually',
-    message: 'Trade 54021 is completed on NIFTY25SEP25000CE Buy And Username= DC199797U',
-    type: 'trade_squared',
-    timestamp: '10:59 AM',
-    date: '25 Sep 25',
-    isRead: false,
-  },
-  {
-    id: '2',
-    title: 'Trade Square Off Manually',
-    message: 'Trade 54150 is completed on NIFTY25SEP25100CE Buy And Username= DC199797U',
-    type: 'trade_squared',
-    timestamp: '10:59 AM',
-    date: '25 Sep 25',
-    isRead: false,
-  },
-  {
-    id: '3',
-    title: 'Trade Booked Manually',
-    message: 'NIFTY25SEP25100CE Buy with Qty 1. order placed Successfully @73.75',
-    type: 'trade_booked',
-    timestamp: '10:59 AM',
-    date: '25 Sep 25',
-    isRead: false,
-  },
-  {
-    id: '4',
-    title: 'Trade Square Off Manually',
-    message: 'Trade 54130 is completed on SILVER25DECFUT Buy And Username= DC199797U',
-    type: 'trade_squared',
-    timestamp: '16:28 PM',
-    date: '24 Sep 25',
-    isRead: true,
-  },
-  {
-    id: '5',
-    title: 'Trade Booked Manually',
-    message: 'SILVER25DECFUT Buy with Qty 5. order placed Successfully @133959.00',
-    type: 'trade_booked',
-    timestamp: '16:28 PM',
-    date: '24 Sep 25',
-    isRead: true,
-  },
-  {
-    id: '6',
-    title: 'Trade Square Off Manually',
-    message: 'Trade 54119 is completed on SILVER25DECFUT Buy And Username= DC199797U',
-    type: 'trade_squared',
-    timestamp: '16:17 PM',
-    date: '24 Sep 25',
-    isRead: true,
-  },
-  {
-    id: '7',
-    title: 'Trade Booked Manually',
-    message: 'SILVER25DECFUT Buy with Qty 1. order placed Successfully @134276.00',
-    type: 'trade_booked',
-    timestamp: '16:17 PM',
-    date: '24 Sep 25',
-    isRead: true,
-  },
-  {
-    id: '8',
-    title: 'Trade Booked Manually',
-    message: 'NIFTY25SEP25000CE Buy with Qty 1. order placed Successfully @204.55',
-    type: 'trade_booked',
-    timestamp: '10:08 AM',
-    date: '24 Sep 25',
-    isRead: true,
-  },
-  {
-    id: '9',
-    title: 'Trade Square Off Manually',
-    message: 'Trade 54020 is completed on TATAPOWER Buy And Username= DC199797U',
-    type: 'trade_squared',
-    timestamp: '10:07 AM',
-    date: '24 Sep 25',
-    isRead: true,
-  },
-  {
-    id: '10',
-    title: 'Trade Booked Manually',
-    message: 'TATAPOWER Buy with Qty 1. order placed Successfully @394.45',
-    type: 'trade_booked',
-    timestamp: '10:07 AM',
-    date: '24 Sep 25',
-    isRead: true,
-  },
-];
-
 const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) => {
   const { theme } = useTheme();
-  const [currentPage, setCurrentPage] = useState(0);
-  const [notifications] = useState(SAMPLE_NOTIFICATIONS);
+  const [currentPage, setCurrentPage] = useState(1); // API uses 1-based pagination
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'today'>('all');
+
+  // Fetch notifications when page changes
+  useEffect(() => {
+    async function fetchNotifications() {
+      if (!visible) return;
+      
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await tradingApiService.getNotifications(currentPage);
+        setNotifications(response.data);
+        if (response.data.length > 0) {
+          setTotalPages(response.data[0].total_Page);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
+        console.error('Failed to fetch notifications:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchNotifications();
+  }, [currentPage, visible]);
 
   // Simulate loading for fast opening
   useEffect(() => {
@@ -143,63 +85,63 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
 
   const itemsPerPage = 10;
   
-  // Filter notifications based on active filter
+  // Filter notifications based on active filter and format dates
   const filteredNotifications = useMemo(() => {
+    let filtered = notifications;
     switch (activeFilter) {
       case 'unread':
-        return notifications.filter(n => !n.isRead);
+        filtered = notifications.filter(n => n.seen === 0);
+        break;
       case 'today':
-        return notifications.filter(n => n.date === '25 Sep 25');
+        filtered = notifications.filter(n => {
+          const notificationDate = new Date(n.createdDate);
+          return isToday(notificationDate);
+        });
+        break;
       case 'all':
       default:
-        return notifications;
+        filtered = notifications;
+        break;
     }
+    return filtered;
   }, [notifications, activeFilter]);
-  
-  const totalPages = Math.ceil(filteredNotifications.length / itemsPerPage);
-
-  // Get current page notifications from filtered results
-  const currentNotifications = useMemo(() => {
-    const startIndex = currentPage * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return filteredNotifications.slice(startIndex, endIndex);
-  }, [filteredNotifications, currentPage]);
 
   const handlePreviousPage = useCallback(() => {
-    setCurrentPage(prev => Math.max(0, prev - 1));
+    setCurrentPage(prev => Math.max(1, prev - 1));
   }, []);
 
   const handleNextPage = useCallback(() => {
-    setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+    setCurrentPage(prev => Math.min(totalPages, prev + 1));
   }, [totalPages]);
 
   const handleFilterChange = useCallback((filter: 'all' | 'unread' | 'today') => {
     setActiveFilter(filter);
-    setCurrentPage(0); // Reset to first page when filter changes
+    setCurrentPage(1); // Reset to first page when filter changes
   }, []);
 
-  const getNotificationIcon = useCallback((type: string) => {
+  const getNotificationIcon = useCallback((type: number) => {
+    // Map notification types to icons based on type number
     switch (type) {
-      case 'trade_booked':
+      case 1: // Trade booked
         return 'checkmark-circle';
-      case 'trade_squared':
+      case 2: // Trade squared off
         return 'square';
-      case 'order_placed':
+      case 3: // Order placed
         return 'add-circle';
       default:
         return 'notifications';
     }
   }, []);
 
-  const getNotificationColor = useCallback((type: string, isRead: boolean) => {
-    if (isRead) return theme.colors.textSecondary;
+  const getNotificationColor = useCallback((type: number, seen: number) => {
+    if (seen === 1) return theme.colors.textSecondary;
     
     switch (type) {
-      case 'trade_booked':
+      case 1: // Trade booked
         return theme.colors.success;
-      case 'trade_squared':
+      case 2: // Trade squared off
         return theme.colors.warning;
-      case 'order_placed':
+      case 3: // Order placed
         return theme.colors.info;
       default:
         return theme.colors.primary;
@@ -241,8 +183,8 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
       style={[
         styles.notificationItem,
         {
-          backgroundColor: item.isRead ? theme.colors.surface : theme.colors.card,
-          borderLeftColor: getNotificationColor(item.type, item.isRead || false),
+          backgroundColor: item.seen === 1 ? theme.colors.surface : theme.colors.card,
+          borderLeftColor: getNotificationColor(item.type, item.seen),
         },
       ]}
       android_ripple={{ color: theme.colors.primary + '10' }}
@@ -252,22 +194,22 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: getNotificationColor(item.type, item.isRead || false) + '20' },
+              { backgroundColor: getNotificationColor(item.type, item.seen) + '20' },
             ]}
           >
             <Ionicons
-              name={getNotificationIcon(item.type) as any}
+              name={getNotificationIcon(item.type)}
               size={20}
-              color={getNotificationColor(item.type, item.isRead || false)}
+              color={getNotificationColor(item.type, item.seen)}
             />
           </View>
           <View style={styles.notificationContent}>
             <Text
               variant="body"
-              weight={item.isRead ? 'medium' : 'semibold'}
-              color={item.isRead ? 'textSecondary' : 'text'}
+              weight={item.seen === 1 ? 'medium' : 'semibold'}
+              color={item.seen === 1 ? 'textSecondary' : 'text'}
             >
-              {item.title}
+              {item.username}
             </Text>
             <Text
               variant="caption"
@@ -275,18 +217,18 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
               style={styles.notificationMessage}
               numberOfLines={2}
             >
-              {item.message}
+              {item.description}
             </Text>
           </View>
         </View>
         <View style={styles.notificationMeta}>
           <Text variant="caption" color="textSecondary">
-            {item.date}
+            {format(new Date(item.createdDate), 'dd MMM yy')}
           </Text>
           <Text variant="caption" color="textSecondary">
-            {item.timestamp}
+            {format(new Date(item.createdDate), 'HH:mm')}
           </Text>
-          {!item.isRead && (
+          {item.seen === 0 && (
             <View style={[styles.unreadDot, { backgroundColor: theme.colors.primary }]} />
           )}
         </View>
@@ -332,7 +274,7 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
             Unread
           </Text>
           <Text variant="title" weight="bold" color="warning">
-            {notifications.filter(n => !n.isRead).length}
+            {notifications.filter(n => n.seen === 0).length}
           </Text>
         </Pressable>
         <Pressable
@@ -351,7 +293,7 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
             Today
           </Text>
           <Text variant="title" weight="bold" color="success">
-            {notifications.filter(n => n.date === '25 Sep 25').length}
+            {notifications.filter(n => isToday(new Date(n.createdDate))).length}
           </Text>
         </Pressable>
       </View>
@@ -386,7 +328,7 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
 
         <View style={styles.pageIndicator}>
           <Text variant="body" color="text" weight="medium">
-            Page {currentPage + 1} of {totalPages}
+            Page {currentPage} of {totalPages}
           </Text>
         </View>
 
@@ -447,11 +389,21 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
+      ) : error ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
+          <Text variant="body" color="error" style={styles.emptyStateText}>
+            {error}
+          </Text>
+          <Text variant="caption" color="textSecondary">
+            Please try again later
+          </Text>
+        </View>
       ) : (
         <FlatList
-          data={currentNotifications}
+          data={filteredNotifications}
           renderItem={renderNotificationItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={ListHeaderComponent}
           ListEmptyComponent={ListEmptyComponent}
           contentContainerStyle={styles.listContent}
@@ -460,6 +412,8 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
           maxToRenderPerBatch={10}
           windowSize={10}
           removeClippedSubviews={true}
+          refreshing={isLoading}
+          onRefresh={() => setCurrentPage(1)}
         />
       )}
     </SlidingPage>
