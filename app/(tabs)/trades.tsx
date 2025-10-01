@@ -477,7 +477,18 @@ const styles = StyleSheet.create({
   tradeCard: {
     marginBottom: 8,
     marginHorizontal: 0, // Remove horizontal margin to match other cards
-    padding: 12
+    padding: 12,
+    // iOS shadow
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    // Android shadow
+    elevation: 3,
+    borderRadius: 12, // Adding border radius for better shadow appearance
   },
   tradeHeader: {
     flexDirection: 'row',

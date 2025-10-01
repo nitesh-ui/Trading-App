@@ -415,6 +415,13 @@ const createStyles = (theme: any) =>
     transactionCard: {
       marginBottom: 12,
       marginHorizontal: 0, // Remove horizontal margin to match other cards
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
     },
     transactionHeader: {
       flexDirection: 'row',
