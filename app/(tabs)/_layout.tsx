@@ -29,7 +29,7 @@ export default function TabLayout() {
           fontWeight: '500',
         },
       }}>
-      
+
       {/* Watchlist - Main landing page */}
       <Tabs.Screen
         name="index"

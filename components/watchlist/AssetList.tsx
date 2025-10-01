@@ -27,7 +27,7 @@ const AssetList = memo<AssetListProps>(({
 }) => {
   const renderAssetCard = useCallback((item: AssetItem) => {
     const commonProps = {
-      key: item.symbol,
+      theme: theme, // Pass theme prop to cards
       onPress: () => onAssetPress(item),
       onBuyPress: () => onTradePress(item, 'buy'),
       onSellPress: () => onTradePress(item, 'sell'),
@@ -56,9 +56,11 @@ const AssetList = memo<AssetListProps>(({
       default:
         return null;
     }
-  }, [marketType, onAssetPress, onTradePress, onRemovePress]);
+  }, [marketType, onAssetPress, onTradePress, onRemovePress, theme]);
 
   const keyExtractor = useCallback((item: AssetItem) => `${item.symbol}-${item.exchange}`, []);
+
+  const renderSeparator = useCallback(() => <View style={styles.separator} />, []);
 
   if (data.length === 0) {
     return (
@@ -78,6 +80,7 @@ const AssetList = memo<AssetListProps>(({
       data={data}
       renderItem={({ item }) => renderAssetCard(item)}
       keyExtractor={keyExtractor}
+      ItemSeparatorComponent={renderSeparator}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
@@ -87,11 +90,6 @@ const AssetList = memo<AssetListProps>(({
       maxToRenderPerBatch={5}
       windowSize={10}
       removeClippedSubviews={true}
-      getItemLayout={(data, index) => ({
-        length: 80,
-        offset: 80 * index,
-        index,
-      })}
     />
   );
 });
@@ -101,8 +99,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 16,
     paddingBottom: 20,
+  },
+  separator: {
+    height: 12,
   },
   emptyContainer: {
     flex: 1,

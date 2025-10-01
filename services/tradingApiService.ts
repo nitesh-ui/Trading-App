@@ -1,4 +1,6 @@
 // API service for authentication and trading
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const API_BASE_URL = 'https://tradingapi.sanaitatechnologies.com';
 
 export interface LoginRequest {
@@ -34,13 +36,20 @@ export interface LoginResponse {
   success: boolean;
   message?: string;
   data?: {
-    token?: string;
-    user?: {
-      id: string;
-      name: string;
-      email: string;
+    sessionValidity?: string;
+    sessionToken?: string;
+    loggedInUser?: {
       username: string;
+      email: string;
+      tenantId: number;
+      fullname: string;
+      mobileno: string;
+      sponsorid: string;
     };
+    loggedInWatchlistAccess?: Array<{
+      scriptExchange: string;
+      id: number;
+    }>;
   };
   error?: string;
 }
@@ -77,6 +86,68 @@ export interface UpdatePasswordResponse {
   data?: any;
   error?: string;
   success?: boolean;
+}
+
+export interface ProceedBuySellRequest {
+  intWID: number;
+  scriptCode: number;
+  currentPosition: string;
+  quantity: string;
+  price: string;
+  triggerPrice: string;
+  productType: string;
+  marketType: string;
+  tradeID: string;
+  status: string;
+  target: string;
+  stopLoss: string;
+  tradinG_UNIT: number;
+}
+
+export interface ProceedBuySellResponse {
+  message?: string;
+  data?: any;
+  error?: string;
+  success?: boolean;
+}
+
+export interface ActiveTradeItem {
+  activeTradeID: number;
+  status: string;
+  profitorloss: number;
+  tradeSymbol: string;
+  scriptInstrumentType: string;
+  productType: string;
+  priceType: string;
+  currentPosition: string;
+  currentPositionNew: string;
+  strategyname: string;
+  qty: number;
+  sl: number;
+  tgT2: number;
+  tgT3: number;
+  tgT4: number;
+  triggerPrice: string;
+  orderPrice: number;
+  orderDate: string;
+  orderTime: string;
+  userID: number;
+  tradinG_UNIT_TYPE: number;
+  tradinG_UNIT: string;
+  companY_INITIAL: string;
+  tenanT_ID: number;
+  objScriptDTO: {
+    scriptExchange: string;
+    lastprice: number;
+    scriptLotSize: number;
+    bid: number;
+    ask: number;
+  };
+}
+
+export interface GetActiveTradesResponse {
+  message: string;
+  data: ActiveTradeItem[];
 }
 
 class TradingApiService {
@@ -143,19 +214,29 @@ class TradingApiService {
         };
       }
 
-      // Successful login
+      // Check if we have the expected login response format
+      if (data.message && data.data && data.data.sessionToken && data.data.loggedInUser) {
+        // Save session data to AsyncStorage
+        await this.saveSessionData(data.data);
+
+        // Successful login with new API response format
+        return {
+          success: true,
+          message: data.message || 'Login successful',
+          data: {
+            sessionToken: data.data.sessionToken,
+            sessionValidity: data.data.sessionValidity,
+            loggedInUser: data.data.loggedInUser,
+            loggedInWatchlistAccess: data.data.loggedInWatchlistAccess,
+          },
+        };
+      }
+
+      // Fallback for other response formats
       return {
         success: true,
         message: data.message || 'Login successful',
-        data: {
-          token: data.token || data.accessToken || data.authToken,
-          user: {
-            id: data.userId || data.id || credentials.emailOrUsername,
-            name: data.name || data.userName || credentials.emailOrUsername,
-            email: data.email || (credentials.emailOrUsername.includes('@') ? credentials.emailOrUsername : ''),
-            username: data.username || credentials.emailOrUsername,
-          },
-        },
+        data: data.data || {},
       };
 
     } catch (error) {
@@ -167,6 +248,83 @@ class TradingApiService {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
+  }
+
+  /**
+   * Save session data to AsyncStorage
+   */
+  private async saveSessionData(sessionData: any): Promise<void> {
+    try {
+      const sessionInfo = {
+        sessionToken: sessionData.sessionToken,
+        sessionValidity: sessionData.sessionValidity,
+        loggedInUser: sessionData.loggedInUser,
+        loggedInWatchlistAccess: sessionData.loggedInWatchlistAccess,
+        loginTime: new Date().toISOString(),
+      };
+
+      await AsyncStorage.multiSet([
+        ['trading_session_token', sessionData.sessionToken || ''],
+        ['trading_session_validity', sessionData.sessionValidity || ''],
+        ['trading_user_data', JSON.stringify(sessionData.loggedInUser || {})],
+        ['trading_watchlist_access', JSON.stringify(sessionData.loggedInWatchlistAccess || [])],
+        ['trading_session_info', JSON.stringify(sessionInfo)],
+      ]);
+
+      console.log('✅ Session data saved to AsyncStorage');
+    } catch (error) {
+      console.error('❌ Error saving session data:', error);
+    }
+  }
+
+  /**
+   * Get saved session data from AsyncStorage
+   */
+  async getSessionData(): Promise<any | null> {
+    try {
+      const sessionInfo = await AsyncStorage.getItem('trading_session_info');
+      if (sessionInfo) {
+        const parsed = JSON.parse(sessionInfo);
+        // Check if session is still valid
+        if (parsed.sessionValidity && new Date(parsed.sessionValidity) > new Date()) {
+          return parsed;
+        } else {
+          // Session expired, clear it
+          await this.clearSessionData();
+          return null;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ Error getting session data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear session data from AsyncStorage
+   */
+  async clearSessionData(): Promise<void> {
+    try {
+      await AsyncStorage.multiRemove([
+        'trading_session_token',
+        'trading_session_validity',
+        'trading_user_data',
+        'trading_watchlist_access',
+        'trading_session_info',
+      ]);
+      console.log('✅ Session data cleared from AsyncStorage');
+    } catch (error) {
+      console.error('❌ Error clearing session data:', error);
+    }
+  }
+
+  /**
+   * Check if user has a valid session
+   */
+  async isLoggedIn(): Promise<boolean> {
+    const sessionData = await this.getSessionData();
+    return sessionData !== null;
   }
 
   /**
@@ -207,11 +365,28 @@ class TradingApiService {
    * Logout user (if API supports it)
    */
   async logout(token?: string): Promise<{ success: boolean; message: string }> {
-    // Implement if logout API endpoint exists
-    return {
-      success: true,
-      message: 'Logged out successfully',
-    };
+    try {
+      // Clear session data from AsyncStorage
+      await this.clearSessionData();
+      
+      // If we have a session token, try to call logout API
+      const sessionData = await this.getSessionData();
+      if (sessionData?.sessionToken || token) {
+        // You can implement API logout call here if the API supports it
+        // await fetch(`${API_BASE_URL}/LoginAPI/Logout`, { ... });
+      }
+
+      return {
+        success: true,
+        message: 'Logged out successfully',
+      };
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+      return {
+        success: false,
+        message: 'Error occurred during logout',
+      };
+    }
   }
 
   async sendForgotPasswordOtp(data: SendOtpRequest): Promise<SendOtpResponse> {
@@ -452,6 +627,228 @@ class TradingApiService {
         success: false,
         message: 'Network error occurred',
         error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Make authenticated API request with session token
+   */
+  async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    const sessionData = await this.getSessionData();
+    if (!sessionData?.sessionToken) {
+      throw new Error('No valid session token found. Please login again.');
+    }
+
+    const headers = {
+      'accept': '*/*',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionData.sessionToken}`,
+      ...(options.headers || {}),
+    };
+
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  }
+
+  /**
+   * Get user session info from AsyncStorage
+   */
+  async getUserInfo(): Promise<any | null> {
+    try {
+      const sessionData = await this.getSessionData();
+      return sessionData?.loggedInUser || null;
+    } catch (error) {
+      console.error('❌ Error getting user info:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get user watchlist access from session
+   */
+  async getWatchlistAccess(): Promise<any[]> {
+    try {
+      const sessionData = await this.getSessionData();
+      return sessionData?.loggedInWatchlistAccess || [];
+    } catch (error) {
+      console.error('❌ Error getting watchlist access:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Execute buy/sell trade
+   */
+  async proceedBuySell(tradeData: ProceedBuySellRequest): Promise<ProceedBuySellResponse> {
+    try {
+      // Check if user is authenticated
+      const isLoggedIn = await this.isLoggedIn();
+      if (!isLoggedIn) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      // Get session data from AsyncStorage
+      const sessionData = await this.getSessionData();
+      if (!sessionData?.sessionToken) {
+        throw new Error('No valid session token found. Please login again.');
+      }
+
+      console.log('🚀 ProceedBuySell API Request:', {
+        url: `${API_BASE_URL}/WatchListApi/ProceedBuySell`,
+        method: 'POST',
+        headers: {
+          'X-Session-Key': sessionData.sessionToken ? '***TOKEN***' : 'None',
+        },
+        body: tradeData
+      });
+
+      // Make API call to execute trade
+      const response = await fetch(`${API_BASE_URL}/WatchListApi/ProceedBuySell`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'X-Session-Key': sessionData.sessionToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tradeData),
+      });
+
+      console.log('📡 ProceedBuySell API Response Status:', response.status);
+
+      if (!response.ok) {
+        console.error('❌ ProceedBuySell API Error:', response.status, response.statusText);
+        
+        // If unauthorized, session might be expired
+        if (response.status === 401 || response.status === 403) {
+          console.log('⚠️ Session might be expired');
+          await this.clearSessionData();
+          return {
+            success: false,
+            message: 'Session expired. Please login again.',
+            error: 'Session expired'
+          };
+        }
+        
+        const errorText = await response.text();
+        return {
+          success: false,
+          message: `Trade execution failed: ${response.status} ${response.statusText}`,
+          error: errorText || 'Network error occurred'
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ ProceedBuySell API Success Response:', data);
+
+      return {
+        success: true,
+        message: data.message || 'Trade executed successfully',
+        data: data.data || data
+      };
+
+    } catch (error) {
+      console.error('❌ Error executing trade:', error);
+      return {
+        success: false,
+        message: 'Failed to execute trade',
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
+   * Get active trades for the current user
+   */
+  async getActiveTrades(): Promise<GetActiveTradesResponse> {
+    try {
+      // Check if user is authenticated
+      const isLoggedIn = await this.isLoggedIn();
+      if (!isLoggedIn) {
+        throw new Error('Authentication required. Please login first.');
+      }
+
+      // Get session data from AsyncStorage
+      const sessionData = await this.getSessionData();
+      if (!sessionData?.sessionToken) {
+        throw new Error('No valid session token found. Please login again.');
+      }
+
+      console.log('🚀 GetActiveTrades API Request:', {
+        url: `${API_BASE_URL}/WatchListApi/GetActiveTrades`,
+        method: 'GET',
+        headers: {
+          'X-Session-Key': sessionData.sessionToken ? '***TOKEN***' : 'None',
+        }
+      });
+
+      // Make API call to get active trades
+      const response = await fetch(`${API_BASE_URL}/WatchListApi/GetActiveTrades`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          'X-Session-Key': sessionData.sessionToken,
+        }
+      });
+
+      console.log('📡 GetActiveTrades API Response Status:', response.status);
+
+      if (!response.ok) {
+        console.error('❌ GetActiveTrades API Error:', response.status, response.statusText);
+        
+        // If unauthorized, session might be expired
+        if (response.status === 401 || response.status === 403) {
+          console.log('⚠️ Session might be expired');
+          await this.clearSessionData();
+          throw new Error('Session expired. Please login again.');
+        }
+        
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch active trades: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ GetActiveTrades API Success Response:', data);
+
+      return {
+        message: data.message || '',
+        data: data.data || []
+      };
+
+    } catch (error) {
+      console.error('❌ Error fetching active trades:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Square off a trade (placeholder for future implementation)
+   */
+  async squareOffTrade(tradeId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      // TODO: Implement actual square off API call
+      // const response = await this.makeAuthenticatedRequest(
+      //   `${API_BASE_URL}/WatchListApi/SquareOffTrade`,
+      //   {
+      //     method: 'POST',
+      //     body: JSON.stringify({ tradeId })
+      //   }
+      // );
+      
+      console.log('🚀 Square off trade placeholder called for trade ID:', tradeId);
+      
+      // Placeholder response
+      return {
+        success: true,
+        message: 'Square off order placed successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error squaring off trade:', error);
+      return {
+        success: false,
+        message: 'Failed to square off trade'
       };
     }
   }

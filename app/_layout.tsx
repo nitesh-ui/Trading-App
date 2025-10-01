@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 // import 'react-native-reanimated';
 
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -12,6 +13,7 @@ import { ThemeProvider } from '../contexts/ThemeContext';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { cleanupNetworkListener, prefetchCriticalData, queryClient, setupNetworkListener } from '../services/queryClient';
 import { sessionManager } from '../services/sessionManager';
+import AuthUtils from '../services/authUtils';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -26,7 +28,10 @@ export default function RootLayout() {
         // Setup network listener for smart query refetching
         setupNetworkListener();
         
-        // Load user session
+        // Initialize authentication using the new auth utilities
+        await AuthUtils.initializeAuth();
+
+        // Load user session for backwards compatibility
         const user = await sessionManager.loadSession();
         if (user) {
           console.log('✅ User session restored:', user.username);
@@ -57,24 +62,26 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <NotificationProvider>
-            <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <Stack>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-                <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-                <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <StatusBar style="auto" />
-            </NavigationThemeProvider>
-          </NotificationProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <NotificationProvider>
+              <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <Stack>
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+                  <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+                  <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="+not-found" />
+                </Stack>
+                <StatusBar style="auto" />
+              </NavigationThemeProvider>
+            </NotificationProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }

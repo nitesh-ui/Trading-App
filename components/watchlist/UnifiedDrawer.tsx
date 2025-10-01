@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Animated,
   TouchableOpacity,
-  TouchableWithoutFeedback,
+  Pressable,
   Dimensions,
   Platform,
   SafeAreaView,
@@ -30,6 +30,7 @@ interface UnifiedDrawerProps {
   onBuyPress?: () => void;
   onSellPress?: () => void;
   onRemoveFromWatchlist?: () => void;
+  onViewChart?: () => void; // Add this new prop
   
   // Trading drawer props
   tradeState?: TradeState;
@@ -53,6 +54,7 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
   onBuyPress,
   onSellPress,
   onRemoveFromWatchlist,
+  onViewChart,
   tradeState,
   availableBalance,
   onTradeExecute,
@@ -125,40 +127,108 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
   const changeColor = asset.change >= 0 ? theme.colors.success : theme.colors.error;
   const changeIcon = asset.change >= 0 ? 'trending-up' : 'trending-down';
 
-  // Format detailed stats based on asset type (same as original watchlist)
+  // Format detailed stats based on asset type - only show fields returned by API
   const getDetailStats = () => {
+    const stats: { label: string; value: string }[] = [];
+    
     if (marketType === 'stocks') {
-      return [
-        { label: 'Open', value: asset.high ? formatPrice(asset.high - (asset.change || 0)) : 'N/A' },
-        { label: 'High', value: asset.high ? formatPrice(asset.high) : 'N/A' },
-        { label: 'Low', value: asset.low ? formatPrice(asset.low) : 'N/A' },
-        { label: 'Prev Close', value: formatPrice(asset.price - (asset.change || 0)) },
-        { label: 'Volume', value: asset.volume ? asset.volume.toLocaleString() : 'N/A' },
-        { label: 'Market Cap', value: asset.marketCap ? formatIndianCurrency(asset.marketCap) : 'N/A' },
-      ];
+      // Calculate derived values only if we have the necessary data
+      const prevClose = asset.price - (asset.change || 0);
+      
+      // Only show Open if we have high/low data to calculate a reasonable estimate
+      if (asset.high !== undefined && asset.high !== null && asset.low !== undefined && asset.low !== null) {
+        const open = asset.high - Math.abs(asset.change || 0) * 0.5;
+        stats.push({ label: 'Open', value: formatPrice(open) });
+      }
+      
+      // High - only show if available from API
+      if (asset.high !== undefined && asset.high !== null) {
+        stats.push({ label: 'High', value: formatPrice(asset.high) });
+      }
+      
+      // Low - only show if available from API
+      if (asset.low !== undefined && asset.low !== null) {
+        stats.push({ label: 'Low', value: formatPrice(asset.low) });
+      }
+      
+      // Previous Close - always show as we can calculate it
+      stats.push({ label: 'Prev Close', value: formatPrice(prevClose) });
+      
+      // Volume - only show if provided by API
+      if (asset.volume !== undefined && asset.volume !== null) {
+        stats.push({ label: 'Volume', value: `${(asset.volume / 100000).toFixed(1)}L` });
+      }
+      
+      // Market Cap - only show if provided by API
+      if (asset.marketCap !== undefined && asset.marketCap !== null) {
+        stats.push({ label: 'Market Cap', value: `₹${(asset.marketCap / 1e7).toFixed(1)}L Cr` });
+      }
+      
     } else if (marketType === 'forex') {
-      return [
-        { label: 'Bid', value: formatPrice(asset.price - 0.0002) },
-        { label: 'Ask', value: formatPrice(asset.price + 0.0002) },
-        { label: 'Spread', value: '0.0004' },
-        { label: 'High', value: asset.high ? formatPrice(asset.high) : 'N/A' },
-        { label: 'Low', value: asset.low ? formatPrice(asset.low) : 'N/A' },
-        { label: 'Volume', value: asset.volume ? asset.volume.toLocaleString() : 'N/A' },
-      ];
+      // Forex specific fields
+      stats.push({ label: 'Bid', value: formatPrice(asset.price - 0.0002) });
+      stats.push({ label: 'Ask', value: formatPrice(asset.price + 0.0002) });
+      stats.push({ label: 'Spread', value: '0.0004' });
+      
+      // High - only show if available from API
+      if (asset.high !== undefined && asset.high !== null) {
+        stats.push({ label: 'High', value: formatPrice(asset.high) });
+      }
+      
+      // Low - only show if available from API
+      if (asset.low !== undefined && asset.low !== null) {
+        stats.push({ label: 'Low', value: formatPrice(asset.low) });
+      }
+      
+      // Volume - only show if provided by API
+      if (asset.volume !== undefined && asset.volume !== null) {
+        stats.push({ label: 'Volume', value: asset.volume.toLocaleString() });
+      }
+      
     } else if (marketType === 'crypto') {
-      return [
-        { label: '24h Volume', value: asset.volume ? `$${(asset.volume / 1e9).toFixed(2)}B` : 'N/A' },
-        { label: 'Market Cap', value: asset.marketCap ? `$${(asset.marketCap / 1e9).toFixed(1)}B` : 'N/A' },
-        { label: 'High', value: asset.high ? formatPrice(asset.high) : 'N/A' },
-        { label: 'Low', value: asset.low ? formatPrice(asset.low) : 'N/A' },
-        { label: 'Circulating Supply', value: 'N/A' },
-        { label: 'Last Updated', value: new Date().toLocaleTimeString() },
-      ];
+      // 24h Volume - only show if provided by API
+      if (asset.volume !== undefined && asset.volume !== null) {
+        stats.push({ label: '24h Volume', value: `$${(asset.volume / 1e9).toFixed(2)}B` });
+      }
+      
+      // Market Cap - only show if provided by API
+      if (asset.marketCap !== undefined && asset.marketCap !== null) {
+        stats.push({ label: 'Market Cap', value: `$${(asset.marketCap / 1e9).toFixed(1)}B` });
+      }
+      
+      // High - only show if available from API
+      if (asset.high !== undefined && asset.high !== null) {
+        stats.push({ label: 'High', value: formatPrice(asset.high) });
+      }
+      
+      // Low - only show if available from API
+      if (asset.low !== undefined && asset.low !== null) {
+        stats.push({ label: 'Low', value: formatPrice(asset.low) });
+      }
+      
+      // Last Updated - always show for crypto
+      stats.push({ label: 'Last Updated', value: new Date().toLocaleTimeString() });
     }
-    return [];
+    
+    return stats;
   };
 
   const detailStats = getDetailStats();
+
+  // Debug log to see what fields are available and being shown
+  console.log('📊 UnifiedDrawer asset details:', {
+    symbol: asset.symbol,
+    marketType,
+    availableFields: {
+      high: asset.high,
+      low: asset.low,
+      volume: asset.volume,
+      marketCap: asset.marketCap,
+      exchange: asset.exchange
+    },
+    statsToShow: detailStats.length,
+    statLabels: detailStats.map(s => s.label)
+  });
 
   return (
     <Modal
@@ -168,14 +238,14 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <Pressable onPress={onClose} style={{ flex: 1 }}>
         <Animated.View
           style={[
             styles.overlay,
             { backgroundColor: theme.colors.background + 'CC', opacity: opacityAnim },
           ]}
         >
-          <TouchableWithoutFeedback>
+          <Pressable onPress={(e) => e.stopPropagation()}>
             <Animated.View
               style={[
                 styles.drawer,
@@ -230,30 +300,46 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                     </View>
                   </Card>
 
-                  {/* Chart Section - Exact same as original */}
+                  {/* Chart Section - Replace with View Chart button */}
                   <Card padding="medium" style={styles.chartCard}>
-                    <Text variant="subtitle" weight="medium" color="text" style={styles.chartTitle}>
-                      Price Chart
-                    </Text>
-                    <View style={styles.chartContainer}>
-                      <CandlestickChart symbol={asset.symbol} />
+                    <View style={styles.viewChartContainer}>
+                      <View style={styles.chartInfo}>
+                        <Text variant="subtitle" weight="medium" color="text">
+                          Price Chart
+                        </Text>
+                        <Text variant="caption" color="textSecondary">
+                          View detailed chart analysis
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={onViewChart}
+                        style={[styles.viewChartButton, { backgroundColor: theme.colors.primary }]}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="trending-up" size={18} color={theme.colors.surface} />
+                        <Text variant="body" weight="medium" style={{ color: theme.colors.surface, marginLeft: 6 }}>
+                          View Chart
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   </Card>
 
-                  {/* Detailed Stats - Exact same layout as original */}
-                  <Card padding="medium" style={styles.statsCard}>
-                    <Text variant="subtitle" weight="medium" color="text" style={styles.statsTitle}>
-                      Market Details
-                    </Text>
-                    <View style={styles.detailsContainer}>
-                      {detailStats.map((stat, index) => (
-                        <View key={index} style={styles.detailRow}>
-                          <Text variant="caption" color="textSecondary">{stat.label}</Text>
-                          <Text variant="caption" color="text">{stat.value}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </Card>
+                  {/* Detailed Stats - Only show if we have stats to display */}
+                  {detailStats.length > 0 && (
+                    <Card padding="medium" style={styles.statsCard}>
+                      <Text variant="subtitle" weight="medium" color="text" style={styles.statsTitle}>
+                        Market Details
+                      </Text>
+                      <View style={styles.detailsContainer}>
+                        {detailStats.map((stat, index) => (
+                          <View key={index} style={styles.detailRow}>
+                            <Text variant="caption" color="textSecondary">{stat.label}</Text>
+                            <Text variant="caption" color="text">{stat.value}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </Card>
+                  )}
 
                   {/* Action Buttons - Same styling as original */}
                   <View style={styles.actionButtons}>
@@ -280,11 +366,29 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={onRemoveFromWatchlist}
-                      style={[styles.deleteButton, { backgroundColor: theme.colors.textSecondary + '20', borderColor: theme.colors.textSecondary + '40' }]}
-                      activeOpacity={0.8}
+                      onPress={() => {
+                        console.log('🗑️ Delete button pressed in UnifiedDrawer');
+                        if (onRemoveFromWatchlist) {
+                          onRemoveFromWatchlist();
+                        } else {
+                          console.warn('⚠️ onRemoveFromWatchlist function not provided');
+                        }
+                      }}
+                      style={[
+                        styles.deleteButton, 
+                        { 
+                          backgroundColor: theme.colors.textSecondary + '20', 
+                          borderColor: theme.colors.textSecondary + '40' 
+                        }
+                      ]}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      accessible={true}
+                      accessibilityLabel="Remove from watchlist"
+                      accessibilityRole="button"
+                      pressRetentionOffset={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                      <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
                     </TouchableOpacity>
                   </View>
 
@@ -293,9 +397,9 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                 </ScrollView>
               </SafeAreaView>
             </Animated.View>
-          </TouchableWithoutFeedback>
+          </Pressable>
         </Animated.View>
-      </TouchableWithoutFeedback>
+      </Pressable>
     </Modal>
   );
 });
@@ -381,6 +485,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  viewChartContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  chartInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  viewChartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
   statsCard: {
     marginBottom: 24,
   },
@@ -418,12 +538,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    minWidth: 52,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        userSelect: 'none',
+        transition: 'all 0.15s ease',
+        ':hover': {
+          transform: 'scale(1.03)',
+          opacity: 0.85,
+        },
+        ':active': {
+          transform: 'scale(0.98)',
+        },
+      },
+    }),
   },
   bottomSpacing: {
     height: 20,

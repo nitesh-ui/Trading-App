@@ -7,6 +7,7 @@ import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useRenderPerformance } from '../../hooks/usePerformance';
+import AuthUtils from '../../services/authUtils';
 import { sessionManager } from '../../services/sessionManager';
 import { tradingApiService } from '../../services/tradingApiService';
 
@@ -123,11 +124,8 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Call logout API
-              await tradingApiService.logout(sessionManager.getToken() || undefined);
-              
-              // Clear local session
-              await sessionManager.clearSession();
+              // Use AuthUtils for comprehensive logout
+              await AuthUtils.logout();
 
               showNotification({
                 type: 'success',
@@ -140,9 +138,6 @@ export default function SettingsScreen() {
               }, 1000);
             } catch (error) {
               console.error('❌ Logout error:', error);
-              
-              // Still clear local session even if API fails
-              await sessionManager.clearSession();
               
               showNotification({
                 type: 'warning',

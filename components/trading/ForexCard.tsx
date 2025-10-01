@@ -20,14 +20,17 @@ interface ForexCardProps {
   pair: ForexData;
   onPress?: () => void;
   showDetails?: boolean;
+  theme?: any; // Optional theme prop
 }
 
 export const ForexCard: React.FC<ForexCardProps> = React.memo(({
   pair,
   onPress,
   showDetails = false,
+  theme: providedTheme,
 }) => {
-  const { theme } = useTheme();
+  const { theme: contextTheme } = useTheme();
+  const theme = providedTheme || contextTheme;
   const animatedHeight = React.useRef(new Animated.Value(showDetails ? 1 : 0)).current;
 
   React.useEffect(() => {

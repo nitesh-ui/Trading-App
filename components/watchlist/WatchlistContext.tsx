@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import { binanceService, CryptoPair } from '../../services/binanceService';
 import { ForexPair, forexService } from '../../services/forexService';
 import { IndianStock, indianStockService } from '../../services/indianStockService';
+import { watchlistApiService } from '../../services/watchlistApiService';
 import { AssetItem, MarketType, StockExchangeFilter, TradeState, WatchlistState } from './types';
 
 // Action types
@@ -11,6 +12,8 @@ type WatchlistAction =
   | { type: 'SET_SEARCH_QUERY'; payload: string }
   | { type: 'SET_SEARCH_EXPANDED'; payload: boolean }
   | { type: 'SET_REFRESHING'; payload: boolean }
+  | { type: 'SET_LOADING_INDICES'; payload: boolean }
+  | { type: 'SET_LOADING_ASSETS'; payload: boolean }
   | { type: 'UPDATE_STOCKS'; payload: IndianStock[] }
   | { type: 'UPDATE_FOREX'; payload: ForexPair[] }
   | { type: 'UPDATE_CRYPTO'; payload: CryptoPair[] }
@@ -29,7 +32,9 @@ const initialWatchlistState: WatchlistState = {
   isFilterVisible: false,
   refreshing: false,
   notificationCount: 0,
-  watchlistItems: [],
+  watchlistItems: ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ITC', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTC', 'ETH', 'ADA'], // Pre-populated for instant switching
+  isLoadingIndices: false,
+  isLoadingAssets: false,
 };
 
 const initialTradeState: TradeState = {
@@ -61,6 +66,10 @@ function watchlistReducer(state: WatchlistState, action: WatchlistAction): Watch
       return { ...state, isFilterVisible: action.payload };
     case 'SET_REFRESHING':
       return { ...state, refreshing: action.payload };
+    case 'SET_LOADING_INDICES':
+      return { ...state, isLoadingIndices: action.payload };
+    case 'SET_LOADING_ASSETS':
+      return { ...state, isLoadingAssets: action.payload };
     case 'ADD_TO_WATCHLIST':
       return {
         ...state,
@@ -130,10 +139,38 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [forexPairs, setForexPairs] = React.useState<ForexPair[]>([]);
   const [cryptoPairs, setCryptoPairs] = React.useState<CryptoPair[]>([]);
   const [selectedAssetForDetails, setSelectedAssetForDetails] = React.useState<AssetItem | null>(null);
+  
+  // API-based data state
+  const [apiAssets, setApiAssets] = useState<AssetItem[]>([]);
+  const [isLoadingApiData, setIsLoadingApiData] = useState(false);
 
-  // Subscribe to data services
+  // Load API data function
+  const loadApiData = useCallback(async () => {
+    try {
+      setIsLoadingApiData(true);
+      watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: true });
+      
+      console.log('🔄 Loading watchlist data from API...');
+      const assets = await watchlistApiService.fetchWatchlistData();
+      
+      setApiAssets(assets);
+      console.log('✅ API watchlist data loaded:', assets.length, 'assets');
+      
+    } catch (error) {
+      console.error('❌ Error loading API data:', error);
+      // Fallback to existing mock data
+    } finally {
+      setIsLoadingApiData(false);
+      watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: false });
+    }
+  }, []);
+
+  // Subscribe to data services and load API data
   useEffect(() => {
-    // Stocks
+    // Load API data on mount
+    loadApiData();
+
+    // Stocks (fallback)
     const stocksUnsubscribe = indianStockService.subscribe((updatedStocks) => {
       setStocks(updatedStocks);
     });
@@ -168,8 +205,28 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, []);
 
-  // Memoized computed values
+  // Memoized computed values - prioritize API data when available
   const filteredAssets = useMemo((): AssetItem[] => {
+    // If we have API data, use categorized assets from it
+    if (apiAssets.length > 0) {
+      const categorized = watchlistApiService.categorizeAssets(apiAssets);
+      
+      switch (watchlistState.marketType) {
+        case 'stocks':
+          return categorized.stocks.filter(stock => 
+            watchlistState.exchangeFilter === 'All' || 
+            stock.exchange === watchlistState.exchangeFilter
+          );
+        case 'forex':
+          return categorized.forex;
+        case 'crypto':
+          return categorized.crypto;
+        default:
+          return categorized.stocks;
+      }
+    }
+
+    // Fallback to existing mock data services
     let assets: AssetItem[] = [];
 
     switch (watchlistState.marketType) {
@@ -222,7 +279,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     return assets;
-  }, [watchlistState.marketType, watchlistState.exchangeFilter, stocks, forexPairs, cryptoPairs]);
+  }, [watchlistState.marketType, watchlistState.exchangeFilter, stocks, forexPairs, cryptoPairs, apiAssets]);
 
   const searchResults = useMemo((): AssetItem[] => {
     if (!watchlistState.searchQuery.trim()) return [];
@@ -234,9 +291,15 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   }, [watchlistState.searchQuery, filteredAssets]);
 
-  // Action creators
+  // Action creators - INSTANT tab switching with smooth content animation
   const setMarketType = useCallback((type: MarketType) => {
+    // 🚀 INSTANT tab switch - UI shows new tab immediately
     watchlistDispatch({ type: 'SET_MARKET_TYPE', payload: type });
+    
+    // Never block tab switching with loading states
+    // Content can load asynchronously while tab is already switched
+    watchlistDispatch({ type: 'SET_LOADING_INDICES', payload: false });
+    watchlistDispatch({ type: 'SET_LOADING_ASSETS', payload: false });
   }, []);
 
   const setExchangeFilter = useCallback((filter: StockExchangeFilter) => {
@@ -278,14 +341,17 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const refreshData = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Trigger refresh for all services
+      // Reload API data
+      await loadApiData();
+      
+      // Trigger refresh for mock services as well (fallback)
       await Promise.all([
-        new Promise(resolve => setTimeout(resolve, 1000)), // Simulate API delay
+        new Promise(resolve => setTimeout(resolve, 500)), // Simulate API delay
       ]);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [loadApiData]);
 
   const contextValue = useMemo<WatchlistContextType>(() => ({
     // State

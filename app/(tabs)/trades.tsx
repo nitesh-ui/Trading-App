@@ -52,10 +52,13 @@ import { Card, Text } from '../../components/atomic';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { StockCardSkeleton } from '../../components/LoadingComponents';
 import { OptimizedFlatList } from '../../components/OptimizedList';
+import NotificationsPage from '../../components/ui/NotificationsPage';
+import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useDebounce, useRenderPerformance } from '../../hooks/usePerformance';
 import { queryKeys } from '../../services/queryClient';
+import { tradingApiService, ActiveTradeItem } from '../../services/tradingApiService';
 
 interface Trade {
   id: string;
@@ -66,58 +69,56 @@ interface Trade {
   timestamp: string;
   status: 'COMPLETED' | 'PENDING' | 'CANCELLED';
   pnl?: number;
+  productType?: string;
+  priceType?: string;
+  exchange?: string;
 }
 
-const mockTrades: Trade[] = [
-  {
-    id: '1',
-    symbol: 'RELIANCE',
-    type: 'BUY',
-    quantity: 10,
-    price: 2850.50,
-    timestamp: '2024-01-15 14:30:25',
-    status: 'COMPLETED',
-    pnl: 150.25,
-  },
-  {
-    id: '2',
-    symbol: 'TCS',
-    type: 'SELL',
-    quantity: 5,
-    price: 3875.20,
-    timestamp: '2024-01-15 13:45:12',
-    status: 'COMPLETED',
-    pnl: -75.50,
-  },
-  {
-    id: '3',
-    symbol: 'HDFCBANK',
-    type: 'BUY',
-    quantity: 15,
-    price: 1680.75,
-    timestamp: '2024-01-15 12:20:45',
-    status: 'PENDING',
-  },
-  {
-    id: '4',
-    symbol: 'INFY',
-    type: 'SELL',
-    quantity: 8,
-    price: 1795.30,
-    timestamp: '2024-01-15 11:15:30',
-    status: 'COMPLETED',
-    pnl: 85.40,
-  },
-];
+/**
+ * Transform API trade data to UI format
+ */
+const transformApiTradeToUi = (apiTrade: ActiveTradeItem): Trade => {
+  // Map API status to UI status
+  let uiStatus: 'COMPLETED' | 'PENDING' | 'CANCELLED' = 'PENDING';
+  const apiStatus = apiTrade.status.toUpperCase();
+  
+  if (apiStatus === 'COMPLETE') {
+    uiStatus = 'COMPLETED';
+  } else if (apiStatus === 'OPEN') {
+    uiStatus = 'PENDING'; // Open status means trade is pending
+  } else if (apiStatus === 'CANCELLED') {
+    uiStatus = 'CANCELLED';
+  } else {
+    uiStatus = 'PENDING'; // Default to pending for any other status
+  }
+
+  return {
+    id: apiTrade.activeTradeID.toString(),
+    symbol: apiTrade.tradeSymbol,
+    type: apiTrade.currentPosition.toUpperCase() as 'BUY' | 'SELL',
+    quantity: apiTrade.qty,
+    price: apiTrade.orderPrice,
+    timestamp: `${apiTrade.orderDate} ${apiTrade.orderTime}`,
+    status: uiStatus,
+    pnl: apiTrade.profitorloss !== 0 ? apiTrade.profitorloss : undefined,
+    productType: apiTrade.productType,
+    priceType: apiTrade.priceType,
+    exchange: apiTrade.objScriptDTO?.scriptExchange
+  };
+};
 
 /**
- * Mock trades service - replace with real API calls
+ * Trades service using real API
  */
-const mockTradesService = {
+const tradesService = {
   getTrades: async (): Promise<Trade[]> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return mockTrades;
+    try {
+      const response = await tradingApiService.getActiveTrades();
+      return response.data.map(transformApiTradeToUi);
+    } catch (error) {
+      console.error('❌ Error fetching trades:', error);
+      throw error;
+    }
   },
 };
 
@@ -127,7 +128,8 @@ const mockTradesService = {
 const MemoizedTradeCard = memo<{
   trade: Trade;
   onPress?: (trade: Trade) => void;
-}>(({ trade, onPress }) => {
+  onSquareOff?: (trade: Trade) => void;
+}>(({ trade, onPress, onSquareOff }) => {
   const { theme } = useTheme();
   
   const getStatusColor = (status: string) => {
@@ -151,6 +153,10 @@ const MemoizedTradeCard = memo<{
   const handlePress = useCallback(() => {
     onPress?.(trade);
   }, [onPress, trade]);
+
+  const handleSquareOff = useCallback(() => {
+    onSquareOff?.(trade);
+  }, [onSquareOff, trade]);
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
@@ -184,15 +190,55 @@ const MemoizedTradeCard = memo<{
             <Text variant="caption" color="textSecondary">Quantity</Text>
             <Text variant="body" color="text" weight="medium">{trade.quantity}</Text>
           </View>
-          <View style={styles.tradeDetailRight}>
+          <View style={styles.tradeDetailCenter}>
             <Text variant="caption" color="textSecondary">Price</Text>
             <Text variant="body" color="text" weight="medium">₹{trade.price.toFixed(2)}</Text>
           </View>
+          {trade.pnl !== undefined && (
+            <View style={styles.tradeDetailRight}>
+              <Text variant="caption" color="textSecondary">P&L</Text>
+              <Text 
+                variant="body" 
+                weight="medium"
+                style={{ color: getPnLColor(trade.pnl) }}
+              >
+                {trade.pnl >= 0 ? '+' : ''}₹{trade.pnl.toFixed(2)}
+              </Text>
+            </View>
+          )}
         </View>
         
-        <Text variant="caption" color="textSecondary" style={styles.timestamp}>
-          {trade.timestamp}
-        </Text>
+        <View style={styles.tradeFooter}>
+          <Text variant="caption" color="textSecondary" style={styles.timestamp}>
+            {trade.timestamp}
+          </Text>
+          
+          {/* Square Off Button for Completed Trades */}
+          {trade.status === 'COMPLETED' && (
+            <TouchableOpacity 
+              style={[styles.squareOffButton, { 
+                backgroundColor: theme.colors.error + '15',
+                borderColor: theme.colors.error 
+              }]}
+              onPress={handleSquareOff}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="close-circle-outline" 
+                size={14} 
+                color={theme.colors.error} 
+                style={{ marginRight: 4 }}
+              />
+              <Text 
+                variant="caption" 
+                weight="semibold"
+                style={{ color: theme.colors.error }}
+              >
+                Square Off
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </Card>
     </TouchableOpacity>
   );
@@ -216,6 +262,10 @@ export default function TradesScreen() {
   const [selectedFilter, setSelectedFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  // Modal states
+  const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
+  const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
 
   // React Query for optimized data fetching
   const { 
@@ -225,23 +275,23 @@ export default function TradesScreen() {
     isRefetching 
   } = useQuery({
     queryKey: queryKeys.userTrades(),
-    queryFn: mockTradesService.getTrades,
+    queryFn: tradesService.getTrades,
     staleTime: 30 * 1000, // 30 seconds
   });
 
   // Memoized filtered data
   const filteredTrades = useMemo(() => {
-    let filtered = trades;
+    let filtered: Trade[] = trades;
     
     // Filter by status
     if (selectedFilter !== 'ALL') {
-      filtered = filtered.filter(trade => trade.status === selectedFilter);
+      filtered = filtered.filter((trade: Trade) => trade.status === selectedFilter);
     }
     
     // Filter by search query
     if (debouncedSearchQuery) {
       const query = debouncedSearchQuery.toLowerCase();
-      filtered = filtered.filter(trade => 
+      filtered = filtered.filter((trade: Trade) => 
         trade.symbol.toLowerCase().includes(query)
       );
     }
@@ -249,29 +299,169 @@ export default function TradesScreen() {
     return filtered;
   }, [trades, selectedFilter, debouncedSearchQuery]);
 
+  // Get completed trades for square off all functionality
+  const completedTrades = useMemo(() => {
+    return trades.filter((trade: Trade) => trade.status === 'COMPLETED');
+  }, [trades]);
+
+  // Check if we should show "Square Off All" button
+  const showSquareOffAll = selectedFilter === 'ALL' && completedTrades.length > 0;
+
   // Callbacks
   const handleTradePress = useCallback((trade: Trade) => {
     // Handle trade details navigation
     console.log('Trade selected:', trade);
   }, []);
 
+  const handleSquareOff = useCallback(async (trade: Trade) => {
+    // Handle square off action with confirmation
+    console.log('Square off trade:', trade);
+    
+    // Show confirmation dialog
+    const confirmMessage = `Are you sure you want to square off ${trade.quantity} ${trade.symbol}?`;
+    let confirmed = false;
+    
+    if (Platform.OS === 'web') {
+      confirmed = window.confirm(confirmMessage);
+    } else {
+      // For mobile, we'll proceed directly for now
+      // In a real app, you might want to implement a custom modal
+      confirmed = true;
+    }
+    
+    if (confirmed) {
+      try {
+        // Show processing notification
+        showNotification({
+          type: 'info',
+          title: 'Processing Square Off',
+          message: `Placing square off order for ${trade.symbol}...`
+        });
+        
+        // Call square off API
+        const result = await tradingApiService.squareOffTrade(trade.id);
+        
+        if (result.success) {
+          showNotification({
+            type: 'success',
+            title: 'Square Off Successful',
+            message: result.message
+          });
+        } else {
+          showNotification({
+            type: 'error',
+            title: 'Square Off Failed',
+            message: result.message
+          });
+        }
+        
+        // Refresh the trades list after square off attempt
+        refetch();
+      } catch (error) {
+        console.error('❌ Error in square off:', error);
+        showNotification({
+          type: 'error',
+          title: 'Square Off Failed',
+          message: 'An error occurred while placing square off order'
+        });
+      }
+    }
+  }, [showNotification, refetch]);
+
+  const handleSquareOffAll = useCallback(async () => {
+    // Handle square off all completed trades
+    const completedCount = completedTrades.length;
+    
+    if (completedCount === 0) {
+      showNotification({
+        type: 'warning',
+        title: 'No Completed Trades',
+        message: 'There are no completed trades to square off'
+      });
+      return;
+    }
+    
+    // Show confirmation dialog
+    const confirmMessage = `Are you sure you want to square off all ${completedCount} completed position${completedCount > 1 ? 's' : ''}?`;
+    let confirmed = false;
+    
+    if (Platform.OS === 'web') {
+      confirmed = window.confirm(confirmMessage);
+    } else {
+      // For mobile, we'll proceed directly for now
+      // In a real app, you might want to implement a custom modal
+      confirmed = true;
+    }
+    
+    if (confirmed) {
+      try {
+        // Show processing notification
+        showNotification({
+          type: 'info',
+          title: 'Processing Square Off All',
+          message: `Placing square off orders for ${completedCount} position${completedCount > 1 ? 's' : ''}...`
+        });
+        
+        // Square off all completed trades
+        const results = await Promise.allSettled(
+          completedTrades.map(trade => tradingApiService.squareOffTrade(trade.id))
+        );
+        
+        // Count successful and failed operations
+        const successful = results.filter(result => 
+          result.status === 'fulfilled' && result.value.success
+        ).length;
+        const failed = completedCount - successful;
+        
+        // Show appropriate notification
+        if (failed === 0) {
+          showNotification({
+            type: 'success',
+            title: 'All Positions Squared Off',
+            message: `Successfully squared off all ${successful} position${successful > 1 ? 's' : ''}`
+          });
+        } else if (successful === 0) {
+          showNotification({
+            type: 'error',
+            title: 'Square Off Failed',
+            message: `Failed to square off all ${failed} position${failed > 1 ? 's' : ''}`
+          });
+        } else {
+          showNotification({
+            type: 'warning',
+            title: 'Partial Success',
+            message: `Squared off ${successful} position${successful > 1 ? 's' : ''}, ${failed} failed`
+          });
+        }
+        
+        // Refresh the trades list after square off attempt
+        refetch();
+      } catch (error) {
+        console.error('❌ Error in square off all:', error);
+        showNotification({
+          type: 'error',
+          title: 'Square Off All Failed',
+          message: 'An error occurred while placing square off orders'
+        });
+      }
+    }
+  }, [completedTrades, showNotification, refetch]);
+
   const handleWalletPress = useCallback(() => {
-    showNotification({
-      type: 'info',
-      title: 'Coming Soon',
-      message: 'Wallet feature is under development',
-      duration: 3000,
-    });
-  }, [showNotification]);
+    setIsWalletPageVisible(true);
+  }, []);
 
   const handleNotificationPress = useCallback(() => {
-    showNotification({
-      type: 'info',
-      title: 'Coming Soon',
-      message: 'Notifications feature is under development',
-      duration: 3000,
-    });
-  }, [showNotification]);
+    setIsNotificationsPageVisible(true);
+  }, []);
+
+  const handleCloseNotificationsPage = useCallback(() => {
+    setIsNotificationsPageVisible(false);
+  }, []);
+
+  const handleCloseWalletPage = useCallback(() => {
+    setIsWalletPageVisible(false);
+  }, []);
 
   const onRefresh = useCallback(() => {
     refetch();
@@ -281,10 +471,43 @@ export default function TradesScreen() {
     <MemoizedTradeCard
       trade={item}
       onPress={handleTradePress}
+      onSquareOff={handleSquareOff}
     />
-  ), [handleTradePress]);
+  ), [handleTradePress, handleSquareOff]);
 
   const keyExtractor = useCallback((item: Trade) => item.id, []);
+
+  // Header component for the trades list
+  const renderListHeader = useCallback(() => {
+    if (!showSquareOffAll) return null;
+    
+    return (
+      <View style={styles.listHeader}>
+        <TouchableOpacity 
+          style={[styles.squareOffAllButton, { 
+            backgroundColor: theme.colors.error + '15',
+            borderColor: theme.colors.error 
+          }]}
+          onPress={handleSquareOffAll}
+          activeOpacity={0.7}
+        >
+          <Ionicons 
+            name="close-circle" 
+            size={16} 
+            color={theme.colors.error} 
+            style={{ marginRight: 6 }}
+          />
+          <Text 
+            variant="body" 
+            weight="semibold"
+            style={{ color: theme.colors.error }}
+          >
+            Square Off All ({completedTrades.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }, [showSquareOffAll, theme.colors.error, handleSquareOffAll, completedTrades.length]);
 
   return (
     <ScreenErrorBoundary screenName="Trades">
@@ -364,6 +587,7 @@ export default function TradesScreen() {
             removeClippedSubviews={true}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.tradesListContent}
+            ListHeaderComponent={renderListHeader}
             refreshControl={
               <RefreshControl
                 refreshing={isRefetching}
@@ -374,6 +598,18 @@ export default function TradesScreen() {
             }
           />
         </Suspense>
+
+        {/* Notifications Page */}
+        <NotificationsPage
+          visible={isNotificationsPageVisible}
+          onClose={handleCloseNotificationsPage}
+        />
+
+        {/* Wallet Page */}
+        <WalletPage
+          visible={isWalletPageVisible}
+          onClose={handleCloseWalletPage}
+        />
       </View>
     </ScreenErrorBoundary>
   );
@@ -471,7 +707,7 @@ const styles = StyleSheet.create({
   },
   tradesListContent: {
     paddingTop: Platform.OS === 'ios' ? 180 : 200, // Reduced space for fixed header with filter tabs
-    paddingHorizontal: 16,
+    paddingHorizontal: 0, // Remove horizontal padding since header has its own
     paddingBottom: 20,
   },
   tradeCard: {
@@ -522,6 +758,9 @@ const styles = StyleSheet.create({
   tradeDetailLeft: {
     alignItems: 'flex-start',
   },
+  tradeDetailCenter: {
+    alignItems: 'center',
+  },
   tradeDetailRight: {
     alignItems: 'flex-end',
   },
@@ -540,6 +779,37 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     marginTop: 4,
+    flex: 1,
+  },
+  tradeFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  squareOffButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  squareOffAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   detailItem: {
     alignItems: 'center',

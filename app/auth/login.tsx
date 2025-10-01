@@ -131,9 +131,19 @@ export default function LoginScreen() {
       // };
 
       if (response.success) {
-        // Store user session
-        if (response.data?.user && response.data?.token) {
-          await sessionManager.saveSession(response.data.user, response.data.token);
+        // Store user session using the new API response format
+        if (response.data?.loggedInUser && response.data?.sessionToken) {
+          // The tradingApiService already saves the session to AsyncStorage
+          // We can also save to sessionManager if needed for backwards compatibility
+          await sessionManager.saveSession(
+            {
+              id: response.data.loggedInUser.sponsorid || response.data.loggedInUser.username,
+              name: response.data.loggedInUser.fullname,
+              email: response.data.loggedInUser.email,
+              username: response.data.loggedInUser.username,
+            },
+            response.data.sessionToken
+          );
         }
 
         // Handle remember password option
@@ -156,7 +166,10 @@ export default function LoginScreen() {
         });
 
         // Log success for debugging
-        console.log('✅ User logged in:', response.data?.user);
+        console.log('✅ User logged in:', {
+          user: response.data?.loggedInUser,
+          sessionToken: response.data?.sessionToken ? '***TOKEN***' : 'None'
+        });
         
         // Navigate to main app immediately
         router.replace('/(tabs)');

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     Dimensions,
     FlatList,
@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 
 import { Card, Text } from '../../components/atomic';
+import NotificationsPage from '../../components/ui/NotificationsPage';
+import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
@@ -102,6 +104,10 @@ export default function ReportScreen() {
   const { showNotification } = useNotification();
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'buy' | 'sell'>('all');
   const [notificationCount, setNotificationCount] = useState(0);
+  
+  // Modal states
+  const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
+  const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
 
   const styles = createStyles(theme);
 
@@ -127,19 +133,21 @@ export default function ReportScreen() {
     return type === 'buy' ? theme.colors.success : theme.colors.error;
   };
 
-  const handleWalletPress = () => {
-    showNotification({
-      type: 'info',
-      title: 'Wallet feature coming soon!',
-    });
-  };
+  const handleWalletPress = useCallback(() => {
+    setIsWalletPageVisible(true);
+  }, []);
 
-  const handleNotificationPress = () => {
-    showNotification({
-      type: 'info',
-      title: 'Notifications coming soon!',
-    });
-  };
+  const handleNotificationPress = useCallback(() => {
+    setIsNotificationsPageVisible(true);
+  }, []);
+
+  const handleCloseNotificationsPage = useCallback(() => {
+    setIsNotificationsPageVisible(false);
+  }, []);
+
+  const handleCloseWalletPage = useCallback(() => {
+    setIsWalletPageVisible(false);
+  }, []);
 
   const handleReportPress = () => {
     showNotification({
@@ -298,6 +306,18 @@ export default function ReportScreen() {
         style={styles.transactionList}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+      />
+
+      {/* Notifications Page */}
+      <NotificationsPage
+        visible={isNotificationsPageVisible}
+        onClose={handleCloseNotificationsPage}
+      />
+
+      {/* Wallet Page */}
+      <WalletPage
+        visible={isWalletPageVisible}
+        onClose={handleCloseWalletPage}
       />
     </View>
   );
