@@ -1,5 +1,6 @@
 // API service for authentication and trading
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sessionManager } from './sessionManager';
 
 const API_BASE_URL = 'https://tradingapi.sanaitatechnologies.com';
 
@@ -171,6 +172,38 @@ export interface NotificationItem {
 export interface GetNotificationsResponse {
   message: string;
   data: NotificationItem[];
+}
+
+export interface TransactionHistoryRequest {
+  pageNo: number;
+  sessionKey?: string; // Optional for the interface
+  startDate?: string; // Format: YYYY-MM-DD
+  endDate?: string;   // Format: YYYY-MM-DD
+  scriptExchange?: string;
+  currentPosition?: string; // 'BUY' | 'SELL'
+}
+
+export interface TransactionHistoryItem {
+  id: number;
+  tradeSymbol: string;
+  currentPosition: string;
+  strategy: string;
+  status: string;
+  entryTime: string;
+  exitTime: string;
+  entryPrice: number;
+  exitPrice: number;
+  // Additional fields that might be in the API response
+  qty?: number;
+  profitLoss?: number;
+  scriptExchange?: string;
+  total_Page?: number;
+}
+
+export interface TransactionHistoryResponse {
+  message: string;
+  data: TransactionHistoryItem[];
+  success?: boolean;
 }
 
 class TradingApiService {
@@ -1070,6 +1103,75 @@ class TradingApiService {
 
     } catch (error) {
       console.error('🔥 Get Notifications API Error:', error);
+      
+      return {
+        message: 'Network error. Please check your connection and try again.',
+        data: [],
+      };
+    }
+  }
+
+  // Get transaction history for reports
+  async getTransactionHistoryForReports(request: TransactionHistoryRequest): Promise<TransactionHistoryResponse> {
+    console.log('📊 Getting Transaction History For Reports:', {
+      pageNo: request.pageNo,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      scriptExchange: request.scriptExchange,
+      currentPosition: request.currentPosition
+    });
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        return {
+          message: 'Session token not available. Please log in again.',
+          data: [],
+        };
+      }
+
+      const response = await fetch(`${API_BASE_URL}/CompleteTradeApi/GetTransactionHistoryForReports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+        },
+        body: JSON.stringify({
+          pageNo: request.pageNo,
+          scriptExchange: request.scriptExchange || 'All',
+          currentPosition: request.currentPosition || 'All',
+          startDate: request.startDate,
+          endDate: request.endDate,
+        }),
+      });
+
+      console.log('📊 Transaction History API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Transaction History API Error Response:', errorText);
+        
+        return {
+          message: `Failed to fetch transaction history: ${response.status} ${response.statusText}`,
+          data: [],
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Transaction History API Success Response:', {
+        message: data.message,
+        dataCount: data.data?.length || 0,
+        totalPages: data.data?.[0]?.total_Page || 0
+      });
+
+      return {
+        message: data.message || 'Transaction history fetched successfully',
+        data: data.data || [],
+      };
+
+    } catch (error) {
+      console.error('🔥 Get Transaction History API Error:', error);
       
       return {
         message: 'Network error. Please check your connection and try again.',
