@@ -14,6 +14,8 @@ import { useColorScheme } from '../hooks/useColorScheme';
 import { cleanupNetworkListener, prefetchCriticalData, queryClient, setupNetworkListener } from '../services/queryClient';
 import { sessionManager } from '../services/sessionManager';
 import AuthUtils from '../services/authUtils';
+import { tradingApiService } from '../services/tradingApiService';
+import { watchlistApiService } from '../services/watchlistApiService';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -30,6 +32,10 @@ export default function RootLayout() {
         
         // Initialize authentication using the new auth utilities
         await AuthUtils.initializeAuth();
+
+        // Set up global 401 handler for all API calls
+        tradingApiService.setUnauthorizedHandler(AuthUtils.handle401Unauthorized);
+        watchlistApiService.setUnauthorizedHandler(AuthUtils.handle401Unauthorized);
 
         // Load user session for backwards compatibility
         const user = await sessionManager.loadSession();

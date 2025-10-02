@@ -6,6 +6,7 @@
 import { router } from 'expo-router';
 import { tradingApiService } from './tradingApiService';
 import { sessionManager } from './sessionManager';
+import { globalNotificationService } from './globalNotificationService';
 
 export class AuthUtils {
   /**
@@ -133,6 +134,46 @@ export class AuthUtils {
       }
     } catch (error) {
       console.error('❌ Error initializing auth:', error);
+    }
+  }
+
+  /**
+   * Handle 401 Unauthorized errors globally
+   * Shows notification and redirects to login
+   */
+  static async handle401Unauthorized(notificationSystem?: { showNotification: (notification: any) => void }): Promise<void> {
+    try {
+      console.log('⚠️ Handling 401 Unauthorized - Session expired');
+      
+      // Show notification using global service (preferred) or passed system
+      if (globalNotificationService) {
+        globalNotificationService.showNotification({
+          type: 'warning',
+          title: 'Session inactive, redirecting to login page',
+        });
+      } else if (notificationSystem?.showNotification) {
+        notificationSystem.showNotification({
+          type: 'warning',
+          title: 'Session inactive, redirecting to login page',
+        });
+      } else {
+        console.log('⚠️ Session inactive, redirecting to login page');
+      }
+
+      // Clear session and redirect to login
+      await this.logout();
+      
+      // Add a small delay to ensure notification is shown before navigation
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ Error handling 401:', error);
+      // Still try to redirect even if logout fails
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 100);
     }
   }
 }

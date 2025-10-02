@@ -22,6 +22,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
 import { tradingApiService, TransactionHistoryItem } from '../../services/tradingApiService';
 import { sessionManager } from '../../services/sessionManager';
+import { useAuthErrorHandler } from '../../hooks/useAuthErrorHandler';
 
 // Use TransactionHistoryItem from API service
 // No need for local Transaction interface
@@ -29,6 +30,7 @@ import { sessionManager } from '../../services/sessionManager';
 export default function ReportScreen() {
   const { theme, isDark } = useTheme();
   const { showNotification } = useNotification();
+  const { handle401 } = useAuthErrorHandler();
   
   // State management
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
@@ -380,6 +382,17 @@ export default function ReportScreen() {
       </View>
     );
   };
+
+  // FOR DEVELOPMENT TESTING ONLY - Remove this in production
+  const handleTest401 = useCallback(async () => {
+    console.log('🧪 Testing 401 handler...');
+    try {
+      const Test401Handler = require('../../services/test401Handler').default;
+      await Test401Handler.simulate401();
+    } catch (error) {
+      console.error('❌ Error testing 401:', error);
+    }
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>

@@ -208,12 +208,20 @@ export interface TransactionHistoryResponse {
 
 class TradingApiService {
   private static instance: TradingApiService;
+  private unauthorizedHandler?: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>;
 
   static getInstance(): TradingApiService {
     if (!TradingApiService.instance) {
       TradingApiService.instance = new TradingApiService();
     }
     return TradingApiService.instance;
+  }
+
+  /**
+   * Set a global handler for 401 unauthorized responses
+   */
+  setUnauthorizedHandler(handler: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>): void {
+    this.unauthorizedHandler = handler;
   }
 
   /**
@@ -812,6 +820,17 @@ class TradingApiService {
       if (response.status === 401) {
         console.log('⚠️ Received 401 - session expired on server, clearing local session');
         await this.clearSessionData();
+        
+        // Call the global unauthorized handler if set
+        if (this.unauthorizedHandler) {
+          try {
+            await this.unauthorizedHandler();
+            return response; // Return early since handler manages the flow
+          } catch (handlerError) {
+            console.error('❌ Error in unauthorized handler:', handlerError);
+          }
+        }
+        
         throw new Error('Session expired. Please login again.');
       }
 
@@ -819,6 +838,17 @@ class TradingApiService {
       if (response.status === 403) {
         console.log('⚠️ Received 403 - insufficient permissions, clearing local session');
         await this.clearSessionData();
+        
+        // Call the global unauthorized handler if set (403 is also auth-related)
+        if (this.unauthorizedHandler) {
+          try {
+            await this.unauthorizedHandler();
+            return response; // Return early since handler manages the flow
+          } catch (handlerError) {
+            console.error('❌ Error in unauthorized handler:', handlerError);
+          }
+        }
+        
         throw new Error('Access denied. Please login again.');
       }
 

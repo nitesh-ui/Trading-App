@@ -71,6 +71,14 @@ export interface AddScriptRequest {
 
 class WatchlistApiService {
   private readonly baseUrl = 'https://tradingapi.sanaitatechnologies.com';
+  private unauthorizedHandler?: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>;
+
+  /**
+   * Set a global handler for 401 unauthorized responses
+   */
+  setUnauthorizedHandler(handler: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>): void {
+    this.unauthorizedHandler = handler;
+  }
 
   /**
    * Fetch watchlist data from the trading API
@@ -122,8 +130,21 @@ class WatchlistApiService {
         
         // If unauthorized, session might be expired
         if (response.status === 401 || response.status === 403) {
-          console.log('⚠️ Session might be expired, falling back to mock data');
+          console.log('⚠️ Session might be expired in watchlist service');
           await tradingApiService.clearSessionData();
+          
+          // Call the global unauthorized handler if set
+          if (this.unauthorizedHandler) {
+            try {
+              await this.unauthorizedHandler();
+              return this.getMockWatchlistData(); // Return mock data after handling
+            } catch (handlerError) {
+              console.error('❌ Error in unauthorized handler:', handlerError);
+            }
+          }
+          
+          // Fallback to mock data if no handler is set
+          console.log('⚠️ Falling back to mock data');
           return this.getMockWatchlistData();
         }
         
