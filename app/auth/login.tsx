@@ -103,12 +103,12 @@ export default function LoginScreen() {
 
     try {
       // Show initial loading notification
-      showNotification({
-        type: 'info',
-        title: 'Connecting...',
-        message: 'Verifying your credentials with server',
-        duration: 2000
-      });
+      // showNotification({
+      //   type: 'info',
+      //   title: 'Connecting...',
+      //   message: 'Verifying your credentials with server',
+      //   duration: 2000
+      // });
 
       // Call real API - COMMENTED FOR TESTING
       const response = await tradingApiService.login({
