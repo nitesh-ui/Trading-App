@@ -22,9 +22,7 @@ interface PortfolioSummary {
   totalPnLPercent: number;
   todaysPnL: number;
   todaysPnLPercent: number;
-  walletBalance: number;
-  marginUsed: number;
-  availableMargin: number;
+  walletBalance: string;
 }
 
 interface Holding {
@@ -111,31 +109,6 @@ const portfolioService = {
       throw error;
     }
   },
-  
-  getPortfolioSummary: async (): Promise<PortfolioSummary> => {
-    try {
-      const holdings = await portfolioService.getHoldings();
-      const totalInvested = holdings.reduce((sum, holding) => sum + holding.investedValue, 0);
-      const totalCurrent = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
-      const totalPnL = holdings.reduce((sum, holding) => sum + holding.pnl, 0);
-      const totalPnLPercent = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
-      
-      return {
-        totalInvested,
-        totalCurrent,
-        totalPnL,
-        totalPnLPercent,
-        todaysPnL: totalPnL * 0.1, // Mock today's P&L as 10% of total
-        todaysPnLPercent: totalPnLPercent * 0.1,
-        walletBalance: 50000, // Mock wallet balance - would come from another API
-        marginUsed: 25000, // Mock margin used - would come from another API
-        availableMargin: 75000, // Mock available margin - would come from another API
-      };
-    } catch (error) {
-      console.error('❌ Error fetching portfolio summary:', error);
-      throw error;
-    }
-  },
 };
 
 /**
@@ -201,14 +174,6 @@ const MemoizedHoldingCard = memo<{
             <Text variant="caption" color="textSecondary">Avg: ₹{holding.avgPrice.toFixed(2)}</Text>
             <Text variant="caption" color="textSecondary">LTP: ₹{holding.currentPrice.toFixed(2)}</Text>
           </View>
-          <View style={styles.valueRow}>
-            <Text variant="caption" color="textSecondary">
-              Invested: {formatIndianCurrency(holding.investedValue)}
-            </Text>
-            <Text variant="caption" color="text">
-              Current: {formatIndianCurrency(holding.currentValue)}
-            </Text>
-          </View>
           <View style={styles.tradeInfo}>
             <Text variant="caption" color="textSecondary">
               Trade Date: {holding.orderDate} {holding.orderTime}
@@ -251,6 +216,23 @@ export default function PortfolioScreen() {
     staleTime: 30 * 1000, // 30 seconds
   });
 
+  // Separate wallet balance query for immediate refresh
+  const {
+    data: walletBalance,
+    isLoading: walletLoading,
+    refetch: refetchWallet,
+    isRefetching: walletRefetching
+  } = useQuery({
+    queryKey: ['wallet', 'balance'],
+    queryFn: async () => {
+      const response = await tradingApiService.getWalletBalance();
+      return response.data?.amount || '0';
+    },
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
   const { 
     data: portfolioSummary, 
     isLoading: summaryLoading,
@@ -258,8 +240,25 @@ export default function PortfolioScreen() {
     isRefetching: summaryRefetching 
   } = useQuery({
     queryKey: [...queryKeys.userPortfolio(), 'summary'],
-    queryFn: portfolioService.getPortfolioSummary,
+    queryFn: async () => {
+      const holdings = await portfolioService.getHoldings();
+      const totalInvested = holdings.reduce((sum, holding) => sum + holding.investedValue, 0);
+      const totalCurrent = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
+      const totalPnL = holdings.reduce((sum, holding) => sum + holding.pnl, 0);
+      const totalPnLPercent = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
+      
+      return {
+        totalInvested,
+        totalCurrent,
+        totalPnL,
+        totalPnLPercent,
+        todaysPnL: totalPnL * 0.1,
+        todaysPnLPercent: totalPnLPercent * 0.1,
+        walletBalance: walletBalance || '0',
+      };
+    },
     staleTime: 30 * 1000,
+    enabled: !!walletBalance, // Only run when wallet balance is available
   });
 
   // Callbacks
@@ -286,8 +285,9 @@ export default function PortfolioScreen() {
 
   const onRefresh = useCallback(() => {
     refetchHoldings();
+    refetchWallet();
     refetchSummary();
-  }, [refetchHoldings, refetchSummary]);
+  }, [refetchHoldings, refetchWallet, refetchSummary]);
 
   const renderHoldingItem = useCallback(({ item }: { item: Holding }) => (
     <MemoizedHoldingCard
@@ -344,7 +344,7 @@ export default function PortfolioScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={holdingsRefetching || summaryRefetching}
+              refreshing={holdingsRefetching || summaryRefetching || walletRefetching}
               onRefresh={onRefresh}
               tintColor={theme.colors.primary}
               colors={[theme.colors.primary]}
@@ -354,7 +354,7 @@ export default function PortfolioScreen() {
 
           {/* Portfolio Summary */}
           <Suspense fallback={<StockCardSkeleton />}>
-            {summaryLoading ? (
+            {(summaryLoading || walletLoading) ? (
               <StockCardSkeleton />
             ) : portfolioSummary ? (
               <Card padding="medium" style={styles.summaryCard}>
@@ -367,22 +367,7 @@ export default function PortfolioScreen() {
                     <View style={styles.summaryItem}>
                       <Text variant="caption" color="textSecondary">Wallet Balance</Text>
                       <Text variant="body" weight="semibold" color="text">
-                        {formatIndianCurrency(portfolioSummary.walletBalance)}
-                      </Text>
-                    </View>
-                    <View style={styles.summaryItem}>
-                      <Text variant="caption" color="textSecondary">Margin Used</Text>
-                      <Text variant="body" weight="semibold" color="text">
-                        {formatIndianCurrency(portfolioSummary.marginUsed)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.summaryRow}>
-                    <View style={styles.summaryItem}>
-                      <Text variant="caption" color="textSecondary">Available Margin</Text>
-                      <Text variant="body" weight="semibold" color="text">
-                        {formatIndianCurrency(portfolioSummary.availableMargin)}
+                        ₹{walletBalance || '0'}
                       </Text>
                     </View>
                     <View style={styles.summaryItem}>

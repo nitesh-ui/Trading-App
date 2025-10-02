@@ -68,7 +68,7 @@ const WalletBalanceCard = memo(({
 
   const formatCurrency = useCallback((amount: string | number) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return numAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    return numAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
   }, []);
 
   if (loading) {
