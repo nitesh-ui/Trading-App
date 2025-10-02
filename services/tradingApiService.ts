@@ -150,6 +150,29 @@ export interface GetActiveTradesResponse {
   data: ActiveTradeItem[];
 }
 
+export interface NotificationItem {
+  id: number;
+  userID: number;
+  description: string;
+  type: number;
+  seen: number;
+  createdDate: string;
+  createdDateString: string;
+  email: string;
+  source: string;
+  userip: string;
+  total_Page: number;
+  fullname: string;
+  username: string;
+  location: string;
+  deviceName: string;
+}
+
+export interface GetNotificationsResponse {
+  message: string;
+  data: NotificationItem[];
+}
+
 class TradingApiService {
   private static instance: TradingApiService;
 
@@ -998,6 +1021,59 @@ class TradingApiService {
         success: false,
         count: 0,
         message: error instanceof Error ? error.message : 'Failed to get notification count',
+      };
+    }
+  }
+
+  /**
+   * Get user notifications with pagination
+   */
+  async getNotifications(pageNumber: number = 1): Promise<GetNotificationsResponse> {
+    try {
+      console.log('🚀 GetNotifications API Request:', {
+        url: `${API_BASE_URL}/NotificationApi/GetNotification`,
+        method: 'GET',
+        pageNumber
+      });
+
+      // Make API call using authenticated request
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/NotificationApi/GetNotification?PageNumber=${pageNumber}`,
+        {
+          method: 'GET',
+        }
+      );
+
+      console.log('📡 Notifications API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Notifications API Error Response:', errorText);
+        
+        return {
+          message: `Failed to fetch notifications: ${response.status} ${response.statusText}`,
+          data: [],
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Notifications API Success Response:', {
+        message: data.message,
+        dataCount: data.data?.length || 0,
+        totalPages: data.data?.[0]?.total_Page || 0
+      });
+
+      return {
+        message: data.message || 'Notifications fetched successfully',
+        data: data.data || [],
+      };
+
+    } catch (error) {
+      console.error('🔥 Get Notifications API Error:', error);
+      
+      return {
+        message: 'Network error. Please check your connection and try again.',
+        data: [],
       };
     }
   }
