@@ -206,6 +206,163 @@ export interface TransactionHistoryResponse {
   success?: boolean;
 }
 
+export interface WalletBalanceData {
+  amount: string;
+  totalprofitloss: number;
+  availablebalance: number;
+  usedbalance: number;
+  usedMargin: number;
+  availableMargin: number;
+  totalmargin: number;
+  // Additional fields from API response
+  userID: number;
+  tenantId: number;
+  totalinflow: number;
+  totaloutflow: number;
+  closingbalance: number;
+  openingbalance: number;
+  loanbalance: number;
+  deliveryPledge: number;
+  dailyTotalprofitloss: number;
+}
+
+export interface WalletBalanceResponse {
+  message: string;
+  data: WalletBalanceData;
+}
+
+// Transaction History Interfaces
+export interface TransactionHistoryRequest {
+  pageNo: number;
+  startDate?: string;
+  endDate?: string;
+  payinPayout: boolean;
+}
+
+export interface TransactionHistoryItem {
+  id: number;
+  activeTradeID: number;
+  email: string;
+  userID: number;
+  tenantId: number;
+  description: string;
+  date_Time: string;
+  date_Time_String: string;
+  amount: string;
+  amountindouble: number;
+  totalinflow: number;
+  totaloutflow: number;
+  type: number;
+  transectionid: string;
+  isread: number;
+  total_Pages: number;
+  recievedform: string;
+  status: string;
+  returnUrl: string;
+  balance: string;
+  closingbalance: number;
+  openingbalance: number;
+  loanbalance: number;
+  parentUserID: number;
+  level: number;
+  equitybrokerfixedorpercentage: boolean;
+  futuresbrokerfixedorpercentage: boolean;
+  optionsbrokerfixedorpercentage: boolean;
+  equitybrokerfixedorpercentagevalue: number;
+  futuresBrokerFixedOrPercentageValue: number;
+  optionsbrokerfixedorpercentagevalue: number;
+  scriptExchange?: string;
+  availablebalance: number;
+  usedbalance: number;
+  totalprofitloss: number;
+  deliveryPledge: number;
+  usedMargin: number;
+  availableMargin: number;
+  dailyTotalprofitloss: number;
+  totalmargin: number;
+  brokeragecutfor: string;
+}
+
+export interface TransactionHistoryResponse {
+  message: string;
+  data: TransactionHistoryItem[];
+}
+
+export interface TransactionDetailsResponse {
+  Completedtradeid: number;
+  Activetradeidfororderlog: number;
+  TradeSymbol: string;
+  Scriptsegment: string;
+  Scripttype: string;
+  Entrydate: string;
+  Entrytime: string;
+  Entryprice: number;
+  ExitDate: string;
+  Exittime: string;
+  Exitprice: number;
+  Openingwalletbalance: number;
+  Profitorloss: number;
+  Status: string;
+  StatusMessage: string;
+  UserID: number;
+  CurrentPosition: string;
+  Qty: number;
+  strategyID: number;
+  Fundmanagername: string;
+  Strategyname: string;
+  WID: number;
+  Watchlistname: string;
+  IsLive: boolean;
+  Username: string;
+  Fullname: string;
+  isReverseOrder: boolean;
+  Publishname: string;
+  ProductType: string;
+  ScriptLotSize: number;
+  Brokerage: number;
+  Total_Page: number;
+  Netprofitorloss: number;
+  Totalprofit: number;
+  Totalloss: number;
+  TotalBrokerage: number;
+  ScriptExchange: string;
+  LAST_PRICE_TYPE: number;
+  TRADING_UNIT_TYPE: number;
+  ScriptInstrumentType: string;
+  Issoftdeleted: number;
+  ScriptName: string;
+  ScriptCode: number;
+  HOLDED_EXPOSURE: number;
+  IsaddedToMargin: boolean;
+  Email: string;
+  BuyQtyWiseOrLot: number;
+  Averageprice: number;
+  Lastprice: number;
+  TRADING_UNIT: string;
+  Active_LTP: number;
+  Active_Bid: number;
+  Active_Ask: number;
+  Datescriptexpiry: string;
+  Scriptexpiry: string;
+  TENANT_ID: number;
+  COMPANY_INITIAL: string;
+  Orderplacedfrom: string;
+  Sponsorid: string;
+  Userroleid: string;
+  Userip: string;
+  CREATED_BY: number;
+  CREATED_DATE: string;
+  CREATED_BY_2: string;
+  UPDATED_BY: number;
+  UPDATED_DATE: string;
+  UPDATED_BY_2: string;
+  Qty_MODIFIED_BY: number;
+  Qty_MODIFIED_DATE: string;
+  Qty_MODIFIED_BY_2: string;
+  BROKRAGE_DEDUCTED_AMOUNT: number;
+  Brokrage_Deducted_Amount_2: number;
+}
+
 class TradingApiService {
   private static instance: TradingApiService;
   private unauthorizedHandler?: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>;
@@ -1207,6 +1364,241 @@ class TradingApiService {
         message: 'Network error. Please check your connection and try again.',
         data: [],
       };
+    }
+  }
+
+  // Get wallet balance
+  async getWalletBalance(): Promise<WalletBalanceResponse> {
+    console.log('💰 Getting Wallet Balance');
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        return {
+          message: 'Session token not available. Please log in again.',
+          data: {
+            amount: '0',
+            totalprofitloss: 0,
+            availablebalance: 0,
+            usedbalance: 0,
+            usedMargin: 0,
+            availableMargin: 0,
+            totalmargin: 0,
+            userID: 0,
+            tenantId: 0,
+            totalinflow: 0,
+            totaloutflow: 0,
+            closingbalance: 0,
+            openingbalance: 0,
+            loanbalance: 0,
+            deliveryPledge: 0,
+            dailyTotalprofitloss: 0,
+          },
+        };
+      }
+
+      const response = await fetch(`${API_BASE_URL}/UserWalletApi/GetBalance`, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+        },
+      });
+
+      console.log('💰 Wallet Balance API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Wallet Balance API Error Response:', errorText);
+        
+        return {
+          message: `Failed to fetch wallet balance: ${response.status} ${response.statusText}`,
+          data: {
+            amount: '0',
+            totalprofitloss: 0,
+            availablebalance: 0,
+            usedbalance: 0,
+            usedMargin: 0,
+            availableMargin: 0,
+            totalmargin: 0,
+            userID: 0,
+            tenantId: 0,
+            totalinflow: 0,
+            totaloutflow: 0,
+            closingbalance: 0,
+            openingbalance: 0,
+            loanbalance: 0,
+            deliveryPledge: 0,
+            dailyTotalprofitloss: 0,
+          },
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Wallet Balance API Success Response:', {
+        message: data.message,
+        amount: data.data?.amount,
+        totalprofitloss: data.data?.totalprofitloss
+      });
+
+      return {
+        message: data.message || 'Wallet balance fetched successfully',
+        data: data.data || {
+          amount: '0',
+          totalprofitloss: 0,
+          availablebalance: 0,
+          usedbalance: 0,
+          usedMargin: 0,
+          availableMargin: 0,
+          totalmargin: 0,
+          userID: 0,
+          tenantId: 0,
+          totalinflow: 0,
+          totaloutflow: 0,
+          closingbalance: 0,
+          openingbalance: 0,
+          loanbalance: 0,
+          deliveryPledge: 0,
+          dailyTotalprofitloss: 0,
+        },
+      };
+
+    } catch (error) {
+      console.error('🔥 Get Wallet Balance API Error:', error);
+      
+      return {
+        message: 'Network error. Please check your connection and try again.',
+        data: {
+          amount: '0',
+          totalprofitloss: 0,
+          availablebalance: 0,
+          usedbalance: 0,
+          usedMargin: 0,
+          availableMargin: 0,
+          totalmargin: 0,
+          userID: 0,
+          tenantId: 0,
+          totalinflow: 0,
+          totaloutflow: 0,
+          closingbalance: 0,
+          openingbalance: 0,
+          loanbalance: 0,
+          deliveryPledge: 0,
+          dailyTotalprofitloss: 0,
+        },
+      };
+    }
+  }
+
+  // Get transaction history with filters and pagination
+  async getTransactionHistory(request: TransactionHistoryRequest): Promise<TransactionHistoryResponse> {
+    console.log('📋 Getting Transaction History', request);
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        return {
+          message: 'Session token not available. Please log in again.',
+          data: [],
+        };
+      }
+
+      const payload: any = {
+        pageNo: request.pageNo,
+        payinPayout: request.payinPayout
+      };
+
+      // Only include dates if they are provided
+      if (request.startDate) {
+        payload.startDate = request.startDate;
+      }
+      if (request.endDate) {
+        payload.endDate = request.endDate;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/UserWalletApi/GetLedgerHistory`, {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log('📋 Transaction History API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Transaction History API Error Response:', errorText);
+        
+        return {
+          message: `Failed to fetch transaction history: ${response.status} ${response.statusText}`,
+          data: [],
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Transaction History API Success Response:', {
+        message: data.message,
+        dataLength: data.data?.length || 0
+      });
+
+      return {
+        message: data.message || 'Transaction history fetched successfully',
+        data: data.data || [],
+      };
+
+    } catch (error) {
+      console.error('🔥 Get Transaction History API Error:', error);
+      
+      return {
+        message: 'Network error. Please check your connection and try again.',
+        data: [],
+      };
+    }
+  }
+
+  // Get transaction details by transaction ID
+  async getTransactionDetails(transactionId: number, userId?: number): Promise<TransactionDetailsResponse | null> {
+    console.log('📄 Getting Transaction Details', { transactionId, userId });
+
+    try {
+      const url = `https://uat.sanaitatechnologies.com/Admin/GetWalletTransactionDetails?TransactionId=${transactionId}&UserID=${userId || 'undefined'}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+          'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+
+      console.log('📄 Transaction Details API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Transaction Details API Error Response:', errorText);
+        return null;
+      }
+
+      const data = await response.text();
+      console.log('✅ Transaction Details API Success Response received');
+
+      try {
+        // The API returns a JSON string, so we need to parse it
+        const parsedData = JSON.parse(data);
+        return parsedData;
+      } catch (parseError) {
+        console.error('❌ Failed to parse transaction details response:', parseError);
+        return null;
+      }
+
+    } catch (error) {
+      console.error('🔥 Get Transaction Details API Error:', error);
+      return null;
     }
   }
 }

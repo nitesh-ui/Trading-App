@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useState, useCallback } from 'react';
+import React, { memo, useState, useCallback, useEffect } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -7,112 +7,46 @@ import {
   ScrollView,
   Alert,
   FlatList,
-  RefreshControl
+  RefreshControl,
+  ActivityIndicator
 } from 'react-native';
-import { Card, Text, Button } from '../atomic';
+import { Card, Text, Button, Toggle } from '../atomic';
 import SlidingPage from './SlidingPage';
+import DatePicker from './DatePicker';
+import TransactionDetailsModal from './TransactionDetailsModal';
+import FilterDrawer from './FilterDrawer';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
-
-interface Transaction {
-  id: string;
-  type: 'deposit' | 'withdraw' | 'buy' | 'sell' | 'dividend' | 'fees';
-  amount: number;
-  currency: string;
-  description: string;
-  timestamp: Date;
-  status: 'completed' | 'pending' | 'failed';
-}
+import { 
+  tradingApiService, 
+  WalletBalanceData, 
+  TransactionHistoryItem,
+  TransactionDetailsResponse
+} from '../../services/tradingApiService';
+import { useAuthErrorHandler } from '../../hooks/useAuthErrorHandler';
 
 interface WalletPageProps {
   visible: boolean;
   onClose: () => void;
 }
 
-// Mock data - In real app, this would come from API/context
-const MOCK_BALANCE = {
-  total: 125430.50,
-  available: 98234.75,
-  invested: 27195.75,
-  currency: 'INR'
-};
+interface TransactionFilters {
+  startDate: Date | null;
+  endDate: Date | null;
+  payinPayout: boolean;
+}
 
-const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: '1',
-    type: 'deposit',
-    amount: 10000,
-    currency: 'INR',
-    description: 'UPI Transfer - Bank of India',
-    timestamp: new Date('2024-01-15T10:30:00Z'),
-    status: 'completed'
-  },
-  {
-    id: '2',
-    type: 'buy',
-    amount: -2500,
-    currency: 'INR',
-    description: 'Purchased AAPL - 5 shares',
-    timestamp: new Date('2024-01-15T09:15:00Z'),
-    status: 'completed'
-  },
-  {
-    id: '3',
-    type: 'sell',
-    amount: 3200,
-    currency: 'INR',
-    description: 'Sold MSFT - 3 shares',
-    timestamp: new Date('2024-01-14T14:22:00Z'),
-    status: 'completed'
-  },
-  {
-    id: '4',
-    type: 'dividend',
-    amount: 145.50,
-    currency: 'INR',
-    description: 'Dividend from RELIANCE',
-    timestamp: new Date('2024-01-14T11:00:00Z'),
-    status: 'completed'
-  },
-  {
-    id: '5',
-    type: 'fees',
-    amount: -18.50,
-    currency: 'INR',
-    description: 'Brokerage charges',
-    timestamp: new Date('2024-01-13T16:45:00Z'),
-    status: 'completed'
-  },
-  {
-    id: '6',
-    type: 'withdraw',
-    amount: -5000,
-    currency: 'INR',
-    description: 'Bank Transfer - HDFC Bank',
-    timestamp: new Date('2024-01-12T12:30:00Z'),
-    status: 'pending'
-  },
-  {
-    id: '7',
-    type: 'deposit',
-    amount: 25000,
-    currency: 'INR',
-    description: 'NEFT Transfer - SBI Bank',
-    timestamp: new Date('2024-01-10T08:15:00Z'),
-    status: 'completed'
-  },
-  {
-    id: '8',
-    type: 'buy',
-    amount: -8750,
-    currency: 'INR',
-    description: 'Purchased TCS - 10 shares',
-    timestamp: new Date('2024-01-09T11:30:00Z'),
-    status: 'completed'
-  }
-];
-
-const WalletBalanceCard = memo(() => {
+const WalletBalanceCard = memo(({ 
+  walletData, 
+  loading, 
+  error, 
+  onRefresh 
+}: { 
+  walletData: WalletBalanceData | null;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}) => {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
 
@@ -132,11 +66,54 @@ const WalletBalanceCard = memo(() => {
     });
   }, [showNotification]);
 
+  const formatCurrency = useCallback((amount: string | number) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return numAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  }, []);
+
+  if (loading) {
+    return (
+      <Card padding="large" style={StyleSheet.flatten([styles.balanceCard, { backgroundColor: theme.colors.primary }])}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="white" />
+          <Text variant="body" style={{ color: 'white', marginTop: 12 }}>
+            Loading wallet balance...
+          </Text>
+        </View>
+      </Card>
+    );
+  }
+
+  if (error && !walletData) {
+    return (
+      <Card padding="large" style={StyleSheet.flatten([styles.balanceCard, { backgroundColor: theme.colors.error }])}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color="white" />
+          <Text variant="body" style={{ color: 'white', textAlign: 'center', marginTop: 12 }}>
+            {error}
+          </Text>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+            onPress={onRefresh}
+          >
+            <Text variant="caption" style={{ color: 'white', fontWeight: '600' }}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Card>
+    );
+  }
+
+  // Use API data or fallback to 0
+  const walletBalance = walletData?.amount || '0';
+  const totalProfitLoss = walletData?.totalprofitloss || 0;
+
   return (
     <Card padding="large" style={StyleSheet.flatten([styles.balanceCard, { backgroundColor: theme.colors.primary }])}>
       <View style={styles.balanceHeader}>
         <Text variant="body" style={StyleSheet.flatten([styles.balanceLabel, { color: 'white' }])}>
-          Total Balance
+          Wallet Balance
         </Text>
         <TouchableOpacity>
           <Ionicons name="eye" size={20} color="white" />
@@ -144,24 +121,22 @@ const WalletBalanceCard = memo(() => {
       </View>
       
       <Text variant="display" weight="bold" style={StyleSheet.flatten([styles.totalBalance, { color: 'white' }])}>
-        ₹{MOCK_BALANCE.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        ₹{formatCurrency(walletBalance)}
       </Text>
       
       <View style={styles.balanceBreakdown}>
         <View style={styles.breakdownItem}>
           <Text variant="caption" style={StyleSheet.flatten([styles.breakdownLabel, { color: 'white' }])}>
-            Available
+            Active Trades
           </Text>
-          <Text variant="body" weight="semibold" style={{ color: 'white' }}>
-            ₹{MOCK_BALANCE.available.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </Text>
-        </View>
-        <View style={styles.breakdownItem}>
-          <Text variant="caption" style={StyleSheet.flatten([styles.breakdownLabel, { color: 'white' }])}>
-            Invested
-          </Text>
-          <Text variant="body" weight="semibold" style={{ color: 'white' }}>
-            ₹{MOCK_BALANCE.invested.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          <Text 
+            variant="body" 
+            weight="semibold" 
+            style={{ 
+              color: totalProfitLoss >= 0 ? '#4ade80' : '#f87171' 
+            }}
+          >
+            {totalProfitLoss >= 0 ? '+' : ''}₹{formatCurrency(Math.abs(totalProfitLoss))}
           </Text>
         </View>
       </View>
@@ -225,59 +200,57 @@ const AccountInfoCard = memo(() => {
   );
 });
 
-const TransactionItem = memo(({ transaction }: { transaction: Transaction }) => {
+const TransactionItem = memo(({ transaction, onDetailsPress }: { 
+  transaction: TransactionHistoryItem;
+  onDetailsPress: (id: number) => void;
+}) => {
   const { theme } = useTheme();
 
   const getTransactionIcon = () => {
     switch (transaction.type) {
-      case 'deposit':
-        return 'arrow-down-circle';
-      case 'withdraw':
-        return 'arrow-up-circle';
-      case 'buy':
-        return 'trending-up';
-      case 'sell':
-        return 'trending-down';
-      case 'dividend':
-        return 'gift';
-      case 'fees':
-        return 'receipt';
+      case 1:
+        return 'arrow-down-circle'; // Credit/Deposit
+      case 2:
+        return 'arrow-up-circle'; // Debit/Withdraw
       default:
         return 'swap-horizontal';
     }
   };
 
   const getTransactionColor = () => {
-    if (transaction.status === 'failed') return theme.colors.error;
-    if (transaction.status === 'pending') return theme.colors.warning;
-    
     switch (transaction.type) {
-      case 'deposit':
-      case 'sell':
-      case 'dividend':
-        return theme.colors.success;
-      case 'withdraw':
-      case 'buy':
-      case 'fees':
-        return theme.colors.error;
+      case 1:
+        return theme.colors.success; // Credit/Deposit
+      case 2:
+        return theme.colors.error; // Debit/Withdraw
       default:
         return theme.colors.text;
     }
   };
 
   const formatAmount = () => {
-    const isPositive = transaction.amount > 0;
-    const prefix = isPositive ? '+' : '';
-    return `${prefix}₹${Math.abs(transaction.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    const amount = transaction.amount;
+    const isPositive = amount.startsWith('+');
+    const numericAmount = parseFloat(amount.replace(/[+\-]/g, ''));
+    return `${isPositive ? '+' : '-'}₹${numericAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
 
   const formatDate = () => {
-    return transaction.timestamp.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const date = new Date(transaction.date_Time);
+      return date.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return transaction.date_Time_String;
+    }
+  };
+
+  const getStatusText = () => {
+    return transaction.status === '1' ? 'Completed' : 'Pending';
   };
 
   return (
@@ -295,91 +268,481 @@ const TransactionItem = memo(({ transaction }: { transaction: Transaction }) => 
             {transaction.description}
           </Text>
           <Text variant="caption" color="textSecondary">
-            {formatDate()} • {transaction.status}
+            {formatDate()} • {getStatusText()}
           </Text>
+          {transaction.recievedform && (
+            <Text variant="caption" color="textSecondary" numberOfLines={1}>
+              From: {transaction.recievedform}
+            </Text>
+          )}
         </View>
       </View>
-      <Text 
-        variant="body" 
-        weight="semibold" 
-        style={StyleSheet.flatten([styles.transactionAmount, { color: getTransactionColor() }])}
-      >
-        {formatAmount()}
-      </Text>
+      <View style={styles.transactionRight}>
+        <Text 
+          variant="body" 
+          weight="semibold" 
+          style={StyleSheet.flatten([styles.transactionAmount, { color: getTransactionColor() }])}
+        >
+          {formatAmount()}
+        </Text>
+        <TouchableOpacity 
+          style={[styles.detailsButton, { backgroundColor: theme.colors.primary }]}
+          onPress={() => onDetailsPress(transaction.id)}
+        >
+          <Text variant="caption" style={{ color: 'white', fontWeight: '600' }}>
+            Details
+          </Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 });
 
 const TransactionHistory = memo(() => {
   const { theme } = useTheme();
-  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
+  const { showNotification } = useNotification();
+  const { handle401 } = useAuthErrorHandler();
+  
+  const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  
+  // Filters and drawer state
+  const [filters, setFilters] = useState<TransactionFilters>({
+    startDate: null,
+    endDate: null,
+    payinPayout: false
+  });
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  
+  // Transaction details modal
+  const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
+  const [transactionDetails, setTransactionDetails] = useState<TransactionDetailsResponse | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  const fetchTransactionHistory = useCallback(async (page: number = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const request = {
+        pageNo: page,
+        payinPayout: filters.payinPayout,
+        ...(filters.startDate && { startDate: filters.startDate.toISOString() }),
+        ...(filters.endDate && { endDate: filters.endDate.toISOString() })
+      };
+
+      const response = await tradingApiService.getTransactionHistory(request);
+      
+      if (response.data && response.data.length > 0) {
+        const newTransactions = response.data;
+        
+        // Always replace data, don't append
+        setTransactions(newTransactions);
+        
+        // Get total pages from the first item
+        const totalPagesFromAPI = newTransactions[0]?.total_Pages || 1;
+        setTotalPages(totalPagesFromAPI);
+        setCurrentPage(page);
+      } else {
+        setTransactions([]);
+        setError(response.message || 'No transactions found');
+      }
+    } catch (err: any) {
+      console.error('Error fetching transaction history:', err);
+      
+      if (err.status === 401) {
+        await handle401();
+        setError('Session expired. Please login again.');
+      } else {
+        const errorMessage = err.message || 'Unable to fetch transaction history. Please try again.';
+        setError(errorMessage);
+        showNotification({
+          type: 'error',
+          title: 'Transaction History Error',
+          message: errorMessage
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, showNotification, handle401]);
+
+  const fetchTransactionDetails = useCallback(async (transactionId: number) => {
+    try {
+      setLoadingDetails(true);
+      setSelectedTransactionId(transactionId);
+      setShowDetailsModal(true);
+      
+      const details = await tradingApiService.getTransactionDetails(transactionId);
+      
+      if (details) {
+        setTransactionDetails(details);
+      } else {
+        showNotification({
+          type: 'error',
+          title: 'Error',
+          message: 'Failed to load transaction details'
+        });
+      }
+    } catch (err: any) {
+      console.error('Error fetching transaction details:', err);
+      showNotification({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to load transaction details'
+      });
+    } finally {
+      setLoadingDetails(false);
+    }
+  }, [showNotification]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    setCurrentPage(1);
+    fetchTransactionHistory(1).finally(() => setRefreshing(false));
+  }, [fetchTransactionHistory]);
+
+  const goToPreviousPage = useCallback(() => {
+    if (currentPage > 1) {
+      fetchTransactionHistory(currentPage - 1);
+    }
+  }, [currentPage, fetchTransactionHistory]);
+
+  const goToNextPage = useCallback(() => {
+    if (currentPage < totalPages) {
+      fetchTransactionHistory(currentPage + 1);
+    }
+  }, [currentPage, totalPages, fetchTransactionHistory]);
+
+  const handleFilterChange = useCallback((key: keyof TransactionFilters, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
   }, []);
 
-  const renderTransaction = useCallback(({ item }: { item: Transaction }) => (
-    <TransactionItem transaction={item} />
-  ), []);
+  const handleFiltersChange = useCallback((newFilters: TransactionFilters) => {
+    setFilters(newFilters);
+  }, []);
 
-  const keyExtractor = useCallback((item: Transaction) => item.id, []);
+  const handleApplyFilters = useCallback(() => {
+    setCurrentPage(1);
+    fetchTransactionHistory(1);
+  }, [fetchTransactionHistory]);
+
+  const handleResetFilters = useCallback(() => {
+    setFilters({
+      startDate: null,
+      endDate: null,
+      payinPayout: false
+    });
+    setCurrentPage(1);
+    fetchTransactionHistory(1);
+  }, [fetchTransactionHistory]);
+
+  const getActiveFiltersCount = useCallback(() => {
+    let count = 0;
+    if (filters.startDate) count++;
+    if (filters.endDate) count++;
+    if (filters.payinPayout) count++;
+    return count;
+  }, [filters]);
+
+  // Fetch data on mount only
+  useEffect(() => {
+    fetchTransactionHistory(1);
+  }, []);
+
+  const renderTransaction = useCallback(({ item }: { item: TransactionHistoryItem }) => (
+    <TransactionItem 
+      transaction={item} 
+      onDetailsPress={fetchTransactionDetails}
+    />
+  ), [fetchTransactionDetails]);
+
+  const keyExtractor = useCallback((item: TransactionHistoryItem) => item.id.toString(), []);
 
   const ListHeader = useCallback(() => (
-    <View style={styles.transactionHeader}>
-      <Text variant="subtitle" weight="semibold" color="text">
-        Recent Transactions
-      </Text>
-      <TouchableOpacity>
-        <Text variant="body" weight="medium" color="primary">
-          View All
-        </Text>
-      </TouchableOpacity>
+    <View>
+      {/* Filter Summary */}
+      <View style={styles.filterSummary}>
+        <View style={styles.filterSummaryRow}>
+          <Text variant="subtitle" weight="semibold" color="text">
+            Recent Transactions
+          </Text>
+          <View style={styles.headerRight}>
+            {getActiveFiltersCount() > 0 && (
+              <View style={[styles.filterBadge, { backgroundColor: theme.colors.primary }]}>
+                <Text variant="caption" style={{ color: 'white', fontSize: 10 }}>
+                  {getActiveFiltersCount()}
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity 
+              onPress={() => setShowFilterDrawer(true)}
+              style={[
+                styles.filterIconButton, 
+                { 
+                  backgroundColor: getActiveFiltersCount() > 0 ? theme.colors.primary + '20' : theme.colors.surface,
+                  borderColor: theme.colors.border 
+                }
+              ]}
+            >
+              <Ionicons 
+                name="filter" 
+                size={16} 
+                color={getActiveFiltersCount() > 0 ? theme.colors.primary : theme.colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* Active Filters Display */}
+        {getActiveFiltersCount() > 0 && (
+          <View style={styles.activeFilters}>
+            {filters.startDate && (
+              <View style={[styles.filterChip, { backgroundColor: theme.colors.primary + '20' }]}>
+                <Text variant="caption" color="primary">
+                  From: {filters.startDate.toLocaleDateString('en-IN')}
+                </Text>
+              </View>
+            )}
+            {filters.endDate && (
+              <View style={[styles.filterChip, { backgroundColor: theme.colors.primary + '20' }]}>
+                <Text variant="caption" color="primary">
+                  To: {filters.endDate.toLocaleDateString('en-IN')}
+                </Text>
+              </View>
+            )}
+            {filters.payinPayout && (
+              <View style={[styles.filterChip, { backgroundColor: theme.colors.primary + '20' }]}>
+                <Text variant="caption" color="primary">
+                  PayIn/PayOut Only
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+      </View>
     </View>
-  ), []);
+  ), [filters, currentPage, totalPages, transactions.length, theme, getActiveFiltersCount]);
+
+  const ListFooter = useCallback(() => {
+    if (loading) {
+      return (
+        <View style={styles.loadingMore}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text variant="caption" color="textSecondary" style={styles.loadingMoreText}>
+            Loading transactions...
+          </Text>
+        </View>
+      );
+    }
+    
+    if (totalPages > 1) {
+      return (
+        <View style={styles.paginationContainer}>
+          <TouchableOpacity 
+            style={[
+              styles.paginationButton,
+              { 
+                backgroundColor: currentPage > 1 ? theme.colors.primary : theme.colors.surface,
+                opacity: currentPage > 1 ? 1 : 0.5
+              }
+            ]}
+            onPress={goToPreviousPage}
+            disabled={currentPage <= 1}
+          >
+            <Ionicons 
+              name="chevron-back" 
+              size={16} 
+              color={currentPage > 1 ? 'white' : theme.colors.textSecondary} 
+            />
+            <Text 
+              variant="body" 
+              style={{ 
+                color: currentPage > 1 ? 'white' : theme.colors.textSecondary,
+                fontWeight: '600',
+                fontSize: 14
+              }}
+            >
+              Previous
+            </Text>
+          </TouchableOpacity>
+          
+          <View style={styles.paginationPageInfo}>
+            <Text variant="body" color="text" weight="medium">
+              {currentPage} / {totalPages}
+            </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={[
+              styles.paginationButton,
+              { 
+                backgroundColor: currentPage < totalPages ? theme.colors.primary : theme.colors.surface,
+                opacity: currentPage < totalPages ? 1 : 0.5
+              }
+            ]}
+            onPress={goToNextPage}
+            disabled={currentPage >= totalPages}
+          >
+            <Text 
+              variant="body" 
+              style={{ 
+                color: currentPage < totalPages ? 'white' : theme.colors.textSecondary,
+                fontWeight: '600',
+                fontSize: 14
+              }}
+            >
+              Next
+            </Text>
+            <Ionicons 
+              name="chevron-forward" 
+              size={16} 
+              color={currentPage < totalPages ? 'white' : theme.colors.textSecondary} 
+            />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    return null;
+  }, [loading, currentPage, totalPages, transactions.length, theme, goToPreviousPage, goToNextPage]);
 
   const ListEmpty = useCallback(() => (
     <View style={styles.emptyTransactions}>
-      <Ionicons name="receipt-outline" size={48} color={theme.colors.textSecondary} />
-      <Text variant="body" color="textSecondary" style={styles.emptyText}>
-        No transactions yet
-      </Text>
+      {loading ? (
+        <>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text variant="body" color="textSecondary" style={styles.emptyText}>
+            Loading transactions...
+          </Text>
+        </>
+      ) : error ? (
+        <>
+          <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
+          <Text variant="body" color="error" style={styles.emptyText}>
+            {error}
+          </Text>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => fetchTransactionHistory(1)}
+          >
+            <Text variant="caption" style={{ color: 'white', fontWeight: '600' }}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          <Ionicons name="receipt-outline" size={48} color={theme.colors.textSecondary} />
+          <Text variant="body" color="textSecondary" style={styles.emptyText}>
+            No transactions found
+          </Text>
+        </>
+      )}
     </View>
-  ), [theme.colors.textSecondary]);
+  ), [loading, error, theme, fetchTransactionHistory]);
 
   return (
-    <Card padding="large" style={styles.card}>
-      <FlatList
-        data={transactions}
-        renderItem={renderTransaction}
-        keyExtractor={keyExtractor}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={false} // Since it's inside a ScrollView
+    <>
+      <Card padding="large" style={styles.card}>
+        <FlatList
+          data={transactions}
+          renderItem={renderTransaction}
+          keyExtractor={keyExtractor}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={ListEmpty}
+          ListFooterComponent={ListFooter}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false} // Since it's inside a ScrollView
+        />
+      </Card>
+      
+      <TransactionDetailsModal
+        visible={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setTransactionDetails(null);
+          setSelectedTransactionId(null);
+        }}
+        transactionDetails={transactionDetails}
+        loading={loadingDetails}
       />
-    </Card>
+      
+      <FilterDrawer
+        visible={showFilterDrawer}
+        onClose={() => setShowFilterDrawer(false)}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        onApplyFilters={handleApplyFilters}
+        onResetFilters={handleResetFilters}
+      />
+    </>
   );
 });
 
 const WalletPage: React.FC<WalletPageProps> = ({ visible, onClose }) => {
   const { theme } = useTheme();
+  const { showNotification } = useNotification();
+  const { handle401 } = useAuthErrorHandler();
+  
   const [refreshing, setRefreshing] = useState(false);
+  const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onRefresh = useCallback(() => {
+  const fetchWalletBalance = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await tradingApiService.getWalletBalance();
+      
+      if (response.data) {
+        setWalletData(response.data);
+      } else {
+        setError(response.message || 'Failed to fetch wallet balance');
+      }
+    } catch (err: any) {
+      console.error('Error fetching wallet balance:', err);
+      
+      if (err.status === 401) {
+        await handle401();
+        setError('Session expired. Please login again.');
+      } else {
+        const errorMessage = err.message || 'Unable to fetch wallet balance. Please try again.';
+        setError(errorMessage);
+        showNotification({
+          type: 'error',
+          title: 'Wallet Error',
+          message: errorMessage
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [showNotification, handle401]);
+
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Simulate API call to refresh wallet data
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
-  }, []);
+    await fetchWalletBalance();
+    setRefreshing(false);
+  }, [fetchWalletBalance]);
+
+  // Fetch wallet balance when component mounts and becomes visible
+  useEffect(() => {
+    if (visible) {
+      fetchWalletBalance();
+    }
+  }, [visible, fetchWalletBalance]);
 
   return (
     <SlidingPage
@@ -390,13 +753,17 @@ const WalletPage: React.FC<WalletPageProps> = ({ visible, onClose }) => {
       <ScrollView 
         style={[styles.container, { backgroundColor: theme.colors.background }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <WalletBalanceCard />
-        <AccountInfoCard />
+        <WalletBalanceCard 
+          walletData={walletData}
+          loading={loading}
+          error={error}
+          onRefresh={fetchWalletBalance}
+        />
         <TransactionHistory />
       </ScrollView>
     </SlidingPage>
@@ -449,6 +816,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   
+  // Loading and Error States
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  
   // Card Styles
   card: {
     marginBottom: 8,
@@ -487,6 +872,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    position: 'relative',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  filterButton: {
+    padding: 8,
+    borderRadius: 8,
+    position: 'relative',
+  },
+  filterIconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    position: 'relative',
+  },
+  filterSummary: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginBottom: 8,
+  },
+  filterSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  activeFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  pageInfo: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  paginationPageInfo: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingHorizontal: 16,
+  },
   transactionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -499,6 +948,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  transactionRight: {
+    alignItems: 'flex-end',
+    gap: 8,
   },
   transactionIcon: {
     width: 40,
@@ -515,6 +968,42 @@ const styles = StyleSheet.create({
   transactionAmount: {
     marginLeft: 12,
   },
+  detailsButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  
+  // Pagination Styles
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  paginationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 6,
+    minWidth: 100,
+    maxWidth: 120,
+    justifyContent: 'center',
+  },
+  loadingMore: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadingMoreText: {
+    textAlign: 'center',
+  },
+  
   emptyTransactions: {
     alignItems: 'center',
     paddingVertical: 32,
