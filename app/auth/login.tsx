@@ -17,6 +17,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useFadeAnimation, useSlideUpAnimation } from '../../hooks/useAnimations';
 import { sessionManager } from '../../services/sessionManager';
 import { tradingApiService } from '../../services/tradingApiService';
+import AuthUtils from '../../services/authUtils';
 
 interface LoginForm {
   identifier: string; // Can be mobile, username, or email
@@ -131,19 +132,26 @@ export default function LoginScreen() {
       // };
 
       if (response.success) {
-        // Store user session using the new API response format
+        // Store user session using the actual API response format
         if (response.data?.loggedInUser && response.data?.sessionToken) {
-          // The tradingApiService already saves the session to AsyncStorage
-          // We can also save to sessionManager if needed for backwards compatibility
           await sessionManager.saveSession(
             {
               id: response.data.loggedInUser.sponsorid || response.data.loggedInUser.username,
               name: response.data.loggedInUser.fullname,
               email: response.data.loggedInUser.email,
               username: response.data.loggedInUser.username,
+              mobile: response.data.loggedInUser.mobileno,
+              tenantId: response.data.loggedInUser.tenantId?.toString(),
             },
             response.data.sessionToken
           );
+
+          console.log('✅ Session persistence completed successfully');
+        } else {
+          console.log('⚠️ Login successful but missing session data:', {
+            hasUser: !!response.data?.loggedInUser,
+            hasToken: !!response.data?.sessionToken
+          });
         }
 
         // Handle remember password option
@@ -167,9 +175,20 @@ export default function LoginScreen() {
 
         // Log success for debugging
         console.log('✅ User logged in:', {
-          user: response.data?.loggedInUser,
-          sessionToken: response.data?.sessionToken ? '***TOKEN***' : 'None'
+          user: response.data?.loggedInUser?.username,
+          sessionToken: response.data?.sessionToken ? '***TOKEN***' : 'None',
+          sessionValidity: response.data?.sessionValidity
         });
+
+        // Log session stats for debugging
+        setTimeout(async () => {
+          try {
+            const stats = await tradingApiService.getSessionStats();
+            console.log('📊 Session statistics after login:', stats);
+          } catch (error) {
+            console.log('❌ Failed to get session stats:', error);
+          }
+        }, 100);
         
         // Navigate to main app immediately
         router.replace('/(tabs)');
@@ -237,29 +256,6 @@ export default function LoginScreen() {
       });
   };
 
-  const handleTestApi = async () => {
-    showNotification({
-      type: 'info',
-      title: 'Testing API...',
-      message: 'Checking server connectivity',
-      duration: 2000
-    });
-
-    try {
-      const result = await tradingApiService.testConnection();
-      showNotification({
-        type: result.success ? 'success' : 'warning',
-        title: result.success ? 'API Connected' : 'API Issue',
-        message: result.message
-      });
-    } catch (error) {
-      showNotification({
-        type: 'error',
-        title: 'Test Failed',
-        message: 'Unable to test API connection'
-      });
-    }
-  };
 
   const getIdentifierIcon = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -418,6 +414,7 @@ export default function LoginScreen() {
             style={styles.loginButton}
           />
         </Animated.View>
+
 
         {/* WhatsApp Support */}
         <Animated.View style={[styles.supportContainer, buttonSlideAnimation]}>

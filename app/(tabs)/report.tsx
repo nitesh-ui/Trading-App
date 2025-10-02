@@ -13,6 +13,7 @@ import {
 
 import { Card, Text } from '../../components/atomic';
 import NotificationsPage from '../../components/ui/NotificationsPage';
+import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -103,7 +104,6 @@ export default function ReportScreen() {
   const { theme, isDark } = useTheme();
   const { showNotification } = useNotification();
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'buy' | 'sell'>('all');
-  const [notificationCount, setNotificationCount] = useState(0);
   
   // Modal states
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
@@ -252,19 +252,14 @@ export default function ReportScreen() {
             >
               <Ionicons name="wallet" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, position: 'relative' }]} 
+            
+            <NotificationIcon
               onPress={handleNotificationPress}
-            >
-              <Ionicons name="notifications" size={20} color={theme.colors.primary} />
-              {notificationCount > 0 && (
-                <View style={[styles.notificationBadge, { backgroundColor: theme.colors.error }]}>
-                  <Text style={styles.notificationText}>
-                    {notificationCount > 99 ? '99+' : notificationCount.toString()}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+              color={theme.colors.primary}
+              backgroundColor={theme.colors.surface}
+              borderColor={theme.colors.border}
+            />
+            
             <TouchableOpacity 
               style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]} 
               onPress={handleReportPress}
@@ -372,18 +367,6 @@ const createStyles = (theme: any) =>
       fontSize: 10,
       fontWeight: '600',
       color: 'white',
-    },
-    notificationBadge: {
-      position: 'absolute',
-      top: 6,
-      right: 6,
-      backgroundColor: theme.colors.error,
-      borderRadius: 8,
-      minWidth: 16,
-      height: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 4,
     },
     header: {
       flexDirection: 'row',

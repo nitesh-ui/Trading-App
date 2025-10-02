@@ -34,6 +34,7 @@ import NotificationsPage from '../../components/ui/NotificationsPage';
 import WalletPage from '../../components/ui/WalletPage';
 import ChartPage from '../../components/ui/ChartPage';
 import TradePage from '../../components/ui/TradePage';
+import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -790,12 +791,12 @@ const WatchlistContent = memo(() => {
               <Ionicons name="wallet" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, position: 'relative' }]}
+            <NotificationIcon
               onPress={handleOpenNotificationsPage}
-            >
-              <Ionicons name="notifications" size={20} color={theme.colors.primary} />
-            </TouchableOpacity>
+              color={theme.colors.primary}
+              backgroundColor={theme.colors.surface}
+              borderColor={theme.colors.border}
+            />
 
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}

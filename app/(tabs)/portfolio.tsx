@@ -6,6 +6,7 @@ import { Card, Text } from '../../components/atomic';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { StockCardSkeleton } from '../../components/LoadingComponents';
 import NotificationsPage from '../../components/ui/NotificationsPage';
+import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -229,7 +230,7 @@ MemoizedHoldingCard.displayName = 'MemoizedHoldingCard';
 
 export default function PortfolioScreen() {
   const { theme } = useTheme();
-  const { showNotification, notificationCount } = useNotification();
+  const { showNotification } = useNotification();
   
   // Performance monitoring
   useRenderPerformance('PortfolioScreen');
@@ -325,19 +326,13 @@ export default function PortfolioScreen() {
               >
                 <Ionicons name="wallet" size={20} color={theme.colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, position: 'relative' }]} 
+              
+              <NotificationIcon
                 onPress={handleNotificationPress}
-              >
-                <Ionicons name="notifications" size={20} color={theme.colors.primary} />
-                {notificationCount > 0 && (
-                  <View style={[styles.notificationBadge, { backgroundColor: theme.colors.error }]}>
-                    <Text style={styles.notificationText}>
-                      {notificationCount > 99 ? '99+' : notificationCount.toString()}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+                color={theme.colors.primary}
+                backgroundColor={theme.colors.surface}
+                borderColor={theme.colors.border}
+              />
             </View>
           </View>
         </View>
@@ -522,23 +517,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: '#FF3B30',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  notificationText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: 'white',
   },
   header: {
     flexDirection: 'row',

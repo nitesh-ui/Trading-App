@@ -251,16 +251,24 @@ class TradingApiService {
   }
 
   /**
-   * Save session data to AsyncStorage
+   * Save session data to AsyncStorage with enhanced validity tracking
    */
   private async saveSessionData(sessionData: any): Promise<void> {
     try {
+      const now = new Date();
+      const originalValidity = new Date(sessionData.sessionValidity);
+      
+      // Initialize extended validity to 19 minutes from now (first extension on login)
+      const initialExtendedValidity = new Date(now.getTime() + 19 * 60 * 1000);
+      
       const sessionInfo = {
         sessionToken: sessionData.sessionToken,
         sessionValidity: sessionData.sessionValidity,
         loggedInUser: sessionData.loggedInUser,
         loggedInWatchlistAccess: sessionData.loggedInWatchlistAccess,
-        loginTime: new Date().toISOString(),
+        loginTime: now.toISOString(),
+        lastApiCall: now.toISOString(),
+        extendedValidityTime: initialExtendedValidity.toISOString(),
       };
 
       await AsyncStorage.multiSet([
@@ -271,28 +279,111 @@ class TradingApiService {
         ['trading_session_info', JSON.stringify(sessionInfo)],
       ]);
 
-      console.log('✅ Session data saved to AsyncStorage');
+      console.log('✅ Session data saved to AsyncStorage:', {
+        originalValidity: originalValidity.toISOString(),
+        extendedValidity: initialExtendedValidity.toISOString(),
+        user: sessionData.loggedInUser?.username,
+        loginTime: now.toISOString()
+      });
     } catch (error) {
       console.error('❌ Error saving session data:', error);
     }
   }
 
   /**
-   * Get saved session data from AsyncStorage
+   * Check if session is valid and not expired
+   */
+  async isSessionValid(): Promise<boolean> {
+    try {
+      const sessionInfo = await AsyncStorage.getItem('trading_session_info');
+      if (!sessionInfo) {
+        console.log('⚠️ No session info found');
+        return false;
+      }
+
+      const parsed = JSON.parse(sessionInfo);
+      const now = new Date();
+      
+      // Check original session validity
+      const originalValidity = new Date(parsed.sessionValidity);
+      
+      // Check extended validity (original + extensions from API calls)
+      const extendedValidity = new Date(parsed.extendedValidityTime || parsed.sessionValidity);
+      
+      const isOriginalValid = originalValidity > now;
+      const isExtendedValid = extendedValidity > now;
+      
+      console.log('🔍 Session validity check:', {
+        now: now.toISOString(),
+        originalValidity: originalValidity.toISOString(),
+        extendedValidity: extendedValidity.toISOString(),
+        isOriginalValid,
+        isExtendedValid,
+        minutesUntilExpiry: Math.round((extendedValidity.getTime() - now.getTime()) / (1000 * 60)),
+        lastApiCall: parsed.lastApiCall
+      });
+
+      if (!isExtendedValid) {
+        console.log('⚠️ Session expired, clearing session data');
+        await this.clearSessionData();
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error checking session validity:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Extend session validity by 19 minutes on successful API calls
+   */
+  async extendSessionValidity(): Promise<void> {
+    try {
+      const sessionInfo = await AsyncStorage.getItem('trading_session_info');
+      if (!sessionInfo) {
+        console.log('⚠️ No session info found for extension');
+        return;
+      }
+
+      const parsed = JSON.parse(sessionInfo);
+      const now = new Date();
+      
+      // Extend validity by 19 minutes from now
+      const newExtendedValidity = new Date(now.getTime() + 19 * 60 * 1000);
+      
+      const previousExtendedValidity = parsed.extendedValidityTime;
+      
+      parsed.lastApiCall = now.toISOString();
+      parsed.extendedValidityTime = newExtendedValidity.toISOString();
+
+      await AsyncStorage.setItem('trading_session_info', JSON.stringify(parsed));
+      
+      console.log('✅ Session validity extended:', {
+        previousExpiry: previousExtendedValidity,
+        newExpiry: newExtendedValidity.toISOString(),
+        extensionMinutes: 19,
+        lastApiCall: now.toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Error extending session validity:', error);
+    }
+  }
+
+  /**
+   * Get saved session data from AsyncStorage with validity check
    */
   async getSessionData(): Promise<any | null> {
     try {
+      const isValid = await this.isSessionValid();
+      if (!isValid) {
+        return null;
+      }
+
       const sessionInfo = await AsyncStorage.getItem('trading_session_info');
       if (sessionInfo) {
-        const parsed = JSON.parse(sessionInfo);
-        // Check if session is still valid
-        if (parsed.sessionValidity && new Date(parsed.sessionValidity) > new Date()) {
-          return parsed;
-        } else {
-          // Session expired, clear it
-          await this.clearSessionData();
-          return null;
-        }
+        return JSON.parse(sessionInfo);
       }
       return null;
     } catch (error) {
@@ -323,8 +414,7 @@ class TradingApiService {
    * Check if user has a valid session
    */
   async isLoggedIn(): Promise<boolean> {
-    const sessionData = await this.getSessionData();
-    return sessionData !== null;
+    return await this.isSessionValid();
   }
 
   /**
@@ -632,9 +722,17 @@ class TradingApiService {
   }
 
   /**
-   * Make authenticated API request with session token
+   * Make authenticated API request with session token and validity management
    */
   async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    // Check if session is valid before making request
+    const isValid = await this.isSessionValid();
+    if (!isValid) {
+      console.log('⚠️ Session invalid, clearing data and throwing error');
+      await this.clearSessionData();
+      throw new Error('Session expired. Please login again.');
+    }
+
     const sessionData = await this.getSessionData();
     if (!sessionData?.sessionToken) {
       throw new Error('No valid session token found. Please login again.');
@@ -644,13 +742,45 @@ class TradingApiService {
       'accept': '*/*',
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${sessionData.sessionToken}`,
+      'X-Session-Key': sessionData.sessionToken,
       ...(options.headers || {}),
     };
 
-    return fetch(url, {
-      ...options,
-      headers,
-    });
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      // Handle 401 Unauthorized - session expired on server
+      if (response.status === 401) {
+        console.log('⚠️ Received 401 - session expired on server, clearing local session');
+        await this.clearSessionData();
+        throw new Error('Session expired. Please login again.');
+      }
+
+      // Handle 403 Forbidden - insufficient permissions
+      if (response.status === 403) {
+        console.log('⚠️ Received 403 - insufficient permissions, clearing local session');
+        await this.clearSessionData();
+        throw new Error('Access denied. Please login again.');
+      }
+
+      // If request is successful, extend session validity
+      if (response.ok) {
+        await this.extendSessionValidity();
+      }
+
+      return response;
+    } catch (error) {
+      // If it's a network error or other error, check if it's auth-related
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        throw error; // Re-throw session errors
+      }
+      
+      console.error('❌ Network error in authenticated request:', error);
+      throw error;
+    }
   }
 
   /**
@@ -680,65 +810,22 @@ class TradingApiService {
   }
 
   /**
-   * Execute buy/sell trade
+   * Execute buy/sell trade with session management
    */
   async proceedBuySell(tradeData: ProceedBuySellRequest): Promise<ProceedBuySellResponse> {
     try {
-      // Check if user is authenticated
-      const isLoggedIn = await this.isLoggedIn();
-      if (!isLoggedIn) {
-        throw new Error('Authentication required. Please login first.');
-      }
+      console.log('🚀 ProceedBuySell API Request with session management:', tradeData);
 
-      // Get session data from AsyncStorage
-      const sessionData = await this.getSessionData();
-      if (!sessionData?.sessionToken) {
-        throw new Error('No valid session token found. Please login again.');
-      }
-
-      console.log('🚀 ProceedBuySell API Request:', {
-        url: `${API_BASE_URL}/WatchListApi/ProceedBuySell`,
-        method: 'POST',
-        headers: {
-          'X-Session-Key': sessionData.sessionToken ? '***TOKEN***' : 'None',
-        },
-        body: tradeData
-      });
-
-      // Make API call to execute trade
-      const response = await fetch(`${API_BASE_URL}/WatchListApi/ProceedBuySell`, {
-        method: 'POST',
-        headers: {
-          'accept': '*/*',
-          'X-Session-Key': sessionData.sessionToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(tradeData),
-      });
+      // Make API call to execute trade using authenticated request
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/WatchListApi/ProceedBuySell`,
+        {
+          method: 'POST',
+          body: JSON.stringify(tradeData)
+        }
+      );
 
       console.log('📡 ProceedBuySell API Response Status:', response.status);
-
-      if (!response.ok) {
-        console.error('❌ ProceedBuySell API Error:', response.status, response.statusText);
-        
-        // If unauthorized, session might be expired
-        if (response.status === 401 || response.status === 403) {
-          console.log('⚠️ Session might be expired');
-          await this.clearSessionData();
-          return {
-            success: false,
-            message: 'Session expired. Please login again.',
-            error: 'Session expired'
-          };
-        }
-        
-        const errorText = await response.text();
-        return {
-          success: false,
-          message: `Trade execution failed: ${response.status} ${response.statusText}`,
-          error: errorText || 'Network error occurred'
-        };
-      }
 
       const data = await response.json();
       console.log('✅ ProceedBuySell API Success Response:', data);
@@ -750,6 +837,15 @@ class TradingApiService {
       };
 
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        // Re-throw session errors to be handled by calling components
+        return {
+          success: false,
+          message: 'Session expired. Please login again.',
+          error: 'Session expired'
+        };
+      }
+      
       console.error('❌ Error executing trade:', error);
       return {
         success: false,
@@ -760,54 +856,20 @@ class TradingApiService {
   }
 
   /**
-   * Get active trades for the current user
+   * Get active trades for the current user with session management
    */
   async getActiveTrades(): Promise<GetActiveTradesResponse> {
     try {
-      // Check if user is authenticated
-      const isLoggedIn = await this.isLoggedIn();
-      if (!isLoggedIn) {
-        throw new Error('Authentication required. Please login first.');
-      }
+      console.log('🚀 GetActiveTrades API Request with session management');
 
-      // Get session data from AsyncStorage
-      const sessionData = await this.getSessionData();
-      if (!sessionData?.sessionToken) {
-        throw new Error('No valid session token found. Please login again.');
-      }
-
-      console.log('🚀 GetActiveTrades API Request:', {
-        url: `${API_BASE_URL}/WatchListApi/GetActiveTrades`,
-        method: 'GET',
-        headers: {
-          'X-Session-Key': sessionData.sessionToken ? '***TOKEN***' : 'None',
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/WatchListApi/GetActiveTrades`,
+        {
+          method: 'GET'
         }
-      });
-
-      // Make API call to get active trades
-      const response = await fetch(`${API_BASE_URL}/WatchListApi/GetActiveTrades`, {
-        method: 'GET',
-        headers: {
-          'accept': '*/*',
-          'X-Session-Key': sessionData.sessionToken,
-        }
-      });
+      );
 
       console.log('📡 GetActiveTrades API Response Status:', response.status);
-
-      if (!response.ok) {
-        console.error('❌ GetActiveTrades API Error:', response.status, response.statusText);
-        
-        // If unauthorized, session might be expired
-        if (response.status === 401 || response.status === 403) {
-          console.log('⚠️ Session might be expired');
-          await this.clearSessionData();
-          throw new Error('Session expired. Please login again.');
-        }
-        
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch active trades: ${response.status} ${response.statusText}`);
-      }
 
       const data = await response.json();
       console.log('✅ GetActiveTrades API Success Response:', data);
@@ -818,6 +880,11 @@ class TradingApiService {
       };
 
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        // Re-throw session errors to be handled by calling components
+        throw error;
+      }
+      
       console.error('❌ Error fetching active trades:', error);
       throw error;
     }
@@ -849,6 +916,88 @@ class TradingApiService {
       return {
         success: false,
         message: 'Failed to square off trade'
+      };
+    }
+  }
+
+  /**
+   * Get session statistics for debugging and monitoring
+   */
+  async getSessionStats(): Promise<any> {
+    try {
+      const sessionInfo = await AsyncStorage.getItem('trading_session_info');
+      if (!sessionInfo) {
+        return { hasSession: false, message: 'No session found' };
+      }
+
+      const parsed = JSON.parse(sessionInfo);
+      const now = new Date();
+      const originalValidity = new Date(parsed.sessionValidity);
+      const extendedValidity = new Date(parsed.extendedValidityTime || parsed.sessionValidity);
+      const loginTime = new Date(parsed.loginTime);
+      const lastApiCall = new Date(parsed.lastApiCall);
+
+      return {
+        hasSession: true,
+        user: parsed.loggedInUser?.username,
+        loginTime: loginTime.toISOString(),
+        sessionAge: Math.round((now.getTime() - loginTime.getTime()) / (1000 * 60)), // minutes
+        originalValidity: originalValidity.toISOString(),
+        extendedValidity: extendedValidity.toISOString(),
+        minutesUntilExpiry: Math.round((extendedValidity.getTime() - now.getTime()) / (1000 * 60)),
+        lastApiCall: lastApiCall.toISOString(),
+        minutesSinceLastCall: Math.round((now.getTime() - lastApiCall.getTime()) / (1000 * 60)),
+        isOriginalValid: originalValidity > now,
+        isExtendedValid: extendedValidity > now,
+        totalExtensions: Math.round((extendedValidity.getTime() - originalValidity.getTime()) / (1000 * 60 * 19)) // number of 19-minute extensions
+      };
+    } catch (error) {
+      console.error('❌ Error getting session stats:', error);
+      return { hasSession: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get total notification count for the user
+   */
+  async getNotificationCount(): Promise<{ success: boolean; count: number; message?: string }> {
+    try {
+      console.log('🔔 Getting notification count...');
+
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/NotificationApi/GetTotalNotificationCount`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        console.error('❌ Failed to get notification count:', response.status);
+        return {
+          success: false,
+          count: 0,
+          message: `API returned ${response.status}`,
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Notification count response:', data);
+
+      // Handle the API response format: { message: "", data: 11 }
+      const count = typeof data.data === 'number' ? data.data : 0;
+
+      return {
+        success: true,
+        count: count,
+        message: data.message || 'Notification count retrieved successfully',
+      };
+
+    } catch (error) {
+      console.error('❌ Error getting notification count:', error);
+      return {
+        success: false,
+        count: 0,
+        message: error instanceof Error ? error.message : 'Failed to get notification count',
       };
     }
   }
