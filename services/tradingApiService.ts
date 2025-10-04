@@ -183,6 +183,14 @@ export interface TransactionHistoryRequest {
   currentPosition?: string; // 'BUY' | 'SELL'
 }
 
+export interface TransactionHistoryReportsRequest {
+  pageNo: number;
+  startDate?: string; // Format: YYYY-MM-DD
+  endDate?: string;   // Format: YYYY-MM-DD
+  scriptExchange?: string;
+  currentPosition?: string; // 'BUY' | 'SELL'
+}
+
 export interface TransactionHistoryItem {
   id: number;
   tradeSymbol: string;
@@ -200,9 +208,33 @@ export interface TransactionHistoryItem {
   total_Page?: number;
 }
 
+export interface TransactionHistoryReportsItem {
+  completedtradeid: number;
+  tradeSymbol: string;
+  currentPosition: string;
+  strategyname: string;
+  status: string;
+  entrydate: string;
+  entrytime: string;
+  exitDate: string;
+  exittime: string;
+  entryprice: number;
+  exitprice: number;
+  qty: number;
+  profitorloss: number;
+  scriptExchange: string;
+  total_Page: number;
+}
+
 export interface TransactionHistoryResponse {
   message: string;
   data: TransactionHistoryItem[];
+  success?: boolean;
+}
+
+export interface TransactionHistoryReportsResponse {
+  message: string;
+  data: TransactionHistoryReportsItem[];
   success?: boolean;
 }
 
@@ -361,6 +393,53 @@ export interface TransactionDetailsResponse {
   Qty_MODIFIED_BY_2: string;
   BROKRAGE_DEDUCTED_AMOUNT: number;
   Brokrage_Deducted_Amount_2: number;
+}
+
+// GetRequiredMargin API Interfaces
+export interface GetRequiredMarginRequest {
+  ScriptLotSize: number;
+  ScriptCode: string;
+  quantity: number;
+  Totalwalletbalance: number;
+  MisOrNot: number; // 1 for MIS, 0 for NRML
+  Lastprice: number;
+  TRADING_UNIT_TYPE: number;
+  ScriptExchange: string;
+  CurrentPosition: string; // 'Buy' or 'Sell'
+}
+
+export interface RequiredMarginData {
+  WID: number;
+  Watchlistname: string;
+  Scripts: number;
+  UserID: number;
+  Email: string;
+  ScriptExchange: string;
+  ExpireDay: number;
+  Ismanual: boolean;
+  ENABLE_SCRIPTWISE_BROKERAGE: number;
+  ENABLE_LOTWISE_BROKERAGE: number;
+  MIS_EXPOSER: number;
+  NORMAL_EXPOSER: number;
+  BROKERAGE_TYPE: number;
+  BROKERAGE_VALUE: number;
+  Banscriptid: number;
+  ScriptName: string;
+  Total_Page: number;
+  Requiredmargin: number;
+  Availablemargin: number;
+  Usedmargin: number;
+  PledgeMargin: number;
+  ScriptCode: number;
+  roleid: string;
+  rolename: string;
+  Level: number;
+}
+
+export interface GetRequiredMarginResponse {
+  message?: string;
+  data?: RequiredMarginData[];
+  success?: boolean;
 }
 
 class TradingApiService {
@@ -1299,7 +1378,7 @@ class TradingApiService {
   }
 
   // Get transaction history for reports
-  async getTransactionHistoryForReports(request: TransactionHistoryRequest): Promise<TransactionHistoryResponse> {
+  async getTransactionHistoryForReports(request: TransactionHistoryReportsRequest): Promise<TransactionHistoryReportsResponse> {
     console.log('📊 Getting Transaction History For Reports:', {
       pageNo: request.pageNo,
       startDate: request.startDate,
@@ -1559,46 +1638,61 @@ class TradingApiService {
     }
   }
 
-  // Get transaction details by transaction ID
-  async getTransactionDetails(transactionId: number, userId?: number): Promise<TransactionDetailsResponse | null> {
-    console.log('📄 Getting Transaction Details', { transactionId, userId });
-
+  /**
+   * Get required margin for a trade
+   */
+  async getRequiredMargin(request: GetRequiredMarginRequest): Promise<GetRequiredMarginResponse> {
     try {
-      const url = `https://uat.sanaitatechnologies.com/Admin/GetWalletTransactionDetails?TransactionId=${transactionId}&UserID=${userId || 'undefined'}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': '*/*',
-          'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
+      const queryParams = new URLSearchParams({
+        ScriptLotSize: request.ScriptLotSize.toString(),
+        ScriptCode: request.ScriptCode,
+        quantity: request.quantity.toString(),
+        Totalwalletbalance: request.Totalwalletbalance.toString(),
+        MisOrNot: request.MisOrNot.toString(),
+        Lastprice: request.Lastprice.toString(),
+        TRADING_UNIT_TYPE: request.TRADING_UNIT_TYPE.toString(),
+        ScriptExchange: request.ScriptExchange,
+        CurrentPosition: request.CurrentPosition
       });
 
-      console.log('📄 Transaction Details API Response Status:', response.status);
+      console.log('🚀 GetRequiredMargin API Request:', {
+        url: `https://uat.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
+        method: 'GET'
+      });
+
+      const response = await this.makeAuthenticatedRequest(
+        `https://uat.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
+        {
+          method: 'GET'
+        }
+      );
+
+      console.log('📡 GetRequiredMargin API Response Status:', response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Transaction Details API Error Response:', errorText);
-        return null;
+        throw new Error(`GetRequiredMargin failed with status: ${response.status}`);
       }
 
-      const data = await response.text();
-      console.log('✅ Transaction Details API Success Response received');
+      const responseText = await response.text();
+      console.log('📋 GetRequiredMargin Raw Response:', responseText);
 
-      try {
-        // The API returns a JSON string, so we need to parse it
-        const parsedData = JSON.parse(data);
-        return parsedData;
-      } catch (parseError) {
-        console.error('❌ Failed to parse transaction details response:', parseError);
-        return null;
-      }
+      // Parse the JSON string response
+      const data = JSON.parse(responseText);
+      console.log('✅ GetRequiredMargin Parsed Response:', data);
+
+      return {
+        success: true,
+        data: Array.isArray(data) ? data : [data],
+        message: 'Required margin fetched successfully'
+      };
 
     } catch (error) {
-      console.error('🔥 Get Transaction Details API Error:', error);
-      return null;
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        throw error;
+      }
+      
+      console.error('❌ Error fetching required margin:', error);
+      throw error;
     }
   }
 }

@@ -23,6 +23,9 @@ export interface AssetItem {
   previousClose?: number;
   marketStatus?: string;
   lastUpdated?: string;
+  // API-specific fields for trading operations
+  scriptCode?: number;
+  intWID?: number;
 }
 
 export interface TradeState {

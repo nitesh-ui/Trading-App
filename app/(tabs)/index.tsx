@@ -154,13 +154,13 @@ const CryptoIndices = memo(() => {
           <Card padding="medium" style={styles.indexCard}>
             <Text variant="caption" color="textSecondary" style={styles.indexLabel}>Market Cap</Text>
             <Text variant="body" weight="semibold" color="text" style={styles.indexValue}>
-              $1.20T
+              1.20T
             </Text>
           </Card>
           <Card padding="medium" style={styles.indexCard}>
             <Text variant="caption" color="textSecondary" style={styles.indexLabel}>24h Volume</Text>
             <Text variant="body" weight="semibold" color="text" style={styles.indexValue}>
-              $25.4B
+              25.4B
             </Text>
           </Card>
           <Card padding="medium" style={styles.indexCard}>

@@ -20,9 +20,31 @@ import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
-import { tradingApiService, TransactionHistoryItem } from '../../services/tradingApiService';
+import { 
+  tradingApiService, 
+  TransactionHistoryReportsRequest,
+  TransactionHistoryReportsItem,
+  TransactionHistoryReportsResponse
+} from '../../services/tradingApiService';
 import { sessionManager } from '../../services/sessionManager';
 import { useAuthErrorHandler } from '../../hooks/useAuthErrorHandler';
+
+// Local interface for transformed transaction data used in the UI
+interface TransactionDisplayItem {
+  id: number;
+  tradeSymbol: string;
+  currentPosition: string;
+  strategy: string;
+  status: string;
+  entryTime: string;
+  exitTime: string;
+  entryPrice: number;
+  exitPrice: number;
+  qty: number;
+  profitLoss: number;
+  scriptExchange: string;
+  total_Page: number;
+}
 
 // Use TransactionHistoryItem from API service
 // No need for local Transaction interface
@@ -33,7 +55,7 @@ export default function ReportScreen() {
   const { handle401 } = useAuthErrorHandler();
   
   // State management
-  const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
+  const [transactions, setTransactions] = useState<TransactionDisplayItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -85,7 +107,7 @@ export default function ReportScreen() {
 
       if (response.data && response.data.length > 0) {
         // Transform API response to match our interface
-        const transformedTransactions: TransactionHistoryItem[] = response.data.map((item: any) => ({
+        const transformedTransactions: TransactionDisplayItem[] = response.data.map((item: TransactionHistoryReportsItem) => ({
           id: item.completedtradeid,
           tradeSymbol: item.tradeSymbol,
           currentPosition: item.currentPosition,
@@ -226,7 +248,7 @@ export default function ReportScreen() {
     }
   };
 
-  const renderTransaction = ({ item }: { item: TransactionHistoryItem }) => (
+  const renderTransaction = ({ item }: { item: TransactionDisplayItem }) => (
     <Card padding="medium" style={styles.transactionCard}>
       {/* Header Row with ID and Current Position */}
       <View style={styles.transactionHeader}>
