@@ -44,25 +44,25 @@ export const CryptoCard: React.FC<CryptoCardProps> = React.memo(({
 
   const formatVolume = (volume: number): string => {
     if (volume >= 1e9) {
-      return `$${(volume / 1e9).toFixed(1)}B`;
+      return `${(volume / 1e9).toFixed(1)}B`;
     } else if (volume >= 1e6) {
-      return `$${(volume / 1e6).toFixed(1)}M`;
+      return `${(volume / 1e6).toFixed(1)}M`;
     } else if (volume >= 1e3) {
-      return `$${(volume / 1e3).toFixed(1)}K`;
+      return `${(volume / 1e3).toFixed(1)}K`;
     } else {
-      return `$${volume.toFixed(0)}`;
+      return `${volume.toFixed(0)}`;
     }
   };
 
   const formatMarketCap = (marketCap: number): string => {
     if (marketCap >= 1e12) {
-      return `$${(marketCap / 1e12).toFixed(2)}T`;
+      return `${(marketCap / 1e12).toFixed(2)}T`;
     } else if (marketCap >= 1e9) {
-      return `$${(marketCap / 1e9).toFixed(1)}B`;
+      return `${(marketCap / 1e9).toFixed(1)}B`;
     } else if (marketCap >= 1e6) {
-      return `$${(marketCap / 1e6).toFixed(1)}M`;
+      return `${(marketCap / 1e6).toFixed(1)}M`;
     } else {
-      return `$${marketCap.toFixed(0)}`;
+      return `${marketCap.toFixed(0)}`;
     }
   };
 
@@ -118,9 +118,8 @@ export const CryptoCard: React.FC<CryptoCardProps> = React.memo(({
               change={crypto.change24h}
               changePercent={crypto.changePercent24h}
               size="medium"
-              showCurrency={true}
-              currencySymbol="$"
-              showSymbol={true}
+              showCurrency={false}
+              showSymbol={false}
               showChange={true}
             />
           </View>

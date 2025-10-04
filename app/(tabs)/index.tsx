@@ -966,14 +966,6 @@ const WatchlistContent = memo(() => {
               <Text variant="body" color="textSecondary">
                 Favorite {watchlistState.marketType === 'stocks' ? 'stocks' : watchlistState.marketType === 'forex' ? 'currency pairs' : 'cryptocurrencies'}
               </Text>
-              <View style={styles.wsStatus}>
-                <View 
-                  style={[
-                    styles.wsIndicator, 
-                    { backgroundColor: wsConnected ? '#4CAF50' : '#FF5722' }
-                  ]} 
-                />
-              </View>
             </View>
           </View>
           
