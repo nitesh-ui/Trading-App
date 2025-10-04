@@ -8,9 +8,9 @@ import {
   Pressable,
   Dimensions,
   Platform,
-  SafeAreaView,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Card } from '../atomic';
 import { CandlestickChart } from '../trading';
@@ -43,7 +43,7 @@ interface UnifiedDrawerProps {
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.8;
+const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.85;
 
 const UnifiedDrawer = memo<UnifiedDrawerProps>(({
   visible,
@@ -255,11 +255,15 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                 },
               ]}
             >
-              <SafeAreaView style={styles.safeArea}>
+              <View style={styles.drawerContainer}>
                 {/* Handle */}
                 <View style={[styles.handle, { backgroundColor: theme.colors.border }]} />
 
-                <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollContent}>
+                <ScrollView 
+                  showsVerticalScrollIndicator={false} 
+                  style={styles.scrollContent}
+                  contentContainerStyle={styles.scrollContentContainer}
+                >
                   {/* Header */}
                   <View style={styles.header}>
                     <View style={styles.symbolContainer}>
@@ -340,8 +344,10 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                       </View>
                     </Card>
                   )}
+                </ScrollView>
 
-                  {/* Action Buttons - Same styling as original */}
+                {/* Action Buttons - Fixed at bottom */}
+                <SafeAreaView edges={['bottom']} style={styles.actionButtonsContainer}>
                   <View style={styles.actionButtons}>
                     <TouchableOpacity
                       onPress={onBuyPress}
@@ -391,11 +397,8 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                       <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
                     </TouchableOpacity>
                   </View>
-
-                  {/* Bottom spacing */}
-                  <View style={styles.bottomSpacing} />
-                </ScrollView>
-              </SafeAreaView>
+                </SafeAreaView>
+              </View>
             </Animated.View>
           </Pressable>
         </Animated.View>
@@ -425,6 +428,9 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  drawerContainer: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
   },
@@ -439,6 +445,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  scrollContentContainer: {
+    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
@@ -516,10 +525,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
   },
+  actionButtonsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
   },
   buyButton: {
     flex: 1,

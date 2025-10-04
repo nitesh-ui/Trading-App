@@ -65,8 +65,8 @@ export const ForexCard: React.FC<ForexCardProps> = React.memo(({
         shadowColor: theme.colors.text || '#000000',
       }}>
         <View style={styles.header}>
-          <View style={{...styles.leftSection, flex: 0.65, maxWidth: '65%'}}>
-            <View style={{...styles.forexInfo, flex: 1}}>
+          <View style={[styles.leftSection, { flex: 0.55, maxWidth: '55%' }]}>
+            <View style={[styles.forexInfo, { flex: 1 }]}>
               <Text 
                 style={{
                   fontSize: 16,
@@ -92,7 +92,7 @@ export const ForexCard: React.FC<ForexCardProps> = React.memo(({
             </View>
           </View>
           
-          <View style={{...styles.priceSection, flex: 0.35, maxWidth: '35%'}}>
+          <View style={[styles.priceSection, { flex: 0.45, maxWidth: '45%' }]}>
             <PriceDisplay
               price={pair.price}
               change={pair.change}
@@ -182,8 +182,10 @@ const styles = StyleSheet.create({
   },
   priceSection: {
     alignItems: 'flex-end',
-    minWidth: 120,
-    flexShrink: 0,
+    minWidth: 100,
+    maxWidth: '45%',
+    flexShrink: 1,
+    paddingLeft: 8,
   },
   footer: {
     flexDirection: 'row',
