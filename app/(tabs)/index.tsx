@@ -37,6 +37,7 @@ import TradePage from '../../components/ui/TradePage';
 import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useWebSocket } from '../../hooks/useWebSocket';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -222,12 +223,14 @@ const SlidingTabContainer = memo(({
 
 // Individual Tab Content Components - Using FlatList with ListHeaderComponent to avoid nesting
 const StocksTabContent = memo(({ 
+  assets,
   onAssetPress, 
   onBuyPress, 
   onSellPress, 
   onRemovePress,
   onFilterPress
 }: {
+  assets: AssetItem[];
   onAssetPress: (asset: AssetItem) => void;
   onBuyPress: (asset: AssetItem) => void;
   onSellPress: (asset: AssetItem) => void;
@@ -235,7 +238,7 @@ const StocksTabContent = memo(({
   onFilterPress: () => void;
 }) => {
   const { theme } = useTheme();
-  const { watchlistState, filteredAssets } = useWatchlist();
+  const { watchlistState } = useWatchlist();
 
   // Render header with indices and assets info
   const renderListHeader = useCallback(() => (
@@ -257,7 +260,7 @@ const StocksTabContent = memo(({
             {watchlistState.exchangeFilter !== 'All' && ` - ${watchlistState.exchangeFilter}`}
           </Text>
           <Text variant="caption" color="textSecondary">
-            {filteredAssets.length} {filteredAssets.length === 1 ? 'asset' : 'assets'}
+            {assets.length} {assets.length === 1 ? 'asset' : 'assets'}
           </Text>
         </View>
         <TouchableOpacity
@@ -268,7 +271,7 @@ const StocksTabContent = memo(({
         </TouchableOpacity>
       </View>
     </View>
-  ), [theme, watchlistState.isLoadingIndices, watchlistState.exchangeFilter, filteredAssets.length]);
+  ), [theme, watchlistState.isLoadingIndices, watchlistState.exchangeFilter, assets.length]);
 
   // Render asset item
   const renderAssetItem = useCallback(({ item }: { item: AssetItem }) => {
@@ -302,7 +305,7 @@ const StocksTabContent = memo(({
     </View>
   ), [theme]);
 
-  if (watchlistState.isLoadingAssets && filteredAssets.length === 0) {
+  if (watchlistState.isLoadingAssets && assets.length === 0) {
     // Only show loading if we have no assets at all
     return (
       <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
@@ -315,7 +318,7 @@ const StocksTabContent = memo(({
   return (
     <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        data={filteredAssets}
+        data={assets}
         renderItem={renderAssetItem}
         keyExtractor={keyExtractor}
         ListHeaderComponent={renderListHeader}
@@ -332,18 +335,20 @@ const StocksTabContent = memo(({
 });
 
 const ForexTabContent = memo(({ 
+  assets,
   onAssetPress, 
   onBuyPress, 
   onSellPress, 
   onRemovePress 
 }: {
+  assets: AssetItem[];
   onAssetPress: (asset: AssetItem) => void;
   onBuyPress: (asset: AssetItem) => void;
   onSellPress: (asset: AssetItem) => void;
   onRemovePress: (symbol: string) => void;
 }) => {
   const { theme } = useTheme();
-  const { watchlistState, filteredAssets } = useWatchlist();
+  const { watchlistState } = useWatchlist();
 
   // Render header with indices and assets info
   const renderListHeader = useCallback(() => (
@@ -364,12 +369,12 @@ const ForexTabContent = memo(({
             Your Forex
           </Text>
           <Text variant="caption" color="textSecondary">
-            {filteredAssets.length} {filteredAssets.length === 1 ? 'pair' : 'pairs'}
+            {assets.length} {assets.length === 1 ? 'pair' : 'pairs'}
           </Text>
         </View>
       </View>
     </View>
-  ), [theme, watchlistState.isLoadingIndices, filteredAssets.length]);
+  ), [theme, watchlistState.isLoadingIndices, assets.length]);
 
   // Render asset item
   const renderAssetItem = useCallback(({ item }: { item: AssetItem }) => {
@@ -403,7 +408,7 @@ const ForexTabContent = memo(({
     </View>
   ), [theme]);
 
-  if (watchlistState.isLoadingAssets && filteredAssets.length === 0) {
+  if (watchlistState.isLoadingAssets && assets.length === 0) {
     // Only show loading if we have no assets at all
     return (
       <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
@@ -416,7 +421,7 @@ const ForexTabContent = memo(({
   return (
     <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        data={filteredAssets}
+        data={assets}
         renderItem={renderAssetItem}
         keyExtractor={keyExtractor}
         ListHeaderComponent={renderListHeader}
@@ -433,18 +438,20 @@ const ForexTabContent = memo(({
 });
 
 const CryptoTabContent = memo(({ 
+  assets,
   onAssetPress, 
   onBuyPress, 
   onSellPress, 
   onRemovePress 
 }: {
+  assets: AssetItem[];
   onAssetPress: (asset: AssetItem) => void;
   onBuyPress: (asset: AssetItem) => void;
   onSellPress: (asset: AssetItem) => void;
   onRemovePress: (symbol: string) => void;
 }) => {
   const { theme } = useTheme();
-  const { watchlistState, filteredAssets } = useWatchlist();
+  const { watchlistState } = useWatchlist();
 
   // Render header with indices and assets info
   const renderListHeader = useCallback(() => (
@@ -465,12 +472,12 @@ const CryptoTabContent = memo(({
             Your Crypto
           </Text>
           <Text variant="caption" color="textSecondary">
-            {filteredAssets.length} {filteredAssets.length === 1 ? 'coin' : 'coins'}
+            {assets.length} {assets.length === 1 ? 'coin' : 'coins'}
           </Text>
         </View>
       </View>
     </View>
-  ), [theme, watchlistState.isLoadingIndices, filteredAssets.length]);
+  ), [theme, watchlistState.isLoadingIndices, assets.length]);
 
   // Render asset item
   const renderAssetItem = useCallback(({ item }: { item: AssetItem }) => {
@@ -517,7 +524,7 @@ const CryptoTabContent = memo(({
     </View>
   ), [theme]);
 
-  if (watchlistState.isLoadingAssets && filteredAssets.length === 0) {
+  if (watchlistState.isLoadingAssets && assets.length === 0) {
     // Only show loading if we have no assets at all
     return (
       <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
@@ -530,7 +537,7 @@ const CryptoTabContent = memo(({
   return (
     <View style={[styles.tabContent, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        data={filteredAssets}
+        data={assets}
         renderItem={renderAssetItem}
         keyExtractor={keyExtractor}
         ListHeaderComponent={renderListHeader}
@@ -567,6 +574,18 @@ const WatchlistContent = memo(() => {
   const [isTradePageVisible, setIsTradePageVisible] = useState(false);
   const [tradeAsset, setTradeAsset] = useState<AssetItem | null>(null);
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell'>('buy');
+  
+  // WebSocket integration for real-time data
+  const { 
+    isConnected: wsConnected, 
+    connectionStatus, 
+    lastMessage,
+    subscribe: wsSubscribe,
+    unsubscribe: wsUnsubscribe 
+  } = useWebSocket({
+    autoConnect: true,
+    subscribeToAll: true
+  });
   const {
     watchlistState,
     tradeState,
@@ -588,6 +607,171 @@ const WatchlistContent = memo(() => {
     forexPairs,
     cryptoPairs,
   } = useWatchlist();
+
+  // Real-time price updates state
+  const [realtimePrices, setRealtimePrices] = React.useState<Map<string, any>>(new Map());
+  const priceUpdateTimeoutRef = React.useRef<any>(null);
+
+  // WebSocket data processing with performance optimization
+  React.useEffect(() => {
+    if (lastMessage && lastMessage.data) {
+      const { data } = lastMessage;
+      
+      // Process the WebSocket data structure: { Table: [...], Table1: [...] }
+      if (data.Table && Array.isArray(data.Table)) {
+        
+        // Batch update prices to avoid too many re-renders
+        const newPrices = new Map(realtimePrices);
+        let updateCount = 0;
+
+        data.Table.forEach((item: any) => {
+          if (item.InstrumentToken && item.Lastprice !== undefined) {
+            const priceData: any = {
+              instrumentToken: item.InstrumentToken,
+              lastPrice: parseFloat(item.Lastprice),
+              open: parseFloat(item.Open),
+              close: parseFloat(item.Close),
+              high: parseFloat(item.high),
+              low: parseFloat(item.low),
+              change: parseFloat(item.Change),
+              bid: parseFloat(item.Bid),
+              ask: parseFloat(item.Ask),
+              bidQty: parseInt(item.BidQty),
+              askQty: parseInt(item.AskQty),
+              timestamp: Date.now()
+            };
+
+            // Calculate change percentage
+            if (item.Close && item.Close !== 0) {
+              priceData.changePercent = ((priceData.lastPrice - parseFloat(item.Close)) / parseFloat(item.Close)) * 100;
+            } else {
+              priceData.changePercent = 0;
+            }
+
+            newPrices.set(item.InstrumentToken, priceData);
+            updateCount++;
+          }
+        });
+
+        // Process Table1 if exists (different market segment)
+        if (data.Table1 && Array.isArray(data.Table1)) {
+          
+          data.Table1.forEach((item: any) => {
+            if (item.InstrumentToken && item.Lastprice !== undefined) {
+              const priceData: any = {
+                instrumentToken: item.InstrumentToken,
+                lastPrice: parseFloat(item.Lastprice),
+                open: parseFloat(item.Open),
+                close: parseFloat(item.Close),
+                high: parseFloat(item.high),
+                low: parseFloat(item.low),
+                change: parseFloat(item.Change),
+                bid: parseFloat(item.Bid),
+                ask: parseFloat(item.Ask),
+                bidQty: parseInt(item.BidQty),
+                askQty: parseInt(item.AskQty),
+                timestamp: Date.now()
+              };
+
+              if (item.Close && item.Close !== 0) {
+                priceData.changePercent = ((priceData.lastPrice - parseFloat(item.Close)) / parseFloat(item.Close)) * 100;
+              } else {
+                priceData.changePercent = 0;
+              }
+
+              newPrices.set(item.InstrumentToken, priceData);
+              updateCount++;
+            }
+          });
+        }
+
+        // Throttle updates to avoid excessive re-renders (max once per 500ms)
+        if (priceUpdateTimeoutRef.current) {
+          clearTimeout(priceUpdateTimeoutRef.current);
+        }
+
+        priceUpdateTimeoutRef.current = setTimeout(() => {
+          if (updateCount > 0) {
+            setRealtimePrices(newPrices);
+          }
+        }, 500);
+      }
+    }
+  }, [lastMessage]);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (priceUpdateTimeoutRef.current) {
+        clearTimeout(priceUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Merge real-time prices with watchlist assets for performance
+  const enhancedAssets = React.useMemo(() => {
+    if (realtimePrices.size === 0) {
+      return filteredAssets;
+    }
+
+    return filteredAssets.map(asset => {
+      // Try to find real-time data by matching with InstrumentToken
+      // We need to map symbols to instrument tokens - for now we'll check by symbol matching
+      let realtimeData = null;
+      
+      // Look for real-time data - we might need to maintain a mapping
+      // For now, let's try to find by matching some pattern or create a mapping
+      for (const [instrumentToken, priceData] of realtimePrices) {
+        // This is a placeholder logic - you'll need to implement proper mapping
+        // based on how your symbols relate to instrument tokens
+        if (asset.scriptCode?.toString() === instrumentToken || 
+            asset.intWID?.toString() === instrumentToken) {
+          realtimeData = priceData;
+          break;
+        }
+      }
+
+      if (realtimeData) {
+        // Merge real-time data with asset
+        return {
+          ...asset,
+          price: realtimeData.lastPrice,
+          change: realtimeData.change,
+          changePercent: realtimeData.changePercent,
+          high: realtimeData.high,
+          low: realtimeData.low,
+          open: realtimeData.open,
+          previousClose: realtimeData.close,
+          lastUpdated: new Date(realtimeData.timestamp).toISOString(),
+          // Add real-time specific data
+          bid: realtimeData.bid,
+          ask: realtimeData.ask,
+          bidQty: realtimeData.bidQty,
+          askQty: realtimeData.askQty,
+        };
+      }
+
+      return asset;
+    });
+  }, [filteredAssets, realtimePrices]);
+
+  // WebSocket connection status logging
+  React.useEffect(() => {
+    console.log('🔌 WebSocket connection status:', {
+      connected: wsConnected,
+      status: connectionStatus
+    });
+
+    if (wsConnected) {
+      // showNotification({
+      //   type: 'success',
+      //   title: 'Real-time data connected'
+      // });
+    } else if (connectionStatus === 'disconnected') {
+      // Only show notification if we were previously connected
+      console.log('⚠️ WebSocket disconnected, showing notification');
+    }
+  }, [wsConnected, connectionStatus, showNotification]);
 
   // Available balance - this could come from a financial context
   const availableBalance = 1269884.76;
@@ -778,9 +962,19 @@ const WatchlistContent = memo(() => {
             <Text variant="headline" weight="bold" color="text">
               Watchlist
             </Text>
-            <Text variant="body" color="textSecondary">
-              Favorite {watchlistState.marketType === 'stocks' ? 'stocks' : watchlistState.marketType === 'forex' ? 'currency pairs' : 'cryptocurrencies'}
-            </Text>
+            <View style={styles.headerSubtitle}>
+              <Text variant="body" color="textSecondary">
+                Favorite {watchlistState.marketType === 'stocks' ? 'stocks' : watchlistState.marketType === 'forex' ? 'currency pairs' : 'cryptocurrencies'}
+              </Text>
+              <View style={styles.wsStatus}>
+                <View 
+                  style={[
+                    styles.wsIndicator, 
+                    { backgroundColor: wsConnected ? '#4CAF50' : '#FF5722' }
+                  ]} 
+                />
+              </View>
+            </View>
           </View>
           
           <View style={styles.headerActions}>
@@ -821,6 +1015,7 @@ const WatchlistContent = memo(() => {
       <View style={styles.tabsContainer}>
         <SlidingTabContainer currentTab={watchlistState.marketType}>
           <StocksTabContent 
+            assets={enhancedAssets}
             onAssetPress={handleAssetPress}
             onBuyPress={handleBuyPress}
             onSellPress={handleSellPress}
@@ -828,12 +1023,14 @@ const WatchlistContent = memo(() => {
             onFilterPress={() => setFilterVisible(true)}
           />
           <ForexTabContent 
+            assets={enhancedAssets}
             onAssetPress={handleAssetPress}
             onBuyPress={handleBuyPress}
             onSellPress={handleSellPress}
             onRemovePress={handleRemoveFromWatchlist}
           />
           <CryptoTabContent 
+            assets={enhancedAssets}
             onAssetPress={handleAssetPress}
             onBuyPress={handleBuyPress}
             onSellPress={handleSellPress}
@@ -984,6 +1181,30 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+  },
+  headerSubtitle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  wsStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  wsIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  wsStatusText: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   headerActions: {
     flexDirection: 'row',
