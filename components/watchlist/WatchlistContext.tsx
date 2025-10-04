@@ -213,7 +213,12 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       switch (watchlistState.marketType) {
         case 'stocks':
-          return categorized.stocks.filter(stock => 
+          // Include both stocks and commodities in the stocks tab
+          const stocksAndCommodities = [
+            ...categorized.stocks,
+            ...categorized.commodities
+          ];
+          return stocksAndCommodities.filter(stock => 
             watchlistState.exchangeFilter === 'All' || 
             stock.exchange === watchlistState.exchangeFilter
           );
@@ -222,7 +227,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         case 'crypto':
           return categorized.crypto;
         default:
-          return categorized.stocks;
+          return [...categorized.stocks, ...categorized.commodities];
       }
     }
 
