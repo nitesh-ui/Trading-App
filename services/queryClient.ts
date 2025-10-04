@@ -1,14 +1,15 @@
 /**
  * TanStack Query Client Configuration
- * Centralized data fetching, caching, and synchronization
+ * Centralized data fetching, caching, and synchronization with session management
  */
 
 import NetInfo from '@react-native-community/netinfo';
 import { QueryClient } from '@tanstack/react-query';
 import { indianStockService } from './indianStockService';
 import { forexService } from './forexService';
+import { sessionExpiryHandler } from './sessionExpiryHandler';
 
-// Create query client with optimized defaults for mobile
+// Create query client with optimized defaults for mobile and session handling
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -16,8 +17,14 @@ export const queryClient = new QueryClient({
       gcTime: 5 * 60 * 1000, // 5 minutes
       staleTime: 30 * 1000, // 30 seconds - data is considered fresh for 30s
       
-      // Retry failed requests up to 3 times
+      // Retry failed requests up to 3 times with session expiry handling
       retry: (failureCount, error: any) => {
+        // Handle session expiry errors
+        if (error?.message?.includes('Session expired')) {
+          sessionExpiryHandler.handleSessionExpiry('Query error - session expired');
+          return false; // Don't retry session expiry errors
+        }
+        
         // Don't retry on 4xx errors (client errors)
         if (error?.status >= 400 && error?.status < 500) {
           return false;
@@ -38,8 +45,15 @@ export const queryClient = new QueryClient({
       networkMode: 'offlineFirst',
     },
     mutations: {
-      // Retry mutations once on failure
-      retry: 1,
+      // Retry mutations once on failure with session handling
+      retry: (failureCount, error: any) => {
+        // Handle session expiry errors
+        if (error?.message?.includes('Session expired')) {
+          sessionExpiryHandler.handleSessionExpiry('Mutation error - session expired');
+          return false; // Don't retry session expiry errors
+        }
+        return failureCount < 1;
+      },
       
       // Network mode for mutations
       networkMode: 'online',

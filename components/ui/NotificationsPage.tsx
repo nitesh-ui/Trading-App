@@ -5,32 +5,28 @@ import {
   FlatList,
   Dimensions,
   Pressable,
+  RefreshControl,
 } from 'react-native';
 import { Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import SlidingPage from './SlidingPage';
-import { tradingApiService } from '../../services/tradingApiService';
-import { format, isToday } from 'date-fns';
+import { tradingApiService, NotificationItem as ApiNotificationItem } from '../../services/tradingApiService';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-interface NotificationItem {
-  id: number;
-  userID: number;
-  description: string;
-  type: number;
-  seen: number;
-  createdDate: string;
-  createdDateString: string;
-  email: string;
+interface ProcessedNotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: 'trade_booked' | 'trade_squared' | 'order_placed' | 'general';
+  timestamp: string;
+  date: string;
+  isRead: boolean;
+  isExpanded: boolean;
   source: string;
-  userip: string;
-  total_Page: number;
-  fullname: string;
-  username: string;
-  location: string;
-  deviceName: string;
+  rawData: ApiNotificationItem;
 }
 
 interface NotificationsPageProps {
@@ -38,110 +34,203 @@ interface NotificationsPageProps {
   onClose: () => void;
 }
 
+// Helper function to process API notification data
+const processNotificationData = (apiNotification: ApiNotificationItem): ProcessedNotificationItem => {
+  // Extract title and message from description
+  const description = apiNotification.description;
+  let title = 'Notification';
+  let type: 'trade_booked' | 'trade_squared' | 'order_placed' | 'general' = 'general';
+
+  // Determine notification type and title based on description content
+  if (description.includes('order placed Successfully')) {
+    title = 'Trade Booked Successfully';
+    type = 'trade_booked';
+  } else if (description.includes('is completed')) {
+    title = 'Trade Completed';
+    type = 'trade_squared';
+  } else if (description.includes('Trade Book')) {
+    title = 'Trade Book Updated';
+    type = 'order_placed';
+  } else {
+    title = 'Trading Notification';
+    type = 'general';
+  }
+
+  // Format date and time
+  const createdDate = new Date(apiNotification.createdDate);
+  const now = new Date();
+  const isToday = createdDate.toDateString() === now.toDateString();
+  const isYesterday = createdDate.toDateString() === new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
+
+  let dateStr = '';
+  if (isToday) {
+    dateStr = 'Today';
+  } else if (isYesterday) {
+    dateStr = 'Yesterday';
+  } else {
+    dateStr = createdDate.toLocaleDateString('en-GB', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: '2-digit' 
+    });
+  }
+
+  const timeStr = createdDate.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
+
+  return {
+    id: apiNotification.id.toString(),
+    title,
+    message: description,
+    type,
+    timestamp: timeStr,
+    date: dateStr,
+    isRead: apiNotification.seen !== 0,
+    isExpanded: false,
+    source: apiNotification.source,
+    rawData: apiNotification,
+  };
+};
+
 const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) => {
   const { theme } = useTheme();
-  const [currentPage, setCurrentPage] = useState(1); // API uses 1-based pagination
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const { showNotification } = useNotification();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [notifications, setNotifications] = useState<ProcessedNotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalPages, setTotalPages] = useState(1);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [totalPages, setTotalPages] = useState(0);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'today'>('all');
 
-  // Fetch notifications when page changes
-  useEffect(() => {
-    async function fetchNotifications() {
-      if (!visible) return;
-      
-      try {
+  // Load notifications from API
+  const loadNotifications = useCallback(async (page: number = 1, refresh: boolean = false) => {
+    try {
+      if (refresh) {
+        setIsRefreshing(true);
+        setHasError(false);
+      } else if (page === 1) {
         setIsLoading(true);
-        setError(null);
-        const response = await tradingApiService.getNotifications(currentPage);
-        setNotifications(response.data);
-        if (response.data.length > 0) {
+        setHasError(false);
+      } else {
+        // Page navigation loading
+        setIsPageLoading(true);
+        setHasError(false);
+      }
+
+      const response = await tradingApiService.getNotifications(page);
+      
+      if (response.data && response.data.length > 0) {
+        const processedNotifications = response.data.map(processNotificationData);
+        
+        // Always replace data for pagination (not append)
+        setNotifications(processedNotifications);
+
+        // Get total pages from the first item
+        if (response.data[0]?.total_Page) {
           setTotalPages(response.data[0].total_Page);
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
-        console.error('Failed to fetch notifications:', err);
-      } finally {
-        setIsLoading(false);
+        
+        setCurrentPage(page);
+      } else {
+        // No data returned, clear notifications
+        setNotifications([]);
       }
+      
+    } catch (error) {
+      console.error('❌ Error loading notifications:', error);
+      setHasError(true);
+      showNotification({
+        type: 'error',
+        title: 'Failed to load notifications',
+        message: 'Please check your connection and try again'
+      });
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+      setIsPageLoading(false);
     }
+  }, [showNotification]);
 
-    fetchNotifications();
-  }, [currentPage, visible]);
-
-  // Simulate loading for fast opening
-  useEffect(() => {
-    if (visible) {
-      setIsLoading(true);
-      // Simulate quick loading
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [visible]);
-
-  const itemsPerPage = 10;
-  
-  // Filter notifications based on active filter and format dates
-  const filteredNotifications = useMemo(() => {
-    let filtered = notifications;
-    switch (activeFilter) {
-      case 'unread':
-        filtered = notifications.filter(n => n.seen === 0);
-        break;
-      case 'today':
-        filtered = notifications.filter(n => {
-          const notificationDate = new Date(n.createdDate);
-          return isToday(notificationDate);
-        });
-        break;
-      case 'all':
-      default:
-        filtered = notifications;
-        break;
-    }
-    return filtered;
-  }, [notifications, activeFilter]);
-
-  const handlePreviousPage = useCallback(() => {
-    setCurrentPage(prev => Math.max(1, prev - 1));
-  }, []);
-
-  const handleNextPage = useCallback(() => {
-    setCurrentPage(prev => Math.min(totalPages, prev + 1));
-  }, [totalPages]);
-
+  // Handle filter changes
   const handleFilterChange = useCallback((filter: 'all' | 'unread' | 'today') => {
     setActiveFilter(filter);
-    setCurrentPage(1); // Reset to first page when filter changes
   }, []);
 
-  const getNotificationIcon = useCallback((type: number) => {
-    // Map notification types to icons based on type number
+  // Handle pagination
+  const handlePreviousPage = useCallback(() => {
+    if (currentPage > 1) {
+      loadNotifications(currentPage - 1);
+    }
+  }, [currentPage, loadNotifications]);
+
+  const handleNextPage = useCallback(() => {
+    if (currentPage < totalPages) {
+      loadNotifications(currentPage + 1);
+    }
+  }, [currentPage, totalPages, loadNotifications]);
+
+  // Filter notifications based on active filter
+  const currentNotifications = useMemo(() => {
+    switch (activeFilter) {
+      case 'unread':
+        return notifications.filter(n => !n.isRead);
+      case 'today':
+        return notifications.filter(n => n.date === 'Today');
+      default:
+        return notifications;
+    }
+  }, [notifications, activeFilter]);
+
+  // Handle notification item press to toggle expand
+  const toggleNotificationExpand = useCallback((id: string) => {
+    setNotifications(prev => 
+      prev.map(notification => 
+        notification.id === id 
+          ? { ...notification, isExpanded: !notification.isExpanded }
+          : notification
+      )
+    );
+  }, []);
+
+  // Load initial notifications when page becomes visible
+  useEffect(() => {
+    if (visible) {
+      loadNotifications(1);
+    }
+  }, [visible, loadNotifications]);
+
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    loadNotifications(1, true);
+  }, [loadNotifications]);
+
+  const getNotificationIcon = useCallback((type: string) => {
     switch (type) {
-      case 1: // Trade booked
+      case 'trade_booked':
         return 'checkmark-circle';
-      case 2: // Trade squared off
+      case 'trade_squared':
         return 'square';
-      case 3: // Order placed
+      case 'order_placed':
         return 'add-circle';
       default:
         return 'notifications';
     }
   }, []);
 
-  const getNotificationColor = useCallback((type: number, seen: number) => {
-    if (seen === 1) return theme.colors.textSecondary;
+  const getNotificationColor = useCallback((type: string, isRead: boolean) => {
+    if (isRead) return theme.colors.textSecondary;
     
     switch (type) {
-      case 1: // Trade booked
+      case 'trade_booked':
         return theme.colors.success;
-      case 2: // Trade squared off
+      case 'trade_squared':
         return theme.colors.warning;
-      case 3: // Order placed
+      case 'order_placed':
         return theme.colors.info;
       default:
         return theme.colors.primary;
@@ -178,15 +267,16 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
     </>
   ), [renderNotificationSkeleton]);
 
-  const renderNotificationItem = useCallback(({ item }: { item: NotificationItem }) => (
+  const renderNotificationItem = useCallback(({ item }: { item: ProcessedNotificationItem }) => (
     <Pressable
       style={[
         styles.notificationItem,
         {
-          backgroundColor: item.seen === 1 ? theme.colors.surface : theme.colors.card,
-          borderLeftColor: getNotificationColor(item.type, item.seen),
+          backgroundColor: item.isRead ? theme.colors.surface : theme.colors.card,
+          borderLeftColor: getNotificationColor(item.type, item.isRead || false),
         },
       ]}
+      onPress={() => toggleNotificationExpand(item.id)}
       android_ripple={{ color: theme.colors.primary + '10' }}
     >
       <View style={styles.notificationHeader}>
@@ -194,47 +284,47 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: getNotificationColor(item.type, item.seen) + '20' },
+              { backgroundColor: getNotificationColor(item.type, item.isRead || false) + '20' },
             ]}
           >
             <Ionicons
-              name={getNotificationIcon(item.type)}
+              name={getNotificationIcon(item.type) as any}
               size={20}
-              color={getNotificationColor(item.type, item.seen)}
+              color={getNotificationColor(item.type, item.isRead || false)}
             />
           </View>
           <View style={styles.notificationContent}>
             <Text
               variant="body"
-              weight={item.seen === 1 ? 'medium' : 'semibold'}
-              color={item.seen === 1 ? 'textSecondary' : 'text'}
+              weight={item.isRead ? 'medium' : 'semibold'}
+              color={item.isRead ? 'textSecondary' : 'text'}
             >
-              {item.username}
+              {item.title}
             </Text>
             <Text
               variant="caption"
               color="textSecondary"
               style={styles.notificationMessage}
-              numberOfLines={2}
+              numberOfLines={item.isExpanded ? undefined : 1}
             >
-              {item.description}
+              {item.message}
             </Text>
           </View>
         </View>
         <View style={styles.notificationMeta}>
           <Text variant="caption" color="textSecondary">
-            {format(new Date(item.createdDate), 'dd MMM yy')}
+            {item.date}
           </Text>
           <Text variant="caption" color="textSecondary">
-            {format(new Date(item.createdDate), 'HH:mm')}
+            {item.timestamp}
           </Text>
-          {item.seen === 0 && (
+          {!item.isRead && (
             <View style={[styles.unreadDot, { backgroundColor: theme.colors.primary }]} />
           )}
         </View>
       </View>
     </Pressable>
-  ), [theme.colors, getNotificationIcon, getNotificationColor]);
+  ), [theme.colors, getNotificationIcon, getNotificationColor, toggleNotificationExpand]);
 
   const ListHeaderComponent = useMemo(() => (
     <View style={styles.listHeader}>
@@ -274,10 +364,10 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
             Unread
           </Text>
           <Text variant="title" weight="bold" color="warning">
-            {notifications.filter(n => n.seen === 0).length}
+            {notifications.filter(n => !n.isRead).length}
           </Text>
         </Pressable>
-        <Pressable
+        {/* <Pressable
           style={[
             styles.statCard,
             {
@@ -293,9 +383,9 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
             Today
           </Text>
           <Text variant="title" weight="bold" color="success">
-            {notifications.filter(n => isToday(new Date(n.createdDate))).length}
+            {notifications.filter(n => n.date === 'Today').length}
           </Text>
-        </Pressable>
+        </Pressable> */}
       </View>
       
       {/* Pagination Controls */}
@@ -304,23 +394,23 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
           style={[
             styles.paginationButton,
             {
-              backgroundColor: currentPage === 0 ? theme.colors.surface : theme.colors.primary,
-              opacity: currentPage === 0 ? 0.5 : 1,
+              backgroundColor: (currentPage === 1 || isPageLoading) ? theme.colors.surface : theme.colors.primary,
+              opacity: (currentPage === 1 || isPageLoading) ? 0.5 : 1,
             },
           ]}
           onPress={handlePreviousPage}
-          disabled={currentPage === 0}
+          disabled={currentPage === 1 || isPageLoading}
           android_ripple={{ color: theme.colors.primary + '20' }}
         >
           <Ionicons
             name="chevron-back"
             size={20}
-            color={currentPage === 0 ? theme.colors.textSecondary : '#FFFFFF'}
+            color={(currentPage === 1 || isPageLoading) ? theme.colors.textSecondary : '#FFFFFF'}
           />
           <Text
             variant="body"
             weight="medium"
-            style={{ color: currentPage === 0 ? theme.colors.textSecondary : '#FFFFFF' }}
+            style={{ color: (currentPage === 1 || isPageLoading) ? theme.colors.textSecondary : '#FFFFFF' }}
           >
             Prev
           </Text>
@@ -336,42 +426,67 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
           style={[
             styles.paginationButton,
             {
-              backgroundColor: currentPage === totalPages - 1 ? theme.colors.surface : theme.colors.primary,
-              opacity: currentPage === totalPages - 1 ? 0.5 : 1,
+              backgroundColor: (currentPage === totalPages || isPageLoading) ? theme.colors.surface : theme.colors.primary,
+              opacity: (currentPage === totalPages || isPageLoading) ? 0.5 : 1,
             },
           ]}
           onPress={handleNextPage}
-          disabled={currentPage === totalPages - 1}
+          disabled={currentPage === totalPages || isPageLoading}
           android_ripple={{ color: theme.colors.primary + '20' }}
         >
           <Text
             variant="body"
             weight="medium"
-            style={{ color: currentPage === totalPages - 1 ? theme.colors.textSecondary : '#FFFFFF' }}
+            style={{ color: (currentPage === totalPages || isPageLoading) ? theme.colors.textSecondary : '#FFFFFF' }}
           >
             Next
           </Text>
           <Ionicons
             name="chevron-forward"
             size={20}
-            color={currentPage === totalPages - 1 ? theme.colors.textSecondary : '#FFFFFF'}
+            color={(currentPage === totalPages || isPageLoading) ? theme.colors.textSecondary : '#FFFFFF'}
           />
         </Pressable>
       </View>
     </View>
-  ), [theme.colors, notifications, currentPage, totalPages, handlePreviousPage, handleNextPage, activeFilter, handleFilterChange]);
+  ), [theme.colors, notifications, currentPage, totalPages, handlePreviousPage, handleNextPage, activeFilter, handleFilterChange, isPageLoading]);
 
-  const ListEmptyComponent = useMemo(() => (
-    <View style={styles.emptyState}>
-      <Ionicons name="notifications-off" size={48} color={theme.colors.textSecondary} />
-      <Text variant="body" color="textSecondary" style={styles.emptyStateText}>
-        No notifications found
-      </Text>
-      <Text variant="caption" color="textSecondary">
-        Your trading notifications will appear here
-      </Text>
-    </View>
-  ), [theme.colors.textSecondary]);
+  const ListEmptyComponent = useMemo(() => {
+    if (hasError) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
+          <Text variant="body" color="error" style={styles.emptyStateText}>
+            Failed to load notifications
+          </Text>
+          <Text variant="caption" color="textSecondary">
+            Please check your connection and try again
+          </Text>
+          <Pressable
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => loadNotifications(1, true)}
+            android_ripple={{ color: theme.colors.primary + '20' }}
+          >
+            <Text variant="body" weight="medium" style={{ color: '#FFFFFF' }}>
+              Retry
+            </Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="notifications-off" size={48} color={theme.colors.textSecondary} />
+        <Text variant="body" color="textSecondary" style={styles.emptyStateText}>
+          No notifications found
+        </Text>
+        <Text variant="caption" color="textSecondary">
+          Your trading notifications will appear here
+        </Text>
+      </View>
+    );
+  }, [theme.colors, hasError, loadNotifications]);
 
   return (
     <SlidingPage
@@ -389,32 +504,42 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
-      ) : error ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
-          <Text variant="body" color="error" style={styles.emptyStateText}>
-            {error}
-          </Text>
-          <Text variant="caption" color="textSecondary">
-            Please try again later
-          </Text>
-        </View>
       ) : (
-        <FlatList
-          data={filteredNotifications}
-          renderItem={renderNotificationItem}
-          keyExtractor={(item) => item.id.toString()}
-          ListHeaderComponent={ListHeaderComponent}
-          ListEmptyComponent={ListEmptyComponent}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          removeClippedSubviews={true}
-          refreshing={isLoading}
-          onRefresh={() => setCurrentPage(1)}
-        />
+        <>
+          <FlatList
+            data={currentNotifications}
+            renderItem={renderNotificationItem}
+            keyExtractor={(item) => item.id}
+            ListHeaderComponent={ListHeaderComponent}
+            ListEmptyComponent={ListEmptyComponent}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            removeClippedSubviews={true}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                colors={[theme.colors.primary]}
+                tintColor={theme.colors.primary}
+              />
+            }
+          />
+          
+          {/* Page Loading Overlay */}
+          {isPageLoading && (
+            <View style={styles.pageLoadingOverlay}>
+              <View style={[styles.loadingIndicator, { backgroundColor: theme.colors.surface }]}>
+                <Ionicons name="refresh" size={24} color={theme.colors.primary} />
+                <Text variant="body" color="primary" weight="medium">
+                  Loading page {currentPage}...
+                </Text>
+              </View>
+            </View>
+          )}
+        </>
       )}
     </SlidingPage>
   );
@@ -536,6 +661,38 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  pageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });
 

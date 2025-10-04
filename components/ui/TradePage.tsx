@@ -15,7 +15,14 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AssetItem, MarketType, TradeState } from '../watchlist/types';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
-import { tradingApiService, ProceedBuySellRequest } from '../../services/tradingApiService';
+import { formatPrice } from '../../utils/priceFormatting';
+import { 
+  tradingApiService, 
+  ProceedBuySellRequest,
+  GetRequiredMarginRequest,
+  RequiredMarginData,
+  WalletBalanceData
+} from '../../services/tradingApiService';
 
 interface TradePageProps {
   visible: boolean;
@@ -49,13 +56,12 @@ const TradePage: React.FC<TradePageProps> = ({
   const [limitPrice, setLimitPrice] = useState('0');
   const [triggerPrice, setTriggerPrice] = useState('0');
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
-
-  const formatPrice = (price: number) => {
-    if (marketType === 'stocks') {
-      return formatIndianCurrency(price);
-    }
-    return `$${price.toFixed(2)}`;
-  };
+  const [requiredMargin, setRequiredMargin] = useState<number>(0);
+  const [isLoadingMargin, setIsLoadingMargin] = useState(false);
+  const [marginData, setMarginData] = useState<RequiredMarginData | null>(null);
+  const [walletBalance, setWalletBalance] = useState<string>('0');
+  const [isLoadingWallet, setIsLoadingWallet] = useState(false);
+  const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
 
   // Calculate bid/ask based on actual asset price (simple estimation)
   const getBidAsk = () => {
@@ -94,17 +100,27 @@ const TradePage: React.FC<TradePageProps> = ({
   ];
 
   const calculateRequiredAmount = () => {
+    // Use API margin data if available, otherwise fallback to calculation
+    if (requiredMargin > 0) {
+      return requiredMargin;
+    }
+    
     const price = orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price;
     return quantity * price;
   };
 
   const getAvailableFormatted = () => {
-    return `₹${(availableBalance / 100000).toFixed(1)}L`;
+    // Show full wallet balance amount without formatting
+    return `₹${walletBalance}`;
   };
 
   const handleQuantityChange = (change: number) => {
     const newQuantity = Math.max(1, quantity + change);
     setQuantity(newQuantity);
+    // Trigger margin recalculation with new quantity
+    if (visible) {
+      setTimeout(() => fetchRequiredMargin(), 300); // Small delay to avoid too many API calls
+    }
   };
 
   const handleExecuteTrade = async () => {
@@ -116,9 +132,9 @@ const TradePage: React.FC<TradePageProps> = ({
     try {
       // Prepare the API request data
       const apiRequest: ProceedBuySellRequest = {
-        intWID: 0, // Default value as per API
-        scriptCode: 0, // Default value as per API
-        currentPosition: action, // 'buy' or 'sell'
+        intWID: asset.intWID || 0, // Use from asset data or fallback to 0
+        scriptCode: asset.scriptCode || 0, // Use from asset data or fallback to 0
+        currentPosition: action === 'buy' ? 'Buy' : 'Sell', // Capitalize as required by API
         quantity: quantity.toString(),
         price: (orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price).toString(),
         triggerPrice: triggerPrice || '0',
@@ -128,7 +144,7 @@ const TradePage: React.FC<TradePageProps> = ({
         status: '', // Default empty string
         target: targetPrice || '0',
         stopLoss: stopLossPrice || '0',
-        tradinG_UNIT: 0 // Default value as per API
+        tradinG_UNIT: 1 // Default value as per API
       };
 
       console.log('🔄 Executing trade with API:', apiRequest);
@@ -136,13 +152,24 @@ const TradePage: React.FC<TradePageProps> = ({
         symbol: asset.symbol,
         name: asset.name,
         price: asset.price,
-        exchange: asset.exchange
+        exchange: asset.exchange,
+        scriptCode: asset.scriptCode,
+        intWID: asset.intWID
       });
 
       // Call the real trading API
       const response = await tradingApiService.proceedBuySell(apiRequest);
 
-      if (response.success) {
+      console.log('📡 Trade API Response:', response);
+
+      // Check for success - must be explicitly true AND no error message indicating failure
+      const isSuccess = response.success === true && 
+                       !response.message?.toLowerCase().includes('insufficient') &&
+                       !response.message?.toLowerCase().includes('failed') &&
+                       !response.message?.toLowerCase().includes('error') &&
+                       !response.error;
+
+      if (isSuccess) {
         // Success - show success notification and close
         showNotification({
           type: 'success',
@@ -168,10 +195,13 @@ const TradePage: React.FC<TradePageProps> = ({
         onClose();
       } else {
         // Error - show error notification
+        const errorMessage = response.message || response.error || 'Failed to execute trade. Please try again.';
+        console.error('❌ Trade failed:', errorMessage);
+        
         showNotification({
           type: 'error',
           title: 'Trade Failed',
-          message: response.message || response.error || 'Failed to execute trade. Please try again.'
+          message: errorMessage
         });
       }
     } catch (error) {
@@ -188,6 +218,104 @@ const TradePage: React.FC<TradePageProps> = ({
       setIsExecutingTrade(false);
     }
   };
+
+  const fetchRequiredMargin = useCallback(async () => {
+    try {
+      setIsLoadingMargin(true);
+      
+      const request: GetRequiredMarginRequest = {
+        ScriptLotSize: asset.lotSize || 1, // Use asset lot size or default to 1
+        ScriptCode: (asset.scriptCode || 0).toString(), // Use asset script code
+        quantity: quantity,
+        Totalwalletbalance: walletData?.amount ? parseFloat(walletData.amount) : parseFloat(walletBalance) || 0,
+        MisOrNot: productType === 'MIS' ? 1 : 0,
+        Lastprice: asset.price,
+        TRADING_UNIT_TYPE: 1, // Default trading unit type
+        ScriptExchange: asset.exchange || 'NSE',
+        CurrentPosition: action === 'buy' ? 'Buy' : 'Sell'
+      };
+
+      console.log('🚀 Fetching required margin with request:', request);
+      
+      const response = await tradingApiService.getRequiredMargin(request);
+      
+      if (response.success && response.data && response.data.length > 0) {
+        const marginInfo = response.data[0];
+        setMarginData(marginInfo);
+        setRequiredMargin(marginInfo.Requiredmargin);
+        
+        // For market orders, auto-fill the price field with the last price
+        if (orderType === 'MARKET') {
+          setLimitPrice(asset.price.toString());
+        }
+        
+        console.log('✅ Required margin fetched:', marginInfo.Requiredmargin);
+      } else {
+        console.error('❌ Failed to fetch required margin:', response);
+        // Fallback to calculated amount
+        setRequiredMargin(calculateRequiredAmount());
+      }
+    } catch (error) {
+      console.error('❌ Error fetching required margin:', error);
+      // Fallback to calculated amount
+      setRequiredMargin(calculateRequiredAmount());
+      // showNotification({
+      //   type: 'warning',
+      //   title: 'Margin Calculation',
+      //   message: 'Using estimated margin calculation'
+      // });
+    } finally {
+      setIsLoadingMargin(false);
+    }
+  }, [quantity, productType, asset.price, asset.exchange, asset.scriptCode, asset.lotSize, action, walletData, walletBalance, orderType, showNotification]);
+
+  const fetchWalletBalance = useCallback(async () => {
+    try {
+      setIsLoadingWallet(true);
+      
+      console.log('🚀 Fetching wallet balance for TradePage');
+      
+      const response = await tradingApiService.getWalletBalance();
+      
+      if (response.data) {
+        setWalletData(response.data);
+        setWalletBalance(response.data.amount || '0');
+        console.log('✅ Wallet balance fetched:', response.data.amount);
+      } else {
+        console.error('❌ Failed to fetch wallet balance:', response);
+        setWalletBalance('0');
+        showNotification({
+          type: 'warning',
+          title: 'Wallet Balance',
+          message: 'Unable to fetch wallet balance'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching wallet balance:', error);
+      setWalletBalance('0');
+      showNotification({
+        type: 'error',
+        title: 'Wallet Error',
+        message: 'Failed to fetch wallet balance'
+      });
+    } finally {
+      setIsLoadingWallet(false);
+    }
+  }, [showNotification]);
+
+  // Fetch wallet balance when page becomes visible
+  useEffect(() => {
+    if (visible) {
+      fetchWalletBalance();
+    }
+  }, [visible, fetchWalletBalance]);
+
+  // Fetch required margin when wallet balance is available and parameters change
+  useEffect(() => {
+    if (visible && walletBalance !== '0') {
+      fetchRequiredMargin();
+    }
+  }, [visible, quantity, productType, orderType, walletBalance, fetchRequiredMargin]);
 
   return (
     <SlidingPage
@@ -207,10 +335,10 @@ const TradePage: React.FC<TradePageProps> = ({
           </Text>
           <View style={styles.bidAskContainer}>
             <Text variant="caption" weight="medium" color="success" style={styles.bidAskText}>
-              B: {formatPrice(bid)}
+              B: {formatPrice(bid, marketType)}
             </Text>
             <Text variant="caption" weight="medium" color="error" style={styles.askPriceText}>
-              A: {formatPrice(ask)}
+              A: {formatPrice(ask, marketType)}
             </Text>
           </View>
         </View>
@@ -230,7 +358,7 @@ const TradePage: React.FC<TradePageProps> = ({
               <View style={styles.marketDataItem}>
                 <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Open</Text>
                 <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                  {formatPrice(asset.high - Math.abs(asset.change || 0) * 0.5)}
+                  {formatPrice(asset.high - Math.abs(asset.change || 0) * 0.5, marketType)}
                 </Text>
               </View>
             )}
@@ -240,7 +368,7 @@ const TradePage: React.FC<TradePageProps> = ({
               <View style={styles.marketDataItem}>
                 <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>High</Text>
                 <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                  {formatPrice(asset.high)}
+                  {formatPrice(asset.high, marketType)}
                 </Text>
               </View>
             )}
@@ -250,7 +378,7 @@ const TradePage: React.FC<TradePageProps> = ({
               <View style={styles.marketDataItem}>
                 <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Low</Text>
                 <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                  {formatPrice(asset.low)}
+                  {formatPrice(asset.low, marketType)}
                 </Text>
               </View>
             )}
@@ -259,7 +387,7 @@ const TradePage: React.FC<TradePageProps> = ({
             <View style={styles.marketDataItem}>
               <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>Prev Close</Text>
               <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                {formatPrice(asset.price - (asset.change || 0))}
+                {formatPrice(asset.price - (asset.change || 0), marketType)}
               </Text>
             </View>
             
@@ -267,7 +395,7 @@ const TradePage: React.FC<TradePageProps> = ({
             <View style={styles.marketDataItem}>
               <Text variant="caption" color="textSecondary" style={styles.marketDataLabel}>LTP</Text>
               <Text variant="caption" weight="medium" color="text" style={styles.marketDataValue}>
-                {formatPrice(asset.price)}
+                {formatPrice(asset.price, marketType)}
               </Text>
             </View>
           </View>
@@ -435,17 +563,17 @@ const TradePage: React.FC<TradePageProps> = ({
               <Text variant="body" color="text" style={styles.advancedLabel}>Price</Text>
               <TextInput
                 style={[styles.advancedInput, { 
-                  backgroundColor: theme.colors.surface, 
+                  backgroundColor: orderType === 'MARKET' ? theme.colors.border + '40' : theme.colors.surface, 
                   color: theme.colors.text,
                   borderColor: theme.colors.border,
-                  opacity: orderType === 'MARKET' ? 0.5 : 1 // Disabled for MARKET
+                  opacity: orderType === 'MARKET' ? 0.7 : 1 // Slightly faded for MARKET
                 }]}
-                value={limitPrice}
-                onChangeText={setLimitPrice}
+                value={orderType === 'MARKET' ? asset.price.toString() : limitPrice}
+                onChangeText={orderType === 'MARKET' ? undefined : setLimitPrice}
                 placeholder="0"
                 placeholderTextColor={theme.colors.textSecondary}
                 keyboardType="numeric"
-                editable={orderType !== 'MARKET'} // Enabled for LIMIT, SL, SL-M
+                editable={orderType !== 'MARKET'} // Read-only for MARKET
               />
             </View>
             
@@ -475,17 +603,31 @@ const TradePage: React.FC<TradePageProps> = ({
             <Text variant="body" weight="bold" color="text">
               Required
             </Text>
-            <Text variant="body" weight="bold" color="error">
-              {formatPrice(calculateRequiredAmount())}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {isLoadingMargin && (
+                <Text variant="caption" color="textSecondary" style={{ marginRight: 8 }}>
+                  Loading...
+                </Text>
+              )}
+              <Text variant="body" weight="bold" color="error">
+                {formatPrice(calculateRequiredAmount(), marketType)}
+              </Text>
+            </View>
           </View>
           <View style={styles.summaryRow}>
             <Text variant="body" weight="bold" color="text">
               Available
             </Text>
-            <Text variant="body" weight="bold" color="success">
-              {getAvailableFormatted()}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {isLoadingWallet && (
+                <Text variant="caption" color="textSecondary" style={{ marginRight: 8 }}>
+                  Loading...
+                </Text>
+              )}
+              <Text variant="body" weight="bold" color="success">
+                {getAvailableFormatted()}
+              </Text>
+            </View>
           </View>
         </Card>
 

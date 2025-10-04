@@ -53,11 +53,13 @@ import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { StockCardSkeleton } from '../../components/LoadingComponents';
 import { OptimizedFlatList } from '../../components/OptimizedList';
 import NotificationsPage from '../../components/ui/NotificationsPage';
+import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import WalletPage from '../../components/ui/WalletPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useDebounce, useRenderPerformance } from '../../hooks/usePerformance';
 import { queryKeys } from '../../services/queryClient';
+import { sessionExpiryHandler } from '../../services/sessionExpiryHandler';
 import { tradingApiService, ActiveTradeItem } from '../../services/tradingApiService';
 
 interface Trade {
@@ -108,17 +110,14 @@ const transformApiTradeToUi = (apiTrade: ActiveTradeItem): Trade => {
 };
 
 /**
- * Trades service using real API
+ * Trades service using real API with session expiry handling
  */
 const tradesService = {
   getTrades: async (): Promise<Trade[]> => {
-    try {
+    return await sessionExpiryHandler.withSessionHandling(async () => {
       const response = await tradingApiService.getActiveTrades();
       return response.data.map(transformApiTradeToUi);
-    } catch (error) {
-      console.error('❌ Error fetching trades:', error);
-      throw error;
-    }
+    });
   },
 };
 
@@ -254,7 +253,7 @@ MemoizedTradeCard.displayName = 'MemoizedTradeCard';
 
 export default function TradesScreen() {
   const { theme } = useTheme();
-  const { showNotification, notificationCount } = useNotification();
+  const { showNotification } = useNotification();
   
   // Performance monitoring
   useRenderPerformance('TradesScreen');
@@ -528,19 +527,13 @@ export default function TradesScreen() {
               >
                 <Ionicons name="wallet" size={20} color={theme.colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, position: 'relative' }]} 
+              
+              <NotificationIcon
                 onPress={handleNotificationPress}
-              >
-                <Ionicons name="notifications" size={20} color={theme.colors.primary} />
-                {notificationCount > 0 && (
-                  <View style={[styles.notificationBadge, { backgroundColor: theme.colors.error }]}>
-                    <Text style={styles.notificationText}>
-                      {notificationCount > 99 ? '99+' : notificationCount.toString()}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+                color={theme.colors.primary}
+                backgroundColor={theme.colors.surface}
+                borderColor={theme.colors.border}
+              />
             </View>
           </View>
 
@@ -659,23 +652,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: '#FF3B30',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  notificationText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: 'white',
   },
   header: {
     flexDirection: 'row',

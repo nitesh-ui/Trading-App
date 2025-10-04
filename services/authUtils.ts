@@ -6,6 +6,7 @@
 import { router } from 'expo-router';
 import { tradingApiService } from './tradingApiService';
 import { sessionManager } from './sessionManager';
+import { globalNotificationService } from './globalNotificationService';
 
 export class AuthUtils {
   /**
@@ -13,12 +14,34 @@ export class AuthUtils {
    */
   static async isAuthenticated(): Promise<boolean> {
     try {
-      // Check both tradingApiService and sessionManager for complete validation
+      // Use tradingApiService's comprehensive session validation
+      // This checks both session existence and validity (including extended validity)
       const tradingApiLoggedIn = await tradingApiService.isLoggedIn();
-      const sessionManagerLoggedIn = sessionManager.getCurrentUser() !== null;
+      
+      // If tradingApiService says user is logged in, check sessionManager for completeness
+      if (tradingApiLoggedIn) {
+        const sessionManagerUser = await sessionManager.ensureSessionLoaded();
+        if (!sessionManagerUser) {
+          // Sync sessionManager with tradingApiService data
+          const userInfo = await tradingApiService.getUserInfo();
+          if (userInfo) {
+            // Note: We don't have the token from tradingApiService, but we know it's valid
+            await sessionManager.saveSession(
+              {
+                id: userInfo.sponsorid || userInfo.username,
+                name: userInfo.fullname,
+                email: userInfo.email,
+                username: userInfo.username,
+                mobile: userInfo.mobileno,
+                tenantId: userInfo.tenantId?.toString(),
+              },
+              'session_from_tradingapi' // placeholder token since it's already validated
+            );
+          }
+        }
+      }
 
-      // Both should be true for complete authentication
-      return tradingApiLoggedIn && sessionManagerLoggedIn;
+      return tradingApiLoggedIn;
     } catch (error) {
       console.error('❌ Error checking authentication:', error);
       return false;
@@ -74,18 +97,16 @@ export class AuthUtils {
    */
   static async checkSessionExpiry(): Promise<boolean> {
     try {
-      const sessionData = await tradingApiService.getSessionData();
-      if (sessionData?.sessionValidity) {
-        const expiryDate = new Date(sessionData.sessionValidity);
-        const now = new Date();
-        
-        if (expiryDate <= now) {
-          console.log('⚠️ Session expired, redirecting to login');
-          await this.logout();
-          router.replace('/auth/login');
-          return false;
-        }
+      // Use the tradingApiService's built-in session validity check which considers extended validity
+      const isValid = await tradingApiService.isSessionValid();
+      
+      if (!isValid) {
+        console.log('⚠️ Session expired, redirecting to login');
+        await this.logout();
+        router.replace('/auth/login');
+        return false;
       }
+      
       return true;
     } catch (error) {
       console.error('❌ Error checking session expiry:', error);
@@ -113,6 +134,46 @@ export class AuthUtils {
       }
     } catch (error) {
       console.error('❌ Error initializing auth:', error);
+    }
+  }
+
+  /**
+   * Handle 401 Unauthorized errors globally
+   * Shows notification and redirects to login
+   */
+  static async handle401Unauthorized(notificationSystem?: { showNotification: (notification: any) => void }): Promise<void> {
+    try {
+      console.log('⚠️ Handling 401 Unauthorized - Session expired');
+      
+      // Show notification using global service (preferred) or passed system
+      if (globalNotificationService) {
+        globalNotificationService.showNotification({
+          type: 'warning',
+          title: 'Session inactive, redirecting to login page',
+        });
+      } else if (notificationSystem?.showNotification) {
+        notificationSystem.showNotification({
+          type: 'warning',
+          title: 'Session inactive, redirecting to login page',
+        });
+      } else {
+        console.log('⚠️ Session inactive, redirecting to login page');
+      }
+
+      // Clear session and redirect to login
+      await this.logout();
+      
+      // Add a small delay to ensure notification is shown before navigation
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ Error handling 401:', error);
+      // Still try to redirect even if logout fails
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 100);
     }
   }
 }

@@ -131,11 +131,15 @@ const styles = StyleSheet.create({
   container: {
     width: '100%', // Take full width of parent
     minWidth: 100, // Prevent layout shifts
+    maxWidth: '100%', // Prevent overflow
+    overflow: 'hidden', // Hide overflow
   },
   priceContainer: {
     minHeight: 20, // Stable height
     justifyContent: 'center',
     width: '100%',
+    maxWidth: '100%', // Prevent overflow
+    overflow: 'hidden', // Hide overflow
   },
   price: {
     // textAlign will be set dynamically

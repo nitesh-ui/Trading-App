@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { formatIndianCurrency } from '../../utils/indianFormatting';
+import { formatPrice } from '../../utils/priceFormatting';
 import { Card, Text } from '../atomic';
 import { AssetItem, MarketType } from './types';
 
@@ -24,16 +24,6 @@ const OptimizedAssetCard = memo<OptimizedAssetCardProps>(({
   onRemovePress,
   theme,
 }) => {
-  const formatPrice = (price: number) => {
-    if (marketType === 'stocks') {
-      return formatIndianCurrency(price);
-    }
-    if (marketType === 'crypto' && price > 1000) {
-      return `$${price.toLocaleString()}`;
-    }
-    return `$${price.toFixed(4)}`;
-  };
-
   const changeColor = asset.change >= 0 ? theme.colors.success : theme.colors.error;
   const changeIcon = asset.change >= 0 ? 'trending-up' : 'trending-down';
 
@@ -63,12 +53,12 @@ const OptimizedAssetCard = memo<OptimizedAssetCardProps>(({
         <View style={styles.content}>
           <View style={styles.priceContainer}>
             <Text variant="headline" weight="bold" color="text">
-              {formatPrice(asset.price)}
+              {formatPrice(asset.price, marketType)}
             </Text>
             <View style={[styles.changeContainer, { backgroundColor: changeColor + '20' }]}>
               <Ionicons name={changeIcon} size={14} color={changeColor} />
               <Text variant="caption" color="textSecondary" style={[styles.changeText, { color: changeColor }] as any}>
-                {asset.change >= 0 ? '+' : ''}{formatPrice(asset.change)} ({asset.changePercent.toFixed(2)}%)
+                {asset.change >= 0 ? '+' : ''}{formatPrice(asset.change, marketType)} ({asset.changePercent.toFixed(2)}%)
               </Text>
             </View>
           </View>

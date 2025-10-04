@@ -1,51 +1,8 @@
 // API service for authentication and trading
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sessionManager } from './sessionManager';
 
 const API_BASE_URL = 'https://tradingapi.sanaitatechnologies.com';
-
-export interface NotificationCountResponse {
-  message: string;
-  data: number;
-}
-
-export interface NotificationResponse {
-  message: string;
-  data: Array<{
-    id: number;
-    userID: number;
-    description: string;
-    type: number;
-    seen: number;
-    createdDate: string;
-    createdDateString: string;
-    email: string;
-    source: string;
-    userip: string;
-    total_Page: number;
-    fullname: string;
-    username: string;
-    location: string;
-    deviceName: string;
-  }>;
-}
-
-export interface NotificationItem {
-  id: number;
-  userID: number;
-  description: string;
-  type: number;
-  seen: number;
-  createdDate: string;
-  createdDateString: string;
-  email: string;
-  source: string;
-  userip: string;
-  total_Page: number;
-  fullname: string;
-  username: string;
-  location: string;
-  deviceName: string;
-}
 
 export interface LoginRequest {
   emailOrUsername: string;
@@ -194,26 +151,300 @@ export interface GetActiveTradesResponse {
   data: ActiveTradeItem[];
 }
 
+export interface NotificationItem {
+  id: number;
+  userID: number;
+  description: string;
+  type: number;
+  seen: number;
+  createdDate: string;
+  createdDateString: string;
+  email: string;
+  source: string;
+  userip: string;
+  total_Page: number;
+  fullname: string;
+  username: string;
+  location: string;
+  deviceName: string;
+}
+
+export interface GetNotificationsResponse {
+  message: string;
+  data: NotificationItem[];
+}
+
+export interface TransactionHistoryRequest {
+  pageNo: number;
+  sessionKey?: string; // Optional for the interface
+  startDate?: string; // Format: YYYY-MM-DD
+  endDate?: string;   // Format: YYYY-MM-DD
+  scriptExchange?: string;
+  currentPosition?: string; // 'BUY' | 'SELL'
+}
+
+export interface TransactionHistoryReportsRequest {
+  pageNo: number;
+  startDate?: string; // Format: YYYY-MM-DD
+  endDate?: string;   // Format: YYYY-MM-DD
+  scriptExchange?: string;
+  currentPosition?: string; // 'BUY' | 'SELL'
+}
+
+export interface TransactionHistoryItem {
+  id: number;
+  tradeSymbol: string;
+  currentPosition: string;
+  strategy: string;
+  status: string;
+  entryTime: string;
+  exitTime: string;
+  entryPrice: number;
+  exitPrice: number;
+  // Additional fields that might be in the API response
+  qty?: number;
+  profitLoss?: number;
+  scriptExchange?: string;
+  total_Page?: number;
+}
+
+export interface TransactionHistoryReportsItem {
+  completedtradeid: number;
+  tradeSymbol: string;
+  currentPosition: string;
+  strategyname: string;
+  status: string;
+  entrydate: string;
+  entrytime: string;
+  exitDate: string;
+  exittime: string;
+  entryprice: number;
+  exitprice: number;
+  qty: number;
+  profitorloss: number;
+  scriptExchange: string;
+  total_Page: number;
+}
+
+export interface TransactionHistoryResponse {
+  message: string;
+  data: TransactionHistoryItem[];
+  success?: boolean;
+}
+
+export interface TransactionHistoryReportsResponse {
+  message: string;
+  data: TransactionHistoryReportsItem[];
+  success?: boolean;
+}
+
+export interface WalletBalanceData {
+  amount: string;
+  totalprofitloss: number;
+  availablebalance: number;
+  usedbalance: number;
+  usedMargin: number;
+  availableMargin: number;
+  totalmargin: number;
+  // Additional fields from API response
+  userID: number;
+  tenantId: number;
+  totalinflow: number;
+  totaloutflow: number;
+  closingbalance: number;
+  openingbalance: number;
+  loanbalance: number;
+  deliveryPledge: number;
+  dailyTotalprofitloss: number;
+}
+
 export interface WalletBalanceResponse {
   message: string;
-  data: {
-    id: number;
-    activeTradeID: number;
-    email: string;
-    userID: number;
-    amount: string;
-    availablebalance: number;
-    usedbalance: number;
-    totalprofitloss: number;
-    currency: string;
-    description: string;
-    timestamp: Date;
-    status: 'completed' | 'pending' | 'failed';
-  }
+  data: WalletBalanceData;
+}
+
+// Transaction History Interfaces
+export interface TransactionHistoryRequest {
+  pageNo: number;
+  startDate?: string;
+  endDate?: string;
+  payinPayout: boolean;
+}
+
+export interface TransactionHistoryItem {
+  id: number;
+  activeTradeID: number;
+  email: string;
+  userID: number;
+  tenantId: number;
+  description: string;
+  date_Time: string;
+  date_Time_String: string;
+  amount: string;
+  amountindouble: number;
+  totalinflow: number;
+  totaloutflow: number;
+  type: number;
+  transectionid: string;
+  isread: number;
+  total_Pages: number;
+  recievedform: string;
+  status: string;
+  returnUrl: string;
+  balance: string;
+  closingbalance: number;
+  openingbalance: number;
+  loanbalance: number;
+  parentUserID: number;
+  level: number;
+  equitybrokerfixedorpercentage: boolean;
+  futuresbrokerfixedorpercentage: boolean;
+  optionsbrokerfixedorpercentage: boolean;
+  equitybrokerfixedorpercentagevalue: number;
+  futuresBrokerFixedOrPercentageValue: number;
+  optionsbrokerfixedorpercentagevalue: number;
+  scriptExchange?: string;
+  availablebalance: number;
+  usedbalance: number;
+  totalprofitloss: number;
+  deliveryPledge: number;
+  usedMargin: number;
+  availableMargin: number;
+  dailyTotalprofitloss: number;
+  totalmargin: number;
+  brokeragecutfor: string;
+}
+
+export interface TransactionHistoryResponse {
+  message: string;
+  data: TransactionHistoryItem[];
+}
+
+export interface TransactionDetailsResponse {
+  Completedtradeid: number;
+  Activetradeidfororderlog: number;
+  TradeSymbol: string;
+  Scriptsegment: string;
+  Scripttype: string;
+  Entrydate: string;
+  Entrytime: string;
+  Entryprice: number;
+  ExitDate: string;
+  Exittime: string;
+  Exitprice: number;
+  Openingwalletbalance: number;
+  Profitorloss: number;
+  Status: string;
+  StatusMessage: string;
+  UserID: number;
+  CurrentPosition: string;
+  Qty: number;
+  strategyID: number;
+  Fundmanagername: string;
+  Strategyname: string;
+  WID: number;
+  Watchlistname: string;
+  IsLive: boolean;
+  Username: string;
+  Fullname: string;
+  isReverseOrder: boolean;
+  Publishname: string;
+  ProductType: string;
+  ScriptLotSize: number;
+  Brokerage: number;
+  Total_Page: number;
+  Netprofitorloss: number;
+  Totalprofit: number;
+  Totalloss: number;
+  TotalBrokerage: number;
+  ScriptExchange: string;
+  LAST_PRICE_TYPE: number;
+  TRADING_UNIT_TYPE: number;
+  ScriptInstrumentType: string;
+  Issoftdeleted: number;
+  ScriptName: string;
+  ScriptCode: number;
+  HOLDED_EXPOSURE: number;
+  IsaddedToMargin: boolean;
+  Email: string;
+  BuyQtyWiseOrLot: number;
+  Averageprice: number;
+  Lastprice: number;
+  TRADING_UNIT: string;
+  Active_LTP: number;
+  Active_Bid: number;
+  Active_Ask: number;
+  Datescriptexpiry: string;
+  Scriptexpiry: string;
+  TENANT_ID: number;
+  COMPANY_INITIAL: string;
+  Orderplacedfrom: string;
+  Sponsorid: string;
+  Userroleid: string;
+  Userip: string;
+  CREATED_BY: number;
+  CREATED_DATE: string;
+  CREATED_BY_2: string;
+  UPDATED_BY: number;
+  UPDATED_DATE: string;
+  UPDATED_BY_2: string;
+  Qty_MODIFIED_BY: number;
+  Qty_MODIFIED_DATE: string;
+  Qty_MODIFIED_BY_2: string;
+  BROKRAGE_DEDUCTED_AMOUNT: number;
+  Brokrage_Deducted_Amount_2: number;
+}
+
+// GetRequiredMargin API Interfaces
+export interface GetRequiredMarginRequest {
+  ScriptLotSize: number;
+  ScriptCode: string;
+  quantity: number;
+  Totalwalletbalance: number;
+  MisOrNot: number; // 1 for MIS, 0 for NRML
+  Lastprice: number;
+  TRADING_UNIT_TYPE: number;
+  ScriptExchange: string;
+  CurrentPosition: string; // 'Buy' or 'Sell'
+}
+
+export interface RequiredMarginData {
+  WID: number;
+  Watchlistname: string;
+  Scripts: number;
+  UserID: number;
+  Email: string;
+  ScriptExchange: string;
+  ExpireDay: number;
+  Ismanual: boolean;
+  ENABLE_SCRIPTWISE_BROKERAGE: number;
+  ENABLE_LOTWISE_BROKERAGE: number;
+  MIS_EXPOSER: number;
+  NORMAL_EXPOSER: number;
+  BROKERAGE_TYPE: number;
+  BROKERAGE_VALUE: number;
+  Banscriptid: number;
+  ScriptName: string;
+  Total_Page: number;
+  Requiredmargin: number;
+  Availablemargin: number;
+  Usedmargin: number;
+  PledgeMargin: number;
+  ScriptCode: number;
+  roleid: string;
+  rolename: string;
+  Level: number;
+}
+
+export interface GetRequiredMarginResponse {
+  message?: string;
+  data?: RequiredMarginData[];
+  success?: boolean;
 }
 
 class TradingApiService {
   private static instance: TradingApiService;
+  private unauthorizedHandler?: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>;
 
   static getInstance(): TradingApiService {
     if (!TradingApiService.instance) {
@@ -223,115 +454,10 @@ class TradingApiService {
   }
 
   /**
-   * Get total notification count
-   * @returns A promise that resolves to the total notification count
-   * @throws Error if no session token is found or the request fails
+   * Set a global handler for 401 unauthorized responses
    */
-  async getTotalNotificationCount(): Promise<NotificationCountResponse> {
-    console.log('🔄 Fetching notification count...');
-    const sessionToken = await AsyncStorage.getItem('@trading_app_token');
-    if (!sessionToken) {
-      console.error('❌ No session token found in AsyncStorage');
-      throw new Error('No session token found. Please log in again.');
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/NotificationApi/GetTotalNotificationCount`, {
-        method: 'GET',
-        headers: {
-          'Accept': '*/*',
-          'X-Session-Key': sessionToken,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.message || 
-          `Failed to fetch notification count: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const data: NotificationCountResponse = await response.json();
-      console.log('✅ Notification count fetched successfully:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Error fetching notification count:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get all notifications with pagination
-   * @param page The page number to fetch (1-based)
-   * @returns A promise that resolves to the paginated notifications
-   * @throws Error if no session token is found or the request fails
-   */
-  async getNotifications(page: number = 1): Promise<NotificationResponse> {
-    console.log(`🔄 Fetching notifications for page ${page}...`);
-    const sessionToken = await AsyncStorage.getItem('@trading_app_token');
-    if (!sessionToken) {
-      console.error('❌ No session token found in AsyncStorage');
-      throw new Error('No session token found. Please log in again.');
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/NotificationApi/GetNotification?PageNumber=${page}`, {
-        method: 'GET',
-        headers: {
-          'Accept': '*/*',
-          'X-Session-Key': sessionToken,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.message || 
-          `Failed to fetch notifications: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const data: NotificationResponse = await response.json();
-      console.log(`✅ Notifications fetched successfully for page ${page}:`, data);
-      return data;
-    } catch (error) {
-      console.error('❌ Error fetching notifications:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get user's wallet balance and details
-   */
-  async getWalletBalance(): Promise<WalletBalanceResponse> {
-    try {
-      const authToken = await AsyncStorage.getItem('sessionToken');
-      if (!authToken) {
-        throw new Error('Authentication token not found');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/UserWalletApi/GetBalance`, {
-        method: 'GET',
-        headers: {
-          'accept': '*/*',
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch wallet balance: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data as WalletBalanceResponse;
-
-    } catch (error) {
-      console.error('❌ Error fetching wallet balance:', error);
-      throw error;
-    }
+  setUnauthorizedHandler(handler: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>): void {
+    this.unauthorizedHandler = handler;
   }
 
   /**
@@ -425,16 +551,24 @@ class TradingApiService {
   }
 
   /**
-   * Save session data to AsyncStorage
+   * Save session data to AsyncStorage with enhanced validity tracking
    */
   private async saveSessionData(sessionData: any): Promise<void> {
     try {
+      const now = new Date();
+      const originalValidity = new Date(sessionData.sessionValidity);
+      
+      // Initialize extended validity to 19 minutes from now (first extension on login)
+      const initialExtendedValidity = new Date(now.getTime() + 19 * 60 * 1000);
+      
       const sessionInfo = {
         sessionToken: sessionData.sessionToken,
         sessionValidity: sessionData.sessionValidity,
         loggedInUser: sessionData.loggedInUser,
         loggedInWatchlistAccess: sessionData.loggedInWatchlistAccess,
-        loginTime: new Date().toISOString(),
+        loginTime: now.toISOString(),
+        lastApiCall: now.toISOString(),
+        extendedValidityTime: initialExtendedValidity.toISOString(),
       };
 
       await AsyncStorage.multiSet([
@@ -445,28 +579,111 @@ class TradingApiService {
         ['trading_session_info', JSON.stringify(sessionInfo)],
       ]);
 
-      console.log('✅ Session data saved to AsyncStorage');
+      console.log('✅ Session data saved to AsyncStorage:', {
+        originalValidity: originalValidity.toISOString(),
+        extendedValidity: initialExtendedValidity.toISOString(),
+        user: sessionData.loggedInUser?.username,
+        loginTime: now.toISOString()
+      });
     } catch (error) {
       console.error('❌ Error saving session data:', error);
     }
   }
 
   /**
-   * Get saved session data from AsyncStorage
+   * Check if session is valid and not expired
+   */
+  async isSessionValid(): Promise<boolean> {
+    try {
+      const sessionInfo = await AsyncStorage.getItem('trading_session_info');
+      if (!sessionInfo) {
+        console.log('⚠️ No session info found');
+        return false;
+      }
+
+      const parsed = JSON.parse(sessionInfo);
+      const now = new Date();
+      
+      // Check original session validity
+      const originalValidity = new Date(parsed.sessionValidity);
+      
+      // Check extended validity (original + extensions from API calls)
+      const extendedValidity = new Date(parsed.extendedValidityTime || parsed.sessionValidity);
+      
+      const isOriginalValid = originalValidity > now;
+      const isExtendedValid = extendedValidity > now;
+      
+      console.log('🔍 Session validity check:', {
+        now: now.toISOString(),
+        originalValidity: originalValidity.toISOString(),
+        extendedValidity: extendedValidity.toISOString(),
+        isOriginalValid,
+        isExtendedValid,
+        minutesUntilExpiry: Math.round((extendedValidity.getTime() - now.getTime()) / (1000 * 60)),
+        lastApiCall: parsed.lastApiCall
+      });
+
+      if (!isExtendedValid) {
+        console.log('⚠️ Session expired, clearing session data');
+        await this.clearSessionData();
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error checking session validity:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Extend session validity by 19 minutes on successful API calls
+   */
+  async extendSessionValidity(): Promise<void> {
+    try {
+      const sessionInfo = await AsyncStorage.getItem('trading_session_info');
+      if (!sessionInfo) {
+        console.log('⚠️ No session info found for extension');
+        return;
+      }
+
+      const parsed = JSON.parse(sessionInfo);
+      const now = new Date();
+      
+      // Extend validity by 19 minutes from now
+      const newExtendedValidity = new Date(now.getTime() + 19 * 60 * 1000);
+      
+      const previousExtendedValidity = parsed.extendedValidityTime;
+      
+      parsed.lastApiCall = now.toISOString();
+      parsed.extendedValidityTime = newExtendedValidity.toISOString();
+
+      await AsyncStorage.setItem('trading_session_info', JSON.stringify(parsed));
+      
+      console.log('✅ Session validity extended:', {
+        previousExpiry: previousExtendedValidity,
+        newExpiry: newExtendedValidity.toISOString(),
+        extensionMinutes: 19,
+        lastApiCall: now.toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Error extending session validity:', error);
+    }
+  }
+
+  /**
+   * Get saved session data from AsyncStorage with validity check
    */
   async getSessionData(): Promise<any | null> {
     try {
+      const isValid = await this.isSessionValid();
+      if (!isValid) {
+        return null;
+      }
+
       const sessionInfo = await AsyncStorage.getItem('trading_session_info');
       if (sessionInfo) {
-        const parsed = JSON.parse(sessionInfo);
-        // Check if session is still valid
-        if (parsed.sessionValidity && new Date(parsed.sessionValidity) > new Date()) {
-          return parsed;
-        } else {
-          // Session expired, clear it
-          await this.clearSessionData();
-          return null;
-        }
+        return JSON.parse(sessionInfo);
       }
       return null;
     } catch (error) {
@@ -497,8 +714,7 @@ class TradingApiService {
    * Check if user has a valid session
    */
   async isLoggedIn(): Promise<boolean> {
-    const sessionData = await this.getSessionData();
-    return sessionData !== null;
+    return await this.isSessionValid();
   }
 
   /**
@@ -806,9 +1022,17 @@ class TradingApiService {
   }
 
   /**
-   * Make authenticated API request with session token
+   * Make authenticated API request with session token and validity management
    */
   async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    // Check if session is valid before making request
+    const isValid = await this.isSessionValid();
+    if (!isValid) {
+      console.log('⚠️ Session invalid, clearing data and throwing error');
+      await this.clearSessionData();
+      throw new Error('Session expired. Please login again.');
+    }
+
     const sessionData = await this.getSessionData();
     if (!sessionData?.sessionToken) {
       throw new Error('No valid session token found. Please login again.');
@@ -818,13 +1042,67 @@ class TradingApiService {
       'accept': '*/*',
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${sessionData.sessionToken}`,
+      'X-Session-Key': sessionData.sessionToken,
       ...(options.headers || {}),
     };
 
-    return fetch(url, {
-      ...options,
-      headers,
-    });
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      // Handle 401 Unauthorized - session expired on server
+      if (response.status === 401) {
+        console.log('⚠️ Received 401 - session expired on server, clearing local session');
+        await this.clearSessionData();
+        
+        // Call the global unauthorized handler if set
+        if (this.unauthorizedHandler) {
+          try {
+            await this.unauthorizedHandler();
+            return response; // Return early since handler manages the flow
+          } catch (handlerError) {
+            console.error('❌ Error in unauthorized handler:', handlerError);
+          }
+        }
+        
+        throw new Error('Session expired. Please login again.');
+      }
+
+      // Handle 403 Forbidden - insufficient permissions
+      if (response.status === 403) {
+        console.log('⚠️ Received 403 - insufficient permissions, clearing local session');
+        await this.clearSessionData();
+        
+        // Call the global unauthorized handler if set (403 is also auth-related)
+        if (this.unauthorizedHandler) {
+          try {
+            await this.unauthorizedHandler();
+            return response; // Return early since handler manages the flow
+          } catch (handlerError) {
+            console.error('❌ Error in unauthorized handler:', handlerError);
+          }
+        }
+        
+        throw new Error('Access denied. Please login again.');
+      }
+
+      // If request is successful, extend session validity
+      if (response.ok) {
+        await this.extendSessionValidity();
+      }
+
+      return response;
+    } catch (error) {
+      // If it's a network error or other error, check if it's auth-related
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        throw error; // Re-throw session errors
+      }
+      
+      console.error('❌ Network error in authenticated request:', error);
+      throw error;
+    }
   }
 
   /**
@@ -854,65 +1132,22 @@ class TradingApiService {
   }
 
   /**
-   * Execute buy/sell trade
+   * Execute buy/sell trade with session management
    */
   async proceedBuySell(tradeData: ProceedBuySellRequest): Promise<ProceedBuySellResponse> {
     try {
-      // Check if user is authenticated
-      const isLoggedIn = await this.isLoggedIn();
-      if (!isLoggedIn) {
-        throw new Error('Authentication required. Please login first.');
-      }
+      console.log('🚀 ProceedBuySell API Request with session management:', tradeData);
 
-      // Get session data from AsyncStorage
-      const sessionData = await this.getSessionData();
-      if (!sessionData?.sessionToken) {
-        throw new Error('No valid session token found. Please login again.');
-      }
-
-      console.log('🚀 ProceedBuySell API Request:', {
-        url: `${API_BASE_URL}/WatchListApi/ProceedBuySell`,
-        method: 'POST',
-        headers: {
-          'X-Session-Key': sessionData.sessionToken ? '***TOKEN***' : 'None',
-        },
-        body: tradeData
-      });
-
-      // Make API call to execute trade
-      const response = await fetch(`${API_BASE_URL}/WatchListApi/ProceedBuySell`, {
-        method: 'POST',
-        headers: {
-          'accept': '*/*',
-          'X-Session-Key': sessionData.sessionToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(tradeData),
-      });
+      // Make API call to execute trade using authenticated request
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/WatchListApi/ProceedBuySell`,
+        {
+          method: 'POST',
+          body: JSON.stringify(tradeData)
+        }
+      );
 
       console.log('📡 ProceedBuySell API Response Status:', response.status);
-
-      if (!response.ok) {
-        console.error('❌ ProceedBuySell API Error:', response.status, response.statusText);
-        
-        // If unauthorized, session might be expired
-        if (response.status === 401 || response.status === 403) {
-          console.log('⚠️ Session might be expired');
-          await this.clearSessionData();
-          return {
-            success: false,
-            message: 'Session expired. Please login again.',
-            error: 'Session expired'
-          };
-        }
-        
-        const errorText = await response.text();
-        return {
-          success: false,
-          message: `Trade execution failed: ${response.status} ${response.statusText}`,
-          error: errorText || 'Network error occurred'
-        };
-      }
 
       const data = await response.json();
       console.log('✅ ProceedBuySell API Success Response:', data);
@@ -924,6 +1159,15 @@ class TradingApiService {
       };
 
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        // Re-throw session errors to be handled by calling components
+        return {
+          success: false,
+          message: 'Session expired. Please login again.',
+          error: 'Session expired'
+        };
+      }
+      
       console.error('❌ Error executing trade:', error);
       return {
         success: false,
@@ -934,54 +1178,20 @@ class TradingApiService {
   }
 
   /**
-   * Get active trades for the current user
+   * Get active trades for the current user with session management
    */
   async getActiveTrades(): Promise<GetActiveTradesResponse> {
     try {
-      // Check if user is authenticated
-      const isLoggedIn = await this.isLoggedIn();
-      if (!isLoggedIn) {
-        throw new Error('Authentication required. Please login first.');
-      }
+      console.log('🚀 GetActiveTrades API Request with session management');
 
-      // Get session data from AsyncStorage
-      const sessionData = await this.getSessionData();
-      if (!sessionData?.sessionToken) {
-        throw new Error('No valid session token found. Please login again.');
-      }
-
-      console.log('🚀 GetActiveTrades API Request:', {
-        url: `${API_BASE_URL}/WatchListApi/GetActiveTrades`,
-        method: 'GET',
-        headers: {
-          'X-Session-Key': sessionData.sessionToken ? '***TOKEN***' : 'None',
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/WatchListApi/GetActiveTrades`,
+        {
+          method: 'GET'
         }
-      });
-
-      // Make API call to get active trades
-      const response = await fetch(`${API_BASE_URL}/WatchListApi/GetActiveTrades`, {
-        method: 'GET',
-        headers: {
-          'accept': '*/*',
-          'X-Session-Key': sessionData.sessionToken,
-        }
-      });
+      );
 
       console.log('📡 GetActiveTrades API Response Status:', response.status);
-
-      if (!response.ok) {
-        console.error('❌ GetActiveTrades API Error:', response.status, response.statusText);
-        
-        // If unauthorized, session might be expired
-        if (response.status === 401 || response.status === 403) {
-          console.log('⚠️ Session might be expired');
-          await this.clearSessionData();
-          throw new Error('Session expired. Please login again.');
-        }
-        
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch active trades: ${response.status} ${response.statusText}`);
-      }
 
       const data = await response.json();
       console.log('✅ GetActiveTrades API Success Response:', data);
@@ -992,6 +1202,11 @@ class TradingApiService {
       };
 
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        // Re-throw session errors to be handled by calling components
+        throw error;
+      }
+      
       console.error('❌ Error fetching active trades:', error);
       throw error;
     }
@@ -1024,6 +1239,460 @@ class TradingApiService {
         success: false,
         message: 'Failed to square off trade'
       };
+    }
+  }
+
+  /**
+   * Get session statistics for debugging and monitoring
+   */
+  async getSessionStats(): Promise<any> {
+    try {
+      const sessionInfo = await AsyncStorage.getItem('trading_session_info');
+      if (!sessionInfo) {
+        return { hasSession: false, message: 'No session found' };
+      }
+
+      const parsed = JSON.parse(sessionInfo);
+      const now = new Date();
+      const originalValidity = new Date(parsed.sessionValidity);
+      const extendedValidity = new Date(parsed.extendedValidityTime || parsed.sessionValidity);
+      const loginTime = new Date(parsed.loginTime);
+      const lastApiCall = new Date(parsed.lastApiCall);
+
+      return {
+        hasSession: true,
+        user: parsed.loggedInUser?.username,
+        loginTime: loginTime.toISOString(),
+        sessionAge: Math.round((now.getTime() - loginTime.getTime()) / (1000 * 60)), // minutes
+        originalValidity: originalValidity.toISOString(),
+        extendedValidity: extendedValidity.toISOString(),
+        minutesUntilExpiry: Math.round((extendedValidity.getTime() - now.getTime()) / (1000 * 60)),
+        lastApiCall: lastApiCall.toISOString(),
+        minutesSinceLastCall: Math.round((now.getTime() - lastApiCall.getTime()) / (1000 * 60)),
+        isOriginalValid: originalValidity > now,
+        isExtendedValid: extendedValidity > now,
+        totalExtensions: Math.round((extendedValidity.getTime() - originalValidity.getTime()) / (1000 * 60 * 19)) // number of 19-minute extensions
+      };
+    } catch (error) {
+      console.error('❌ Error getting session stats:', error);
+      return { hasSession: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get total notification count for the user
+   */
+  async getNotificationCount(): Promise<{ success: boolean; count: number; message?: string }> {
+    try {
+      console.log('🔔 Getting notification count...');
+
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/NotificationApi/GetTotalNotificationCount`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        console.error('❌ Failed to get notification count:', response.status);
+        return {
+          success: false,
+          count: 0,
+          message: `API returned ${response.status}`,
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Notification count response:', data);
+
+      // Handle the API response format: { message: "", data: 11 }
+      const count = typeof data.data === 'number' ? data.data : 0;
+
+      return {
+        success: true,
+        count: count,
+        message: data.message || 'Notification count retrieved successfully',
+      };
+
+    } catch (error) {
+      console.error('❌ Error getting notification count:', error);
+      return {
+        success: false,
+        count: 0,
+        message: error instanceof Error ? error.message : 'Failed to get notification count',
+      };
+    }
+  }
+
+  /**
+   * Get user notifications with pagination
+   */
+  async getNotifications(pageNumber: number = 1): Promise<GetNotificationsResponse> {
+    try {
+      console.log('🚀 GetNotifications API Request:', {
+        url: `${API_BASE_URL}/NotificationApi/GetNotification`,
+        method: 'GET',
+        pageNumber
+      });
+
+      // Make API call using authenticated request
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/NotificationApi/GetNotification?PageNumber=${pageNumber}`,
+        {
+          method: 'GET',
+        }
+      );
+
+      console.log('📡 Notifications API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Notifications API Error Response:', errorText);
+        
+        return {
+          message: `Failed to fetch notifications: ${response.status} ${response.statusText}`,
+          data: [],
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Notifications API Success Response:', {
+        message: data.message,
+        dataCount: data.data?.length || 0,
+        totalPages: data.data?.[0]?.total_Page || 0
+      });
+
+      return {
+        message: data.message || 'Notifications fetched successfully',
+        data: data.data || [],
+      };
+
+    } catch (error) {
+      console.error('🔥 Get Notifications API Error:', error);
+      
+      return {
+        message: 'Network error. Please check your connection and try again.',
+        data: [],
+      };
+    }
+  }
+
+  // Get transaction history for reports
+  async getTransactionHistoryForReports(request: TransactionHistoryReportsRequest): Promise<TransactionHistoryReportsResponse> {
+    console.log('📊 Getting Transaction History For Reports:', {
+      pageNo: request.pageNo,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      scriptExchange: request.scriptExchange,
+      currentPosition: request.currentPosition
+    });
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        return {
+          message: 'Session token not available. Please log in again.',
+          data: [],
+        };
+      }
+
+      const response = await fetch(`${API_BASE_URL}/CompleteTradeApi/GetTransactionHistoryForReports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+        },
+        body: JSON.stringify({
+          pageNo: request.pageNo,
+          scriptExchange: request.scriptExchange || 'All',
+          currentPosition: request.currentPosition || 'All',
+          startDate: request.startDate,
+          endDate: request.endDate,
+        }),
+      });
+
+      console.log('📊 Transaction History API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Transaction History API Error Response:', errorText);
+        
+        return {
+          message: `Failed to fetch transaction history: ${response.status} ${response.statusText}`,
+          data: [],
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Transaction History API Success Response:', {
+        message: data.message,
+        dataCount: data.data?.length || 0,
+        totalPages: data.data?.[0]?.total_Page || 0
+      });
+
+      return {
+        message: data.message || 'Transaction history fetched successfully',
+        data: data.data || [],
+      };
+
+    } catch (error) {
+      console.error('🔥 Get Transaction History API Error:', error);
+      
+      return {
+        message: 'Network error. Please check your connection and try again.',
+        data: [],
+      };
+    }
+  }
+
+  // Get wallet balance
+  async getWalletBalance(): Promise<WalletBalanceResponse> {
+    console.log('💰 Getting Wallet Balance');
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        return {
+          message: 'Session token not available. Please log in again.',
+          data: {
+            amount: '0',
+            totalprofitloss: 0,
+            availablebalance: 0,
+            usedbalance: 0,
+            usedMargin: 0,
+            availableMargin: 0,
+            totalmargin: 0,
+            userID: 0,
+            tenantId: 0,
+            totalinflow: 0,
+            totaloutflow: 0,
+            closingbalance: 0,
+            openingbalance: 0,
+            loanbalance: 0,
+            deliveryPledge: 0,
+            dailyTotalprofitloss: 0,
+          },
+        };
+      }
+
+      const response = await fetch(`${API_BASE_URL}/UserWalletApi/GetBalance`, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+        },
+      });
+
+      console.log('💰 Wallet Balance API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Wallet Balance API Error Response:', errorText);
+        
+        return {
+          message: `Failed to fetch wallet balance: ${response.status} ${response.statusText}`,
+          data: {
+            amount: '0',
+            totalprofitloss: 0,
+            availablebalance: 0,
+            usedbalance: 0,
+            usedMargin: 0,
+            availableMargin: 0,
+            totalmargin: 0,
+            userID: 0,
+            tenantId: 0,
+            totalinflow: 0,
+            totaloutflow: 0,
+            closingbalance: 0,
+            openingbalance: 0,
+            loanbalance: 0,
+            deliveryPledge: 0,
+            dailyTotalprofitloss: 0,
+          },
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Wallet Balance API Success Response:', {
+        message: data.message,
+        amount: data.data?.amount,
+        totalprofitloss: data.data?.totalprofitloss
+      });
+
+      return {
+        message: data.message || 'Wallet balance fetched successfully',
+        data: data.data || {
+          amount: '0',
+          totalprofitloss: 0,
+          availablebalance: 0,
+          usedbalance: 0,
+          usedMargin: 0,
+          availableMargin: 0,
+          totalmargin: 0,
+          userID: 0,
+          tenantId: 0,
+          totalinflow: 0,
+          totaloutflow: 0,
+          closingbalance: 0,
+          openingbalance: 0,
+          loanbalance: 0,
+          deliveryPledge: 0,
+          dailyTotalprofitloss: 0,
+        },
+      };
+
+    } catch (error) {
+      console.error('🔥 Get Wallet Balance API Error:', error);
+      
+      return {
+        message: 'Network error. Please check your connection and try again.',
+        data: {
+          amount: '0',
+          totalprofitloss: 0,
+          availablebalance: 0,
+          usedbalance: 0,
+          usedMargin: 0,
+          availableMargin: 0,
+          totalmargin: 0,
+          userID: 0,
+          tenantId: 0,
+          totalinflow: 0,
+          totaloutflow: 0,
+          closingbalance: 0,
+          openingbalance: 0,
+          loanbalance: 0,
+          deliveryPledge: 0,
+          dailyTotalprofitloss: 0,
+        },
+      };
+    }
+  }
+
+  // Get transaction history with filters and pagination
+  async getTransactionHistory(request: TransactionHistoryRequest): Promise<TransactionHistoryResponse> {
+    console.log('📋 Getting Transaction History', request);
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        return {
+          message: 'Session token not available. Please log in again.',
+          data: [],
+        };
+      }
+
+      const payload: any = {
+        pageNo: request.pageNo,
+        payinPayout: request.payinPayout
+      };
+
+      // Only include dates if they are provided
+      if (request.startDate) {
+        payload.startDate = request.startDate;
+      }
+      if (request.endDate) {
+        payload.endDate = request.endDate;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/UserWalletApi/GetLedgerHistory`, {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log('📋 Transaction History API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Transaction History API Error Response:', errorText);
+        
+        return {
+          message: `Failed to fetch transaction history: ${response.status} ${response.statusText}`,
+          data: [],
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ Transaction History API Success Response:', {
+        message: data.message,
+        dataLength: data.data?.length || 0
+      });
+
+      return {
+        message: data.message || 'Transaction history fetched successfully',
+        data: data.data || [],
+      };
+
+    } catch (error) {
+      console.error('🔥 Get Transaction History API Error:', error);
+      
+      return {
+        message: 'Network error. Please check your connection and try again.',
+        data: [],
+      };
+    }
+  }
+
+  /**
+   * Get required margin for a trade
+   */
+  async getRequiredMargin(request: GetRequiredMarginRequest): Promise<GetRequiredMarginResponse> {
+    try {
+      const queryParams = new URLSearchParams({
+        ScriptLotSize: request.ScriptLotSize.toString(),
+        ScriptCode: request.ScriptCode,
+        quantity: request.quantity.toString(),
+        Totalwalletbalance: request.Totalwalletbalance.toString(),
+        MisOrNot: request.MisOrNot.toString(),
+        Lastprice: request.Lastprice.toString(),
+        TRADING_UNIT_TYPE: request.TRADING_UNIT_TYPE.toString(),
+        ScriptExchange: request.ScriptExchange,
+        CurrentPosition: request.CurrentPosition
+      });
+
+      console.log('🚀 GetRequiredMargin API Request:', {
+        url: `https://uat.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
+        method: 'GET'
+      });
+
+      const response = await this.makeAuthenticatedRequest(
+        `https://uat.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
+        {
+          method: 'GET'
+        }
+      );
+
+      console.log('📡 GetRequiredMargin API Response Status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`GetRequiredMargin failed with status: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      console.log('📋 GetRequiredMargin Raw Response:', responseText);
+
+      // Parse the JSON string response
+      const data = JSON.parse(responseText);
+      console.log('✅ GetRequiredMargin Parsed Response:', data);
+
+      return {
+        success: true,
+        data: Array.isArray(data) ? data : [data],
+        message: 'Required margin fetched successfully'
+      };
+
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        throw error;
+      }
+      
+      console.error('❌ Error fetching required margin:', error);
+      throw error;
     }
   }
 }

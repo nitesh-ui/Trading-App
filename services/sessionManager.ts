@@ -5,6 +5,8 @@ interface UserData {
   name: string;
   email: string;
   username: string;
+  mobile?: string;
+  tenantId?: string;
   token?: string;
 }
 
@@ -114,9 +116,20 @@ class SessionManager {
   }
 
   /**
-   * Get current user data
+   * Get current user data (loads from storage if not in memory)
    */
   getCurrentUser(): UserData | null {
+    return this.currentUser;
+  }
+
+  /**
+   * Ensure session is loaded from storage if not already in memory
+   */
+  async ensureSessionLoaded(): Promise<UserData | null> {
+    if (this.currentUser === null) {
+      console.log('📥 Session not in memory, attempting to load from storage...');
+      return await this.loadSession();
+    }
     return this.currentUser;
   }
 

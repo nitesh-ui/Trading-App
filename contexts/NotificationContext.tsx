@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
     Animated,
     Dimensions,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Text } from '../components/atomic';
 import { useTheme } from './ThemeContext';
+import { globalNotificationService } from '../services/globalNotificationService';
 
 type NotificationType = 'success' | 'error' | 'warning' | 'info';
 
@@ -85,6 +86,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const clearNotificationCount = useCallback(() => {
     setNotificationCount(0);
   }, []);
+
+  // Register with global notification service
+  useEffect(() => {
+    globalNotificationService.setNotificationHandler(showNotification);
+    
+    return () => {
+      globalNotificationService.clearNotificationHandler();
+    };
+  }, [showNotification]);
 
   // Cleanup timeouts on unmount
   React.useEffect(() => {
