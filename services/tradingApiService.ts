@@ -1213,31 +1213,45 @@ class TradingApiService {
   }
 
   /**
-   * Square off a trade (placeholder for future implementation)
+   * Square off a trade using the TradeSquareOff API
    */
-  async squareOffTrade(tradeId: string): Promise<{ success: boolean; message: string }> {
+  async squareOffTrade(activeTradeID: number, status: string, qty: number): Promise<{ success: boolean; message: string }> {
     try {
-      // TODO: Implement actual square off API call
-      // const response = await this.makeAuthenticatedRequest(
-      //   `${API_BASE_URL}/WatchListApi/SquareOffTrade`,
-      //   {
-      //     method: 'POST',
-      //     body: JSON.stringify({ tradeId })
-      //   }
-      // );
-      
-      console.log('🚀 Square off trade placeholder called for trade ID:', tradeId);
-      
-      // Placeholder response
-      return {
-        success: true,
-        message: 'Square off order placed successfully'
-      };
+      console.log('🚀 Squaring off trade:', { activeTradeID, status, qty });
+
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/WatchListApi/TradeSquareOff`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            activeTradeID,
+            status,
+            qty
+          })
+        }
+      );
+
+      console.log('📡 TradeSquareOff API Response Status:', response.status);
+
+      const data = await response.json();
+      console.log('✅ TradeSquareOff API Response:', data);
+
+      if (response.ok && (data.success !== false)) {
+        return {
+          success: true,
+          message: data.message || 'Square off order placed successfully'
+        };
+      } else {
+        return {
+          success: false,
+          message: data.message || data.error || 'Failed to square off trade'
+        };
+      }
     } catch (error) {
       console.error('❌ Error squaring off trade:', error);
       return {
         success: false,
-        message: 'Failed to square off trade'
+        message: error instanceof Error ? error.message : 'Failed to square off trade'
       };
     }
   }

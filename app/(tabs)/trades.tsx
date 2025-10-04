@@ -74,6 +74,9 @@ interface Trade {
   productType?: string;
   priceType?: string;
   exchange?: string;
+  // Original API fields needed for square-off
+  activeTradeID: number;
+  apiStatus: string;
 }
 
 /**
@@ -105,7 +108,10 @@ const transformApiTradeToUi = (apiTrade: ActiveTradeItem): Trade => {
     pnl: apiTrade.profitorloss !== 0 ? apiTrade.profitorloss : undefined,
     productType: apiTrade.productType,
     priceType: apiTrade.priceType,
-    exchange: apiTrade.objScriptDTO?.scriptExchange
+    exchange: apiTrade.objScriptDTO?.scriptExchange,
+    // Original API fields needed for square-off
+    activeTradeID: apiTrade.activeTradeID,
+    apiStatus: apiTrade.status
   };
 };
 
@@ -331,14 +337,18 @@ export default function TradesScreen() {
     if (confirmed) {
       try {
         // Show processing notification
-        showNotification({
-          type: 'info',
-          title: 'Processing Square Off',
-          message: `Placing square off order for ${trade.symbol}...`
-        });
+        // showNotification({
+        //   type: 'info',
+        //   title: 'Processing Square Off',
+        //   message: `Placing square off order for ${trade.symbol}...`
+        // });
         
         // Call square off API
-        const result = await tradingApiService.squareOffTrade(trade.id);
+        const result = await tradingApiService.squareOffTrade(
+          trade.activeTradeID,
+          trade.apiStatus,
+          trade.quantity
+        );
         
         if (result.success) {
           showNotification({
@@ -395,15 +405,19 @@ export default function TradesScreen() {
     if (confirmed) {
       try {
         // Show processing notification
-        showNotification({
-          type: 'info',
-          title: 'Processing Square Off All',
-          message: `Placing square off orders for ${completedCount} position${completedCount > 1 ? 's' : ''}...`
-        });
+        // showNotification({
+        //   type: 'info',
+        //   title: 'Processing Square Off All',
+        //   message: `Placing square off orders for ${completedCount} position${completedCount > 1 ? 's' : ''}...`
+        // });
         
         // Square off all completed trades
         const results = await Promise.allSettled(
-          completedTrades.map(trade => tradingApiService.squareOffTrade(trade.id))
+          completedTrades.map(trade => tradingApiService.squareOffTrade(
+            trade.activeTradeID,
+            trade.apiStatus,
+            trade.quantity
+          ))
         );
         
         // Count successful and failed operations
