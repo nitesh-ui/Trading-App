@@ -695,8 +695,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: 1,
+    paddingVertical: 12,
+    marginBottom: 8,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    // iOS shadow
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    // Android shadow
+    elevation: 3,
   },
   resultInfo: {
     flex: 1,

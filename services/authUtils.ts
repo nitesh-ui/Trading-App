@@ -4,9 +4,17 @@
  */
 
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tradingApiService } from './tradingApiService';
 import { sessionManager } from './sessionManager';
 import { globalNotificationService } from './globalNotificationService';
+
+const REMEMBER_ME_KEY = '@auth_remember_me';
+
+interface SavedCredentials {
+  identifier: string;
+  password: string;
+}
 
 export class AuthUtils {
   /**
@@ -174,6 +182,41 @@ export class AuthUtils {
       setTimeout(() => {
         router.replace('/auth/login');
       }, 100);
+    }
+  }
+
+  /**
+   * Save user credentials for Remember Me functionality
+   */
+  static async saveCredentials(credentials: SavedCredentials): Promise<void> {
+    try {
+      await AsyncStorage.setItem(REMEMBER_ME_KEY, JSON.stringify(credentials));
+    } catch (error) {
+      console.error('❌ Error saving credentials:', error);
+    }
+  }
+
+  /**
+   * Clear saved credentials
+   */
+  static async clearCredentials(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(REMEMBER_ME_KEY);
+    } catch (error) {
+      console.error('❌ Error clearing credentials:', error);
+    }
+  }
+
+  /**
+   * Get saved credentials if they exist
+   */
+  static async getSavedCredentials(): Promise<SavedCredentials | null> {
+    try {
+      const savedCredentials = await AsyncStorage.getItem(REMEMBER_ME_KEY);
+      return savedCredentials ? JSON.parse(savedCredentials) : null;
+    } catch (error) {
+      console.error('❌ Error getting saved credentials:', error);
+      return null;
     }
   }
 }

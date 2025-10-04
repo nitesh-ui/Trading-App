@@ -229,13 +229,12 @@ export default function SettingsScreen() {
     <ScreenErrorBoundary screenName="Settings">
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <StatusBar
-          barStyle={themeType === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={themeType === 'light' ? '#FFFFFF' : 'transparent'}
-          translucent
+          barStyle={['dark', 'cyberpunk'].includes(themeType) ? 'light-content' : 'dark-content'}
+          backgroundColor={theme.colors.background}
         />
         {/* Fixed Header */}
         <View style={[styles.fixedHeader, { backgroundColor: theme.colors.background }]}>
-          <View style={styles.statusBarSpacer} />
+          <View style={[styles.statusBarSpacer, { backgroundColor: theme.colors.background }]} />
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text variant="headline" weight="bold" color="text">
@@ -603,7 +602,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: Platform.OS === 'ios' ? 100 : 120, // Reduced space for fixed header
+    paddingTop: Platform.OS === 'ios' ? 76 : 96, // Reduced top padding
     paddingBottom: 20,
   },
   headerLeft: {
@@ -617,7 +616,10 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   accountCard: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    marginLeft: 0,
+    marginRight: 0,
   },
   accountHeader: {
     flexDirection: 'row',

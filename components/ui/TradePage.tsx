@@ -476,11 +476,13 @@ const TradePage: React.FC<TradePageProps> = ({
         </View>
 
         {/* Order Type and Price Inputs Section */}
-        <Card padding="large" style={styles.orderCard}>
+        <Card padding="none" style={styles.orderCard}>
           {/* Order Type Selection */}
-          <Text variant="body" color="text" style={styles.sectionTitle}>
-            Order Type
-          </Text>
+          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+            <Text variant="body" color="text" style={styles.sectionTitle}>
+              Order Type
+            </Text>
+          </View>
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
@@ -598,7 +600,7 @@ const TradePage: React.FC<TradePageProps> = ({
         </Card>
 
         {/* Order Summary */}
-        <Card padding="large" style={styles.summaryCard}>
+        <Card padding="none" style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text variant="body" weight="bold" color="text">
               Required
