@@ -1150,13 +1150,36 @@ class TradingApiService {
       console.log('📡 ProceedBuySell API Response Status:', response.status);
 
       const data = await response.json();
-      console.log('✅ ProceedBuySell API Success Response:', data);
+      console.log('✅ ProceedBuySell API Response Data:', data);
 
-      return {
-        success: true,
-        message: data.message || 'Trade executed successfully',
-        data: data.data || data
-      };
+      // Check if the API response indicates success or failure
+      // The API might return 200 but with an error message in the response body
+      const isApiSuccess = response.ok && 
+                          (data.success !== false) && 
+                          !data.error &&
+                          !data.message?.toLowerCase().includes('error') &&
+                          !data.message?.toLowerCase().includes('failed') &&
+                          !data.message?.toLowerCase().includes('insufficient') &&
+                          !data.message?.toLowerCase().includes('invalid');
+
+      if (isApiSuccess) {
+        return {
+          success: true,
+          message: data.message || 'Trade executed successfully',
+          data: data.data || data
+        };
+      } else {
+        // API returned an error
+        const errorMessage = data.message || data.error || 'Trade execution failed';
+        console.log('❌ ProceedBuySell API Error:', errorMessage);
+        
+        return {
+          success: false,
+          message: errorMessage,
+          error: data.error || errorMessage,
+          data: data.data
+        };
+      }
 
     } catch (error) {
       if (error instanceof Error && error.message.includes('Session expired')) {

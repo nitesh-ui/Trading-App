@@ -165,14 +165,8 @@ const TradePage: React.FC<TradePageProps> = ({
 
       console.log('📡 Trade API Response:', response);
 
-      // Check for success - must be explicitly true AND no error message indicating failure
-      const isSuccess = response.success === true && 
-                       !response.message?.toLowerCase().includes('insufficient') &&
-                       !response.message?.toLowerCase().includes('failed') &&
-                       !response.message?.toLowerCase().includes('error') &&
-                       !response.error;
-
-      if (isSuccess) {
+      // The API service now properly handles success/failure detection
+      if (response.success) {
         // Success - show success notification and close
         showNotification({
           type: 'success',
