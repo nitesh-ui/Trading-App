@@ -42,6 +42,18 @@ export default function LoginScreen() {
   const [rememberPassword, setRememberPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Load saved credentials on mount
+  React.useEffect(() => {
+    const loadSavedCredentials = async () => {
+      const savedCredentials = await AuthUtils.getSavedCredentials();
+      if (savedCredentials) {
+        setForm(savedCredentials);
+        setRememberPassword(true);
+      }
+    };
+    loadSavedCredentials();
+  }, []);
+
   // Animations
   const fadeAnimation = useFadeAnimation(true);
   const slideAnimation = useSlideUpAnimation(true, 200);
@@ -156,13 +168,19 @@ export default function LoginScreen() {
 
         // Handle remember password option
         if (rememberPassword) {
-          // TODO: Store credentials securely using Keychain/Keystore
+          await AuthUtils.saveCredentials({
+            identifier: form.identifier.trim(),
+            password: form.password
+          });
           showNotification({
             type: 'info',
             title: 'Password Saved',
             message: 'Your password has been saved securely for next time',
             duration: 2000
           });
+        } else {
+          // Clear any previously saved credentials
+          await AuthUtils.clearCredentials();
         }
 
         // Success notification

@@ -88,7 +88,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = memo(({
         {/* Content */}
         <View style={styles.content}>
           {/* Date Filters */}
-          <Card padding="large" style={styles.section}>
+          <Card padding="none" style={styles.section}>
             <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
               Date Range
             </Text>
@@ -101,7 +101,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = memo(({
                 <DatePicker
                   value={filters.startDate}
                   onDateChange={(date) => handleFilterChange('startDate', date)}
-                  placeholder="Select start date"
+                  placeholder="Start date"
                   maximumDate={new Date()}
                 />
               </View>
@@ -113,7 +113,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = memo(({
                 <DatePicker
                   value={filters.endDate}
                   onDateChange={(date) => handleFilterChange('endDate', date)}
-                  placeholder="Select end date"
+                  placeholder="End date"
                   minimumDate={filters.startDate || undefined}
                   maximumDate={new Date()}
                 />
@@ -122,7 +122,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = memo(({
           </Card>
 
           {/* Transaction Type Filter */}
-          <Card padding="large" style={styles.section}>
+          <Card padding="none" style={styles.section}>
             <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
               Transaction Type
             </Text>

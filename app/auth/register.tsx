@@ -78,7 +78,7 @@ export default function RegisterScreen() {
     }
 
     // Validate mobile
-    const mobileRegex = /^[+]?[\d\s\-\(\)]{10,}$/;
+    const mobileRegex = /^\d{10}$/;
     if (!form.mobile.trim()) {
       newErrors.mobile = 'Mobile number is required';
     } else if (!mobileRegex.test(form.mobile.replace(/\s/g, ''))) {
@@ -247,10 +247,15 @@ export default function RegisterScreen() {
             <Input
               label="Mobile Number"
               value={form.mobile}
-              onChangeText={(text) => setForm({ ...form, mobile: text })}
+              onChangeText={(text) => {
+                // Only allow digits and limit to 10 characters
+                const formattedText = text.replace(/\D/g, '').slice(0, 10);
+                setForm({ ...form, mobile: formattedText });
+              }}
               placeholder="Enter mobile number"
               error={errors.mobile}
               keyboardType="phone-pad"
+              maxLength={10}
               leftIcon={<Ionicons name="phone-portrait-outline" size={20} color={theme.colors.textSecondary} />}
               style={styles.input}
             />
