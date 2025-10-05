@@ -45,6 +45,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import React, { memo, Suspense, useCallback, useMemo, useState } from 'react';
 import { Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -283,6 +284,14 @@ export default function TradesScreen() {
     queryFn: tradesService.getTrades,
     staleTime: 30 * 1000, // 30 seconds
   });
+
+  // Refresh trades data when screen is focused (e.g., after executing a trade)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 Trades screen focused, refreshing data');
+      refetch();
+    }, [refetch])
+  );
 
   // Memoized filtered data
   const filteredTrades = useMemo(() => {

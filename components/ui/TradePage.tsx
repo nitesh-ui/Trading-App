@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, Text, Button } from '../atomic';
 import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -23,6 +24,7 @@ import {
   RequiredMarginData,
   WalletBalanceData
 } from '../../services/tradingApiService';
+import { queryKeys } from '../../services/queryClient';
 
 interface TradePageProps {
   visible: boolean;
@@ -47,6 +49,7 @@ const TradePage: React.FC<TradePageProps> = ({
 }) => {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
+  const queryClient = useQueryClient();
   const [quantity, setQuantity] = useState(1);
   const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT' | 'SL' | 'SL-M'>('MARKET');
   const [unitType, setUnitType] = useState<'Lot' | 'Share'>('Lot');
@@ -175,6 +178,28 @@ const TradePage: React.FC<TradePageProps> = ({
           type: 'success',
           title: `${action.toUpperCase()} order placed successfully`,
           message: `${quantity} ${asset.symbol} order has been executed`
+        });
+
+        // Invalidate trades query to refresh the trades list immediately
+        console.log('🔄 Invalidating trades and portfolio queries to refresh data');
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.userTrades(),
+          exact: false, // This will invalidate all variations of userTrades queries
+          refetchType: 'all' // Refetch both active and inactive queries
+        });
+
+        // Also invalidate user portfolio data since balance/holdings may have changed
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.userPortfolio(),
+          exact: false,
+          refetchType: 'all'
+        });
+
+        // Invalidate user profile in case balance info is stored there
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.userProfile(),
+          exact: false,
+          refetchType: 'all'
         });
 
         // Also call the original onTradeExecute for any UI updates
