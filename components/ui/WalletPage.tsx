@@ -266,7 +266,7 @@ const TransactionItem = memo(({ transaction, onDetailsPress }: {
   };
 
   return (
-    <TouchableOpacity style={styles.transactionItem}>
+    <TouchableOpacity style={[styles.transactionItem, { borderBottomWidth: 1, borderBottomColor: theme.colors.border }]}>
       <View style={styles.transactionLeft}>
         <View style={[styles.transactionIcon, { backgroundColor: `${getTransactionColor()}20` }]}>
           <Ionicons 
@@ -870,6 +870,7 @@ const styles = StyleSheet.create({
   balanceActions: {
     flexDirection: 'row',
     gap: 8,
+    flexWrap: 'wrap',
   },
   actionButton: {
     flex: 1,
@@ -1000,9 +1001,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    paddingVertical: 16,
   },
   transactionLeft: {
     flexDirection: 'row',

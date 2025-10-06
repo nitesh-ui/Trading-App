@@ -475,7 +475,7 @@ const TradePage: React.FC<TradePageProps> = ({
                 onPress={() => handleQuantityChange(-1)}
                 style={[styles.quantityButton, { backgroundColor: theme.colors.surface }]}
               >
-                <Ionicons name="remove" size={18} color={theme.colors.text} />
+                <Ionicons name="remove" size={15} color={theme.colors.text} />
               </TouchableOpacity>
               
               <View style={styles.quantityDisplay}>
@@ -488,16 +488,16 @@ const TradePage: React.FC<TradePageProps> = ({
                 onPress={() => handleQuantityChange(1)}
                 style={[styles.quantityButton, { backgroundColor: theme.colors.surface }]}
               >
-                <Ionicons name="add" size={18} color={theme.colors.text} />
+                <Ionicons name="add" size={15} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
         {/* Order Type and Price Inputs Section */}
-        <Card padding="none" style={styles.orderCard}>
+        <Card padding="small" style={styles.orderCard}>
           {/* Order Type Selection */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+          <View style={{ paddingHorizontal: 8, paddingTop: 16 }}>
             <Text variant="body" color="text" style={styles.sectionTitle}>
               Order Type
             </Text>
@@ -619,7 +619,7 @@ const TradePage: React.FC<TradePageProps> = ({
         </Card>
 
         {/* Order Summary */}
-        <Card padding="none" style={styles.summaryCard}>
+        <Card padding="small" style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text variant="body" weight="bold" color="text">
               Required
@@ -808,7 +808,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 5,
     flex: 1.8,
     minWidth: 160,
   },

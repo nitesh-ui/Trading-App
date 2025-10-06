@@ -4,6 +4,7 @@ import {
   StyleSheet,
   FlatList,
   Dimensions,
+  Platform,
   Pressable,
   RefreshControl,
 } from 'react-native';
@@ -100,6 +101,7 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
   const { showNotification } = useNotification();
   const [currentPage, setCurrentPage] = useState(1);
   const [notifications, setNotifications] = useState<ProcessedNotificationItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
@@ -107,15 +109,32 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
   const [totalPages, setTotalPages] = useState(0);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'today'>('all');
 
+  // Get total notification count
+  const loadTotalCount = useCallback(async () => {
+    try {
+      console.log('🔄 Fetching total notification count...');
+      const response = await tradingApiService.getTotalNotificationCount();
+      console.log('✅ Total notification count response:', response);
+      if (response?.data !== undefined) {
+        setTotalCount(response.data);
+        console.log('✅ Set total count to:', response.data);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching notification count:', error);
+    }
+  }, []);
+
   // Load notifications from API
   const loadNotifications = useCallback(async (page: number = 1, refresh: boolean = false) => {
     try {
       if (refresh) {
         setIsRefreshing(true);
         setHasError(false);
+        loadTotalCount(); // Refresh total count when refreshing list
       } else if (page === 1) {
         setIsLoading(true);
         setHasError(false);
+        loadTotalCount(); // Get total count on first load
       } else {
         // Page navigation loading
         setIsPageLoading(true);
@@ -198,11 +217,15 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
   }, []);
 
   // Load initial notifications when page becomes visible
+  // Load initial data when page becomes visible
   useEffect(() => {
     if (visible) {
+      // First load the total count independently
+      loadTotalCount();
+      // Then load the notifications
       loadNotifications(1);
     }
-  }, [visible, loadNotifications]);
+  }, [visible, loadTotalCount, loadNotifications]);
 
   // Handle refresh
   const handleRefresh = useCallback(() => {
@@ -305,7 +328,7 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
               variant="caption"
               color="textSecondary"
               style={styles.notificationMessage}
-              numberOfLines={item.isExpanded ? undefined : 1}
+              numberOfLines={item.isExpanded ? undefined : 2}
             >
               {item.message}
             </Text>
@@ -345,7 +368,7 @@ const NotificationsPage = memo(({ visible, onClose }: NotificationsPageProps) =>
             Total Notifications
           </Text>
           <Text variant="title" weight="bold" color="primary">
-            {notifications.length}
+            {totalCount}
           </Text>
         </Pressable>
         <Pressable
@@ -567,6 +590,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     flexGrow: 1,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 80,
   },
   notificationItem: {
     paddingHorizontal: 16,
@@ -594,6 +618,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
+    paddingRight: 12, // Add padding to prevent overlap with meta info
   },
   iconContainer: {
     width: 40,
@@ -604,14 +629,17 @@ const styles = StyleSheet.create({
   },
   notificationContent: {
     flex: 1,
+    flexShrink: 1, // Allow content to shrink if needed
   },
   notificationMessage: {
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 20, // Increased line height for better readability
+    flexWrap: 'wrap', // Ensure text wraps properly
   },
   notificationMeta: {
     alignItems: 'flex-end',
     gap: 2,
+    minWidth: 80, // Fixed width for consistent layout
   },
   unreadDot: {
     width: 8,

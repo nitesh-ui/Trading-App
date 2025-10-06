@@ -270,6 +270,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    paddingBottom: 0, // Remove bottom padding from container since we handle it in actionButtons
   },
   filterSection: {
     marginBottom: 32,
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: Platform.OS === 'ios' ? 100 : 80,
   },
   resetButton: {
     flex: 1,

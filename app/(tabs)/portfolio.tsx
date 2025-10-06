@@ -487,6 +487,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: Platform.OS === 'ios' ? 140 : 160, // Space for fixed header
+    paddingBottom: Platform.OS === 'ios' ? 140 : 160, // Space for bottom tab bar and extra padding
   },
   headerLeft: {
     flex: 1,
@@ -535,7 +536,7 @@ const styles = StyleSheet.create({
   },
   holdingsListContent: {
     paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingBottom: 6, // Reduced since we're handling bottom padding in scrollContent
   },
   holdingCard: {
     marginBottom: 12,

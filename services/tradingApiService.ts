@@ -1362,6 +1362,32 @@ class TradingApiService {
   }
 
   /**
+   * Get total notification count
+   */
+  async getTotalNotificationCount(): Promise<{ message: string; data: number; success?: boolean }> {
+    try {
+      console.log('🚀 GetTotalNotificationCount API Request');
+
+      // Make API call using authenticated request
+      const response = await fetch(`${API_BASE_URL}/NotificationApi/GetTotalNotificationCount`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          'authorization': `Bearer ${await sessionManager.getToken()}`,
+          'x-session-key': await sessionManager.getToken() || '',
+        },
+      });
+
+      const data = await response.json();
+      console.log('✅ GetTotalNotificationCount API Response:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error in getTotalNotificationCount:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get user notifications with pagination
    */
   async getNotifications(pageNumber: number = 1): Promise<GetNotificationsResponse> {
