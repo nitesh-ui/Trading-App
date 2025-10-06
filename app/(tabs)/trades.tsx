@@ -220,7 +220,7 @@ const MemoizedTradeCard = memo<{
           </Text>
           
           {/* Square Off Button for Completed Trades */}
-          {trade.status === 'COMPLETED' && (
+          {trade.status === 'COMPLETED' && trade.apiStatus === 'COMPLETE' && (
             <TouchableOpacity 
               style={[styles.squareOffButton, { 
                 backgroundColor: theme.colors.error + '15',
@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
   },
   tradesListContent: {
     paddingTop: Platform.OS === 'ios' ? 180 : 200, // Reduced space for fixed header with filter tabs
-    paddingHorizontal: 0, // Remove horizontal padding since header has its own
+    paddingHorizontal: 16, // Add horizontal padding for cards
     paddingBottom: 20,
   },
   tradeCard: {
