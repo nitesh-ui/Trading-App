@@ -1676,6 +1676,39 @@ class TradingApiService {
   }
 
   /**
+   * Get transaction details by transaction ID
+   */
+  async getTransactionDetails(transactionId: number): Promise<TransactionDetailsResponse | null> {
+    console.log('📋 Getting Transaction Details for ID:', transactionId);
+
+    try {
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/UserWalletApi/GetTransactionDetails?transactionId=${transactionId}`,
+        {
+          method: 'GET',
+        }
+      );
+
+      console.log('📋 Transaction Details API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Transaction Details API Error Response:', errorText);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('✅ Transaction Details API Success Response:', data);
+
+      return data;
+
+    } catch (error) {
+      console.error('🔥 Get Transaction Details API Error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get required margin for a trade
    */
   async getRequiredMargin(request: GetRequiredMarginRequest): Promise<GetRequiredMarginResponse> {

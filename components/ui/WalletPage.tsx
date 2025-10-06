@@ -15,6 +15,9 @@ import SlidingPage from './SlidingPage';
 import DatePicker from './DatePicker';
 import TransactionDetailsModal from './TransactionDetailsModal';
 import FilterDrawer from './FilterDrawer';
+import AccountInfoPage from './AccountInfoPage';
+import DepositPage from './DepositPage';
+import WithdrawalPage from './WithdrawalPage';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { 
@@ -40,31 +43,33 @@ const WalletBalanceCard = memo(({
   walletData, 
   loading, 
   error, 
-  onRefresh 
+  onRefresh,
+  onAccountInfoPress,
+  onDepositPress,
+  onWithdrawPress
 }: { 
   walletData: WalletBalanceData | null;
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
+  onAccountInfoPress: () => void;
+  onDepositPress: () => void;
+  onWithdrawPress: () => void;
 }) => {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
 
   const handleDeposit = useCallback(() => {
-    showNotification({
-      type: 'info',
-      title: 'Coming Soon',
-      message: 'Deposit functionality will be available soon'
-    });
-  }, [showNotification]);
+    onDepositPress();
+  }, [onDepositPress]);
 
   const handleWithdraw = useCallback(() => {
-    showNotification({
-      type: 'info',
-      title: 'Coming Soon', 
-      message: 'Withdrawal functionality will be available soon'
-    });
-  }, [showNotification]);
+    onWithdrawPress();
+  }, [onWithdrawPress]);
+
+  const handleAccountInfo = useCallback(() => {
+    onAccountInfoPress();
+  }, [onAccountInfoPress]);
 
   const formatCurrency = useCallback((amount: string | number) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -152,6 +157,13 @@ const WalletBalanceCard = memo(({
         <Button
           title="Withdraw"
           onPress={handleWithdraw}
+          variant="secondary"
+          style={StyleSheet.flatten([styles.actionButton, { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.3)' }])}
+          textStyle={{ color: 'white' }}
+        />
+        <Button
+          title="Account"
+          onPress={handleAccountInfo}
           variant="secondary"
           style={StyleSheet.flatten([styles.actionButton, { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.3)' }])}
           textStyle={{ color: 'white' }}
@@ -698,6 +710,9 @@ const WalletPage: React.FC<WalletPageProps> = ({ visible, onClose }) => {
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAccountInfo, setShowAccountInfo] = useState(false);
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdrawal, setShowWithdrawal] = useState(false);
 
   const fetchWalletBalance = useCallback(async () => {
     try {
@@ -737,6 +752,30 @@ const WalletPage: React.FC<WalletPageProps> = ({ visible, onClose }) => {
     setRefreshing(false);
   }, [fetchWalletBalance]);
 
+  const handleAccountInfoPress = useCallback(() => {
+    setShowAccountInfo(true);
+  }, []);
+
+  const handleAccountInfoClose = useCallback(() => {
+    setShowAccountInfo(false);
+  }, []);
+
+  const handleDepositPress = useCallback(() => {
+    setShowDeposit(true);
+  }, []);
+
+  const handleDepositClose = useCallback(() => {
+    setShowDeposit(false);
+  }, []);
+
+  const handleWithdrawPress = useCallback(() => {
+    setShowWithdrawal(true);
+  }, []);
+
+  const handleWithdrawClose = useCallback(() => {
+    setShowWithdrawal(false);
+  }, []);
+
   // Fetch wallet balance when component mounts and becomes visible
   useEffect(() => {
     if (visible) {
@@ -745,28 +784,48 @@ const WalletPage: React.FC<WalletPageProps> = ({ visible, onClose }) => {
   }, [visible, fetchWalletBalance]);
 
   return (
-    <SlidingPage
-      visible={visible}
-      onClose={onClose}
-      title="Wallet"
-    >
-      <ScrollView 
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+    <>
+      <SlidingPage
+        visible={visible}
+        onClose={onClose}
+        title="Wallet"
       >
-        <WalletBalanceCard 
-          walletData={walletData}
-          loading={loading}
-          error={error}
-          onRefresh={fetchWalletBalance}
-        />
-        <TransactionHistory />
-      </ScrollView>
-    </SlidingPage>
+        <ScrollView 
+          style={[styles.container, { backgroundColor: theme.colors.background }]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <WalletBalanceCard 
+            walletData={walletData}
+            loading={loading}
+            error={error}
+            onRefresh={fetchWalletBalance}
+            onAccountInfoPress={handleAccountInfoPress}
+            onDepositPress={handleDepositPress}
+            onWithdrawPress={handleWithdrawPress}
+          />
+          <TransactionHistory />
+        </ScrollView>
+      </SlidingPage>
+      
+      <AccountInfoPage 
+        visible={showAccountInfo}
+        onClose={handleAccountInfoClose}
+      />
+      
+      <DepositPage 
+        visible={showDeposit}
+        onClose={handleDepositClose}
+      />
+      
+      <WithdrawalPage 
+        visible={showWithdrawal}
+        onClose={handleWithdrawClose}
+      />
+    </>
   );
 };
 
@@ -810,10 +869,11 @@ const styles = StyleSheet.create({
   },
   balanceActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   actionButton: {
     flex: 1,
+    minWidth: 0, // Allow button to shrink if needed
   },
   
   // Loading and Error States
