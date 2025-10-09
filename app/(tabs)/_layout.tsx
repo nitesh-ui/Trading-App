@@ -7,8 +7,15 @@ import { HapticTab } from '../../components/HapticTab';
 import TabBarBackground from '../../components/ui/TabBarBackground';
 import { useTheme } from '../../contexts/ThemeContext';
 
+import { navigationEvents } from '../../services/navigationEvents';
+
 export default function TabLayout() {
   const { theme } = useTheme();
+
+  const handleTabPress = () => {
+    // Emit a custom event that sliding pages will listen to
+    navigationEvents.emit('tabPress');
+  };
 
   return (
     <Tabs
@@ -22,7 +29,14 @@ export default function TabLayout() {
           height: Platform.OS === 'ios' ? 85 : 65,
         },
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarButton: (props: any) => (
+          <HapticTab {...props} onPress={(e: any) => {
+            handleTabPress();
+            if (props.onPress) {
+              props.onPress(e);
+            }
+          }} />
+        ),
         tabBarBackground: TabBarBackground,
         tabBarLabelStyle: {
           fontSize: 10,

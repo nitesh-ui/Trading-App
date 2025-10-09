@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
 import { 
-  View, 
+  View,
   StyleSheet, 
   TouchableOpacity, 
   ScrollView,
-  Image
+  Image,
+  ViewStyle
 } from 'react-native';
-import { Card, Text, Button } from '../atomic';
+import { Card, Text, Button, Input } from '../atomic';
 import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -18,6 +19,12 @@ interface AccountInfoPageProps {
 
 const AccountInfoPage: React.FC<AccountInfoPageProps> = ({ visible, onClose }) => {
   const { theme } = useTheme();
+  const [bankName, setBankName] = React.useState('');
+  const [holderName, setHolderName] = React.useState('');
+  const [accountNumber, setAccountNumber] = React.useState('');
+  const [ifscCode, setIfscCode] = React.useState('');
+  const [upiId, setUpiId] = React.useState('');
+  const [usdtAddress, setUsdtAddress] = React.useState('');
 
   return (
     <SlidingPage
@@ -39,51 +46,73 @@ const AccountInfoPage: React.FC<AccountInfoPageProps> = ({ visible, onClose }) =
 
         {/* Bank Details Section */}
         <Card padding="large" style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.halfWidth}>
+          <View>
+            <View style={styles.fullWidth}>
               <Text variant="body" color="textSecondary" style={styles.label}>
                 Bank Name
               </Text>
-              <View style={[styles.inputField, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-                <Text variant="body" color="text">Ajay</Text>
-              </View>
+              <Input
+                value={bankName}
+                onChangeText={setBankName}
+                placeholder="Enter bank name"
+                style={styles.inputField}
+                autoCapitalize="words"
+              />
             </View>
-            <View style={styles.halfWidth}>
+            <View style={styles.fullWidth}>
               <Text variant="body" color="textSecondary" style={styles.label}>
                 Holder Name
               </Text>
-              <View style={[styles.inputField, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-                <Text variant="body" color="text">Ajay</Text>
-              </View>
+              <Input
+                value={holderName}
+                onChangeText={setHolderName}
+                placeholder="Enter account holder name"
+                style={styles.inputField}
+                autoCapitalize="words"
+              />
             </View>
           </View>
 
-          <View style={styles.row}>
-            <View style={styles.halfWidth}>
+          <View>
+            <View style={styles.fullWidth}>
               <Text variant="body" color="textSecondary" style={styles.label}>
                 Account Number
               </Text>
-              <View style={[styles.inputField, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-                <Text variant="body" color="text">0987654321</Text>
-              </View>
+              <Input
+                value={accountNumber}
+                onChangeText={setAccountNumber}
+                placeholder="Enter account number"
+                style={styles.inputField}
+                keyboardType="numeric"
+                maxLength={18}
+              />
             </View>
-            <View style={styles.halfWidth}>
+            <View style={styles.fullWidth}>
               <Text variant="body" color="textSecondary" style={styles.label}>
-                Ifsc Code
+                IFSC Code
               </Text>
-              <View style={[styles.inputField, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-                <Text variant="body" color="text">iuytr</Text>
-              </View>
+              <Input
+                value={ifscCode}
+                onChangeText={setIfscCode}
+                placeholder="Enter IFSC code"
+                style={styles.inputField}
+                autoCapitalize="characters"
+                maxLength={11}
+              />
             </View>
           </View>
 
           <View style={styles.fullWidth}>
             <Text variant="body" color="textSecondary" style={styles.label}>
-              UPI Id
+              UPI ID
             </Text>
-            <View style={[styles.inputField, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-              <Text variant="body" color="text">iuytr</Text>
-            </View>
+            <Input
+              value={upiId}
+              onChangeText={setUpiId}
+              placeholder="Enter UPI ID"
+              style={styles.inputField}
+              autoCapitalize="none"
+            />
           </View>
         </Card>
 
@@ -144,9 +173,13 @@ const AccountInfoPage: React.FC<AccountInfoPageProps> = ({ visible, onClose }) =
             <Text variant="body" color="textSecondary" style={styles.label}>
               USDT Address
             </Text>
-            <View style={[styles.inputField, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-              <Text variant="body" color="text">0</Text>
-            </View>
+            <Input
+              value={usdtAddress}
+              onChangeText={setUsdtAddress}
+              placeholder="Enter USDT address"
+              style={styles.inputField}
+              autoCapitalize="none"
+            />
           </View>
         </Card>
 
@@ -197,21 +230,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fullWidth: {
-    marginBottom: 16,
+    marginBottom: 5,
   },
   
   // Input Field Styles
   label: {
-    marginBottom: 8,
+    marginBottom:0,
     fontWeight: '500',
   },
   inputField: {
-    padding: 12,
+    padding: 0,
+    paddingTop: 5,
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 48,
     justifyContent: 'center',
-  },
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+  } as ViewStyle,
   
   // QR Code Section
   qrSection: {

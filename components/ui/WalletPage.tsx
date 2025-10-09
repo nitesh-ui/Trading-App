@@ -120,9 +120,9 @@ const WalletBalanceCard = memo(({
         <Text variant="body" style={StyleSheet.flatten([styles.balanceLabel, { color: 'white' }])}>
           Wallet Balance
         </Text>
-        <TouchableOpacity>
+        {/* <TouchableOpacity>
           <Ionicons name="eye" size={20} color="white" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
       
       <Text variant="display" weight="bold" style={StyleSheet.flatten([styles.totalBalance, { color: 'white' }])}>

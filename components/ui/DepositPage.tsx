@@ -5,8 +5,10 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ScrollView,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { Card, Text, Button, Input } from '../atomic';
 import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -23,18 +25,52 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
   
   const [amount, setAmount] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [screenshot, setScreenshot] = useState<string | null>(null);
+  const [screenshot, setScreenshot] = useState<{
+    uri: string;
+    name: string;
+    size?: number;
+    mimeType?: string;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChooseFile = useCallback(() => {
-    // For now, show a placeholder message
-    // In a real app, you would use a file picker library like expo-document-picker
-    Alert.alert(
-      'File Upload',
-      'Transaction screenshot upload functionality will be available soon',
-      [{ text: 'OK' }]
-    );
-  }, []);
+  const handleChooseFile = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*'], // Allow only images
+        copyToCacheDirectory: true // Important for iOS
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      
+      // Check file size (limit to 5MB)
+      if (asset.size && asset.size > 5 * 1024 * 1024) {
+        showNotification({
+          type: 'error',
+          title: 'File Too Large',
+          message: 'Please select an image less than 5MB in size'
+        });
+        return;
+      }
+
+      setScreenshot({
+        uri: asset.uri,
+        name: asset.name,
+        size: asset.size,
+        mimeType: asset.mimeType
+      });
+    } catch (error) {
+      console.error('Error picking document:', error);
+      showNotification({
+        type: 'error',
+        title: 'File Selection Failed',
+        message: 'Failed to select file. Please try again.'
+      });
+    }
+  }, [showNotification]);
 
   const handleSubmit = useCallback(async () => {
     // Validate form
@@ -209,9 +245,24 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
                   </Text>
                 </View>
                 <Text variant="body" color="textSecondary" style={styles.fileName}>
-                  {screenshot || 'No file chosen'}
+                  {screenshot ? screenshot.name : 'No file chosen'}
                 </Text>
               </View>
+              {screenshot && (
+                <View style={[styles.previewContainer, { backgroundColor: theme.colors.surface }]}>
+                  <Image
+                    source={{ uri: screenshot.uri }}
+                    style={styles.previewImage}
+                    resizeMode="contain"
+                  />
+                  <TouchableOpacity
+                    style={[styles.removeButton, { backgroundColor: theme.colors.error + '20' }]}
+                    onPress={() => setScreenshot(null)}
+                  >
+                    <Text variant="caption" color="error">Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </Card>
@@ -384,6 +435,27 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     paddingVertical: 16,
+  },
+
+  // Preview Styles
+  previewContainer: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
 });
 

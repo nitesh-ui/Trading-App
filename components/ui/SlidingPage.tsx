@@ -13,6 +13,7 @@ import {
 import { Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { navigationEvents } from '../../services/navigationEvents';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -38,6 +39,20 @@ const SlidingPage = memo(({
   const { theme, isDark } = useTheme();
   const slideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  // Listen for tab changes to close the sliding page
+  useEffect(() => {
+    const handleTabPress = () => {
+      if (visible) {
+        onClose();
+      }
+    };
+
+    const subscription = navigationEvents.addListener('tabPress', handleTabPress);
+    return () => {
+      subscription.remove();
+    };
+  }, [visible, onClose]);
 
   useEffect(() => {
     if (visible) {
