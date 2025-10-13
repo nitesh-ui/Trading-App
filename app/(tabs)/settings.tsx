@@ -2,7 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { memo, useEffect, useState } from 'react';
 import { Alert, Linking, Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Button, Card, Text } from '../../components/atomic';
+import { Card, Text, Button } from '../../components/atomic';
+import WalletPage from '../../components/ui/WalletPage';
+import DepositPage from '../../components/ui/DepositPage';
+import WithdrawalPage from '../../components/ui/WithdrawalPage';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -36,8 +39,9 @@ const MemoizedSettingsItem = memo<{
   title: string;
   subtitle?: string;
   onPress?: () => void;
-  rightElement?: React.ReactNode;
-}>(({ icon, title, subtitle, onPress, rightElement }) => {
+  isExpandable?: boolean;
+  isExpanded?: boolean;
+}>(({ icon, title, subtitle, onPress, isExpandable, isExpanded }) => {
   const { theme } = useTheme();
   
   return (
@@ -55,7 +59,13 @@ const MemoizedSettingsItem = memo<{
           )}
         </View>
       </View>
-      {rightElement || (
+      {isExpandable ? (
+        <Ionicons 
+          name={isExpanded ? "chevron-down" : "chevron-forward"} 
+          size={20} 
+          color={theme.colors.textSecondary} 
+        />
+      ) : (
         <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
       )}
     </TouchableOpacity>
@@ -75,6 +85,7 @@ export default function SettingsScreen() {
   const [personalInfoExpanded, setPersonalInfoExpanded] = useState(false);
   const [themeExpanded, setThemeExpanded] = useState(false);
   const [helpSupportExpanded, setHelpSupportExpanded] = useState(false);
+  const [paymentMethodsExpanded, setPaymentMethodsExpanded] = useState(false);
   
   const [userInfo, setUserInfo] = useState({
     name: 'Demo User',
@@ -88,6 +99,46 @@ export default function SettingsScreen() {
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
+  const [isDepositPageVisible, setIsDepositPageVisible] = useState(false);
+  const [isWithdrawalPageVisible, setIsWithdrawalPageVisible] = useState(false);
+
+  const handleResetPasswordPress = () => {
+    router.push('/auth/forgot-password');
+  };
+  const [isReportsPageVisible, setIsReportsPageVisible] = useState(false);
+
+  const handleWalletPress = () => {
+    setIsWalletPageVisible(true);
+  };
+
+  const handleCloseWalletPage = () => {
+    setIsWalletPageVisible(false);
+  };
+
+  const handleDepositPress = () => {
+    setIsDepositPageVisible(true);
+  };
+
+  const handleCloseDepositPage = () => {
+    setIsDepositPageVisible(false);
+  };
+
+  const handleWithdrawPress = () => {
+    setIsWithdrawalPageVisible(true);
+  };
+
+  const handleCloseWithdrawalPage = () => {
+    setIsWithdrawalPageVisible(false);
+  };
+
+  const handleReportsPress = () => {
+    setIsReportsPageVisible(true);
+  };
+
+  const handleCloseReportsPage = () => {
+    setIsReportsPageVisible(false);
+  };
 
   // Load user data from session
   useEffect(() => {
@@ -328,22 +379,22 @@ export default function SettingsScreen() {
               icon="mail-outline"
               title="Email"
               subtitle={userInfo.email}
-              onPress={() => showNotification({
-                type: 'info',
-                title: 'Email Settings',
-                message: 'Email management coming soon'
-              })}
+              // onPress={() => showNotification({
+              //   type: 'info',
+              //   title: 'Email Settings',
+              //   message: 'Email management coming soon'
+              // })}
             />
             
             <SettingItem
               icon="phone-portrait-outline"
               title="Mobile Number"
               subtitle={userInfo.mobile}
-              onPress={() => showNotification({
-                type: 'info',
-                title: 'Mobile Settings',
-                message: 'Mobile number management coming soon'
-              })}
+              // onPress={() => showNotification({
+              //   type: 'info',
+              //   title: 'Mobile Settings',
+              //   message: 'Mobile number management coming soon'
+              // })}
             />
           </View>
         )}
@@ -352,12 +403,9 @@ export default function SettingsScreen() {
           icon="lock-closed-outline"
           title="Change Password"
           subtitle="Update your account password"
-          onPress={() => showNotification({
-            type: 'info',
-            title: 'Change Password',
-            message: 'Password management coming soon'
-          })}
+          onPress={handleResetPasswordPress}
         />
+      
       </Card>
 
       {/* Wallets Section */}
@@ -372,23 +420,34 @@ export default function SettingsScreen() {
           icon="wallet-outline"
           title="Trading Wallet"
           subtitle="Manage your trading funds"
-          onPress={() => showNotification({
-            type: 'info',
-            title: 'Trading Wallet',
-            message: 'Wallet management coming soon'
-          })}
+          onPress={handleWalletPress}
         />
         
         <SettingItem
           icon="card-outline"
           title="Payment Methods"
-          subtitle="Add or manage payment options"
-          onPress={() => showNotification({
-            type: 'info',
-            title: 'Payment Methods',
-            message: 'Payment management coming soon'
-          })}
+          subtitle="Deposit or Withdraw funds"
+          onPress={() => setPaymentMethodsExpanded(!paymentMethodsExpanded)}
+          isExpandable={true}
+          isExpanded={paymentMethodsExpanded}
         />
+        
+        {paymentMethodsExpanded && (
+          <View style={styles.expandedSection}>
+            <SettingItem
+              icon="arrow-down-outline"
+              title="Deposit"
+              subtitle="Add funds to your wallet"
+              onPress={handleDepositPress}
+            />
+            <SettingItem
+              icon="arrow-up-outline"
+              title="Withdraw"
+              subtitle="Withdraw funds from your wallet"
+              onPress={handleWithdrawPress}
+            />
+          </View>
+        )}
       </Card>
 
       {/* Ledger Section */}
@@ -400,25 +459,10 @@ export default function SettingsScreen() {
         </View>
         
         <SettingItem
-          icon="document-text-outline"
-          title="Transaction History"
-          subtitle="View all your transactions"
-          onPress={() => showNotification({
-            type: 'info',
-            title: 'Transaction History',
-            message: 'Transaction history coming soon'
-          })}
-        />
-        
-        <SettingItem
           icon="analytics-outline"
           title="Trade Reports"
           subtitle="Download trading reports"
-          onPress={() => showNotification({
-            type: 'info',
-            title: 'Trade Reports',
-            message: 'Report generation coming soon'
-          })}
+          onPress={() => router.push("/report")}
         />
       </Card>
 
@@ -570,6 +614,19 @@ export default function SettingsScreen() {
       </View>
       </ScrollView>
       </View>
+      {/* Wallet Page */}
+      <WalletPage
+        visible={isWalletPageVisible}
+        onClose={handleCloseWalletPage}
+      />
+      <DepositPage
+        visible={isDepositPageVisible}
+        onClose={handleCloseDepositPage}
+      />
+      <WithdrawalPage
+        visible={isWithdrawalPageVisible}
+        onClose={handleCloseWithdrawalPage}
+      />
     </ScreenErrorBoundary>
   );
 }
