@@ -14,6 +14,7 @@ import { Card, Text, Button, Input } from '../atomic';
 import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
+import { sessionManager } from '../../services/sessionManager';
 
 interface WithdrawalPageProps {
   visible: boolean;
@@ -136,22 +137,56 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose }) => 
 
     try {
       setIsSubmitting(true);
-      
-      // TODO: Implement actual withdrawal API call
-      // const response = await tradingApiService.submitWithdrawal({
-      //   amount: numericAmount,
-      //   phoneNumber: phoneNumber.replace(/\s+/g, ''),
-      //   accountInfo: accountInfo.trim(),
-      //   qrCode: qrCode
-      // });
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Generate a unique boundary
+      const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+      
+      const formParts = [];
+      
+      // Add text fields
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="AccountInfo"\r\n\r\n${accountInfo.trim()}`);
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="RequestType"\r\n\r\n2`);
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="Amount"\r\n\r\n${amount}`);
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="PhoneNumber"\r\n\r\n${phoneNumber.replace(/\s+/g, '')}`);
+      
+      // If there's a QR code image, add it
+      if (qrCode) {
+        // Convert the image URI to a blob
+        const response = await fetch(qrCode.uri);
+        const blob = await response.blob();
+        
+        formParts.push(
+          `--${boundary}\r\nContent-Disposition: form-data; name="_RequestImage"; filename="${qrCode.name || 'qr_code.jpg'}"\r\nContent-Type: ${qrCode.mimeType || 'image/jpeg'}\r\n\r\n`
+        );
+        formParts.push(await blob.text());
+      }
+      
+      // Add the final boundary
+      formParts.push(`--${boundary}--\r\n`);
+      
+      // Join all parts with CRLF
+      const formBody = formParts.join('\r\n');
+
+      const response = await fetch('https://tradingapi.sanaitatechnologies.com/FundRequestApi/AddFundInformationHistory', {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'X-Session-Key': sessionManager.getToken() || '',
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        },
+        body: formBody
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to submit withdrawal request');
+      }
 
       showNotification({
         type: 'success',
-        title: 'Withdrawal Request Submitted',
-        message: `Your withdrawal request for ₹${numericAmount.toLocaleString('en-IN')} has been submitted successfully. It will be processed within 24-48 hours.`
+        title: 'Withdrawal Request Response',
+        message: result.message || 'Withdrawal request submitted successfully.'
       });
 
       // Reset form and close

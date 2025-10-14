@@ -6,13 +6,15 @@ import {
   TouchableOpacity, 
   ScrollView,
   Alert,
-  Image
+  Image,
+  TextInput,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Card, Text, Button, Input } from '../atomic';
 import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
+import { sessionManager } from '../../services/sessionManager';
 
 interface DepositPageProps {
   visible: boolean;
@@ -32,6 +34,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
     mimeType?: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [accountInfo, setAccountInfo] = useState('');
 
   const handleChooseFile = useCallback(async () => {
     try {
@@ -116,20 +119,55 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
     try {
       setIsSubmitting(true);
       
-      // TODO: Implement actual deposit API call
-      // const response = await tradingApiService.submitDeposit({
-      //   amount: numericAmount,
-      //   phoneNumber: phoneNumber.replace(/\s+/g, ''),
-      //   screenshot: screenshot
-      // });
+      // Generate a unique boundary
+      const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+      
+      const formParts = [];
+      
+      // Add text fields
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="AccountInfo"\r\n\r\n${accountInfo.trim() || 'No description provided'}`);
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="RequestType"\r\n\r\n1`);
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="Amount"\r\n\r\n${amount}`);
+      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="PhoneNumber"\r\n\r\n${phoneNumber.replace(/\s+/g, '')}`);
+      
+      // If there's a screenshot, convert it to blob and add it
+      if (screenshot) {
+        // Convert the image URI to a blob
+        const response = await fetch(screenshot.uri);
+        const blob = await response.blob();
+        
+        formParts.push(
+          `--${boundary}\r\nContent-Disposition: form-data; name="_RequestImage"; filename="${screenshot.name || 'transaction_screenshot.jpg'}"\r\nContent-Type: ${screenshot.mimeType || 'image/jpeg'}\r\n\r\n`
+        );
+        formParts.push(await blob.text());
+      }
+      
+      // Add the final boundary
+      formParts.push(`--${boundary}--\r\n`);
+      
+      // Join all parts with CRLF
+      const formBody = formParts.join('\r\n');
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await fetch('https://tradingapi.sanaitatechnologies.com/FundRequestApi/AddFundInformationHistory', {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'X-Session-Key': sessionManager.getToken() || '',
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        },
+        body: formBody
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to submit deposit request');
+      }
 
       showNotification({
         type: 'success',
-        title: 'Deposit Request Submitted',
-        message: `Your deposit request for ₹${numericAmount.toLocaleString('en-IN')} has been submitted successfully. It will be processed within 24 hours.`
+        title: 'Success',
+        message: result.message || 'Request sent, check after sometime.'
       });
 
       // Reset form and close
@@ -137,6 +175,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
       setPhoneNumber('');
       setScreenshot(null);
       onClose();
+      setAccountInfo('');
 
     } catch (error: any) {
       console.error('Error submitting deposit:', error);
@@ -154,6 +193,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
     setAmount('');
     setPhoneNumber('');
     setScreenshot(null);
+    setAccountInfo('');
     onClose();
   }, [onClose]);
 
@@ -220,6 +260,30 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
                 keyboardType="phone-pad"
                 style={styles.input}
                 maxLength={10}
+              />
+            </View>
+          </View>
+
+          <View style={styles.fullWidth}>
+            <Text variant="body" color="text" style={styles.label}>
+              Description(optional)
+            </Text>
+            <View style={[styles.textAreaContainer, { 
+              backgroundColor: theme.colors.surface, 
+              borderColor: theme.colors.border 
+            }]}>
+              <TextInput
+                value={accountInfo}
+                onChangeText={setAccountInfo}
+                placeholder="Please enter some required information"
+                multiline
+                numberOfLines={6}
+                style={[styles.textArea, { 
+                  color: theme.colors.text,
+                  fontSize: 16,
+                }]}
+                placeholderTextColor={theme.colors.textSecondary}
+                textAlignVertical="top"
               />
             </View>
           </View>
@@ -456,6 +520,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+  },
+  textAreaContainer: {
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+    minHeight: 120,
+  },
+  textArea: {
+    flex: 1,
+    textAlignVertical: 'top',
+    lineHeight: 20,
+    fontSize: 16,
   },
 });
 
