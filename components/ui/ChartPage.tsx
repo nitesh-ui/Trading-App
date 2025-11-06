@@ -8,6 +8,7 @@ import {
   Dimensions
 } from 'react-native';
 import { Card, Text, Button } from '../atomic';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SlidingPage from './SlidingPage';
 import { CandlestickChart } from '../trading';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -25,6 +26,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketType }) => {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [selectedTimeframe, setSelectedTimeframe] = useState('5D');
 
   const timeframes = ['5D', '1M', '1Y', '5Y', 'YTD'];
@@ -59,11 +61,12 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
       onClose={onClose}
       title={`${asset.symbol} Chart`}
     >
-      <ScrollView 
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={styles.pageWrapper}>
+        <ScrollView 
+          style={[styles.container, { backgroundColor: theme.colors.background }]}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={StyleSheet.flatten([styles.scrollContent, { paddingBottom: insets.bottom + 140 }])}
+        >
         {/* Asset Header */}
         <Card padding="large" style={styles.headerCard}>
           <View style={styles.assetHeader}>
@@ -196,34 +199,46 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
           </View>
         </Card>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <Button
-            title="Buy"
-            onPress={() => {
-              // Handle buy action
-              onClose();
-            }}
-            variant="primary"
-            style={StyleSheet.flatten([styles.actionButton, { backgroundColor: theme.colors.success }])}
-          />
-          <Button
-            title="Sell"
-            onPress={() => {
-              // Handle sell action
-              onClose();
-            }}
-            variant="primary"
-            style={StyleSheet.flatten([styles.actionButton, { backgroundColor: theme.colors.error }])}
-          />
+        </ScrollView>
+
+        {/* Sticky Footer Action Buttons */}
+        <View style={[
+          styles.footer,
+          {
+            backgroundColor: theme.colors.background,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+            bottom: (insets.bottom || 0) + 64, // offset above bottom tab bar
+          }
+        ]}>
+          <View style={styles.actionButtons}>
+            <Button
+              title="Buy"
+              onPress={() => {
+                onClose();
+              }}
+              variant="primary"
+              style={StyleSheet.flatten([styles.actionButton, { backgroundColor: theme.colors.success }])}
+            />
+            <Button
+              title="Sell"
+              onPress={() => {
+                onClose();
+              }}
+              variant="primary"
+              style={StyleSheet.flatten([styles.actionButton, { backgroundColor: theme.colors.error }])}
+            />
+          </View>
         </View>
-      </ScrollView>
+      </View>
     </SlidingPage>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  pageWrapper: {
     flex: 1,
   },
   scrollContent: {
@@ -348,10 +363,19 @@ const styles = StyleSheet.create({
   },
   
   // Action Buttons
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#00000020',
+  },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 8,
   },
   actionButton: {
     flex: 1,
