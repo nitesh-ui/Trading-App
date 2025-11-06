@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useState, useCallback } from 'react';
+import React, { memo, useState, useCallback, useMemo } from 'react';
 import { 
   View, 
   StyleSheet, 
   TouchableOpacity, 
   ScrollView,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
+import WebView from 'react-native-webview';
 import { Card, Text, Button } from '../atomic';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SlidingPage from './SlidingPage';
@@ -32,6 +34,95 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
   const [selectedTimeframe, setSelectedTimeframe] = useState('5D');
 
   const timeframes = ['5D', '1M', '1Y', '5Y', 'YTD'];
+
+  // Generate TradingView symbol based on market type
+  const getTradingViewSymbol = useCallback(() => {
+    const symbol = asset.symbol;
+    
+    switch (marketType) {
+      case 'stocks':
+        // Indian stocks: NSE or BSE exchange
+        if (asset.exchange === 'NSE' || asset.exchange === 'BSE') {
+          return `${asset.exchange}:${symbol}`;
+        }
+        // US stocks: use NASDAQ or NYSE
+        return `NASDAQ:${symbol}`;
+      
+      case 'crypto':
+        // Crypto: use Binance as default exchange
+        // Remove common suffixes like USDT, USD
+        const cleanSymbol = symbol.replace(/USDT|USD$/i, '');
+        return `BINANCE:${cleanSymbol}USDT`;
+      
+      case 'forex':
+        // Forex: use FX prefix
+        return `FX_IDC:${symbol}`;
+      
+      default:
+        return symbol;
+    }
+  }, [asset, marketType]);
+
+  // Generate TradingView Advanced Chart HTML
+  const tradingViewHTML = useMemo(() => {
+    const tvSymbol = getTradingViewSymbol();
+    const isDark = theme.colors.background === '#000000' || theme.colors.background === '#121212';
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              background-color: ${theme.colors.background};
+              overflow: hidden;
+            }
+            #tradingview-widget-container {
+              width: 100%;
+              height: 100vh;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="tradingview-widget-container">
+            <div id="tradingview_chart"></div>
+          </div>
+          
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+            new TradingView.widget({
+              "autosize": true,
+              "symbol": "${tvSymbol}",
+              "interval": "D",
+              "timezone": "Asia/Kolkata",
+              "theme": "${isDark ? 'dark' : 'light'}",
+              "style": "1",
+              "locale": "en",
+              "toolbar_bg": "${theme.colors.card}",
+              "enable_publishing": false,
+              "hide_top_toolbar": false,
+              "hide_legend": false,
+              "save_image": false,
+              "container_id": "tradingview_chart",
+              "studies": [
+                "MASimple@tv-basicstudies"
+              ],
+              "show_popup_button": false,
+              "popup_width": "1000",
+              "popup_height": "650"
+            });
+          </script>
+        </body>
+      </html>
+    `;
+  }, [theme, getTradingViewSymbol]);
 
   const formatPrice = (price: number) => {
     if (marketType === 'stocks') {
@@ -152,10 +243,32 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
         {/* Timeframe Selector */}
         
 
-        {/* Chart */}
-        <Card padding="large" style={styles.chartCard}>
+        {/* TradingView Chart */}
+        <Card padding="none" style={styles.chartCard}>
           <View style={styles.chartContainer}>
-            <CandlestickChart symbol={asset.symbol} />
+            <WebView
+              source={{ html: tradingViewHTML }}
+              style={styles.webview}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              scalesPageToFit={true}
+              bounces={false}
+              originWhitelist={['*']}
+              allowsInlineMediaPlayback={true}
+              mediaPlaybackRequiresUserAction={false}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView error: ', nativeEvent);
+              }}
+              onHttpError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView HTTP error: ', nativeEvent);
+              }}
+            />
           </View>
         </Card>
 
@@ -331,11 +444,16 @@ const styles = StyleSheet.create({
   // Chart
   chartCard: {
     marginBottom: 8,
+    overflow: 'hidden',
   },
   chartContainer: {
-    height: 300,
+    height: 400,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   
   // Legend

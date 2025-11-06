@@ -1,4 +1,4 @@
-import React, { memo, useRef, useEffect } from 'react';
+import React, { memo, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Modal,
@@ -9,9 +9,11 @@ import {
   Dimensions,
   Platform,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { Text, Card } from '../atomic';
 import { CandlestickChart } from '../trading';
 import { AssetItem, MarketType, TradeState } from './types';
@@ -63,6 +65,55 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
 }) => {
   const slideAnim = useRef(new Animated.Value(DRAWER_HEIGHT)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  // Generate TradingView symbol based on market type - must be called before any returns
+  const getTradingViewSymbol = useCallback(() => {
+    if (!asset || !marketType) return '';
+    
+    const symbol = asset.symbol;
+    
+    switch (marketType) {
+      case 'stocks':
+        // Indian stocks: NSE or BSE exchange
+        if (asset.exchange === 'NSE' || asset.exchange === 'BSE') {
+          return `${asset.exchange}:${symbol}`;
+        }
+        // US stocks: use NASDAQ or NYSE
+        return `NASDAQ:${symbol}`;
+      
+      case 'crypto':
+        // Crypto: use Binance as default exchange
+        // Remove common suffixes like USDT, USD
+        const cleanSymbol = symbol.replace(/USDT|USD$/i, '');
+        return `BINANCE:${cleanSymbol}USDT`;
+      
+      case 'forex':
+        // Forex: use FX prefix
+        return `FX_IDC:${symbol}`;
+      
+      default:
+        return symbol;
+    }
+  }, [asset, marketType]);
+
+  // Open TradingView chart in browser - must be called before any returns
+  const openTradingViewChart = useCallback(async () => {
+    const tvSymbol = getTradingViewSymbol();
+    if (!tvSymbol) return;
+    
+    const url = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`;
+    
+    try {
+      await WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        controlsColor: theme.colors.primary,
+      });
+    } catch (error) {
+      console.error('Error opening TradingView:', error);
+      // Fallback to Linking
+      Linking.openURL(url);
+    }
+  }, [getTradingViewSymbol, theme]);
 
   useEffect(() => {
     if (visible) {
@@ -309,20 +360,20 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                     <View style={styles.viewChartContainer}>
                       <View style={styles.chartInfo}>
                         <Text variant="subtitle" weight="medium" color="text">
-                          Price Chart
+                          TradingView Chart
                         </Text>
                         <Text variant="caption" color="textSecondary">
-                          View detailed chart analysis
+                          View live chart with advanced tools
                         </Text>
                       </View>
                       <TouchableOpacity
-                        onPress={onViewChart}
+                        onPress={openTradingViewChart}
                         style={[styles.viewChartButton, { backgroundColor: theme.colors.primary }]}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="trending-up" size={18} color={theme.colors.surface} />
+                        <Ionicons name="open-outline" size={18} color={theme.colors.surface} />
                         <Text variant="body" weight="medium" style={{ color: theme.colors.surface, marginLeft: 6 }}>
-                          View Chart
+                          Open Chart
                         </Text>
                       </TouchableOpacity>
                     </View>

@@ -107,19 +107,20 @@ export const StockCard: React.FC<StockCardProps> = React.memo(({
           }),
           overflow: 'hidden',
         }}>
-          {stock.volume && (            <View style={styles.statItem}>
-            <Text style={{ fontSize: 12, color: theme.colors.textSecondary || '#666666' }}>
-              Volume
-            </Text>
-            <Text style={{ 
-              fontSize: 12, 
-              fontWeight: '600', 
-              color: theme.colors.text || '#000000',
-              marginTop: 2,
-            }}>
-              {formatVolume(stock.volume)}
-            </Text>
-          </View>
+          {stock.volume && (
+            <View style={styles.statItem}>
+              <Text style={{ fontSize: 12, color: theme.colors.textSecondary || '#666666' }}>
+                Volume
+              </Text>
+              <Text style={{ 
+                fontSize: 12, 
+                fontWeight: '600', 
+                color: theme.colors.text || '#000000',
+                marginTop: 2,
+              }}>
+                {formatVolume(stock.volume)}
+              </Text>
+            </View>
           )}
           
           {stock.marketCap && (

@@ -69,10 +69,10 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <NotificationProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <NotificationProvider>
+            <ErrorBoundary>
               <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
                 <Stack>
                   <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -84,10 +84,10 @@ export default function RootLayout() {
                 </Stack>
                 <StatusBar style="auto" />
               </NavigationThemeProvider>
-            </NotificationProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
+            </ErrorBoundary>
+          </NotificationProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
