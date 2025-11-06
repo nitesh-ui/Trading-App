@@ -211,22 +211,24 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
           }
         ]}>
           <View style={styles.actionButtons}>
-            <Button
-              title="Buy"
+            <TouchableOpacity
+              style={[styles.actionButton, styles.buyButton, { backgroundColor: theme.colors.success }]}
               onPress={() => {
                 onClose();
               }}
-              variant="primary"
-              style={StyleSheet.flatten([styles.actionButton, { backgroundColor: theme.colors.success }])}
-            />
-            <Button
-              title="Sell"
+              activeOpacity={0.8}
+            >
+              <Text style={styles.buttonText}>BUY</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.sellButton, { backgroundColor: theme.colors.error }]}
               onPress={() => {
                 onClose();
               }}
-              variant="primary"
-              style={StyleSheet.flatten([styles.actionButton, { backgroundColor: theme.colors.error }])}
-            />
+              activeOpacity={0.8}
+            >
+              <Text style={styles.buttonText}>SELL</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -379,6 +381,30 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    minHeight: 56,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buyButton: {
+    // Additional buy button styles if needed
+  },
+  sellButton: {
+    // Additional sell button styles if needed
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
 });
 
