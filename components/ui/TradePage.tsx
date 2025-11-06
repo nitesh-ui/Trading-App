@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, Text, Button } from '../atomic';
 import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AssetItem, MarketType, TradeState } from '../watchlist/types';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
@@ -50,6 +51,7 @@ const TradePage: React.FC<TradePageProps> = ({
   const { theme } = useTheme();
   const { showNotification } = useNotification();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [quantity, setQuantity] = useState(1);
   const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT' | 'SL' | 'SL-M'>('MARKET');
   const [unitType, setUnitType] = useState<'Lot' | 'Share'>('Lot');
@@ -342,11 +344,15 @@ const TradePage: React.FC<TradePageProps> = ({
       onClose={onClose}
       title={`${action.toUpperCase()} ${asset.name || asset.symbol}`}
     >
-      <ScrollView 
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={styles.pageWrapper}>
+        <ScrollView 
+          style={[styles.container, { backgroundColor: theme.colors.background }]}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: 180 } // Space for button (90px) + tab bar (64px) + padding (26px)
+          ]}
+        >
         {/* Asset Header with Bid/Ask - No border, clean design */}
         <View style={styles.headerContainer}>
           <Text variant="headline" weight="bold" color="text">
@@ -652,24 +658,43 @@ const TradePage: React.FC<TradePageProps> = ({
           </View>
         </Card>
 
-        {/* Execute Button */}
-        <Button
-          title={isExecutingTrade ? 'Executing...' : `Tap to ${action.charAt(0).toUpperCase() + action.slice(1)}`}
-          onPress={handleExecuteTrade}
-          variant="primary"
-          disabled={isExecutingTrade}
-          style={{
-            ...styles.executeButton,
-            backgroundColor: action === 'buy' ? theme.colors.primary : theme.colors.error,
-            opacity: isExecutingTrade ? 0.7 : 1
-          }}
-        />
       </ScrollView>
+
+      {/* Sticky Execute Button */}
+      <View style={[
+        styles.footer,
+        {
+          backgroundColor: theme.colors.background,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
+          bottom: 64, // Position above the bottom tab bar (typical tab bar height)
+        }
+      ]}>
+        <TouchableOpacity
+          style={[
+            styles.stickyExecuteButton,
+            {
+              backgroundColor: action === 'buy' ? theme.colors.primary : theme.colors.error,
+              opacity: isExecutingTrade ? 0.7 : 1
+            }
+          ]}
+          onPress={handleExecuteTrade}
+          disabled={isExecutingTrade}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.stickyExecuteButtonText}>
+            {isExecutingTrade ? 'EXECUTING...' : `TAP TO ${action.toUpperCase()}`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      </View>
     </SlidingPage>
   );
 };
 
 const styles = StyleSheet.create({
+  pageWrapper: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
@@ -679,7 +704,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     gap: 2,
-    paddingBottom: 80, // Extra space at bottom for execute button visibility
   },
   
   // Header Container - No border/background
@@ -889,6 +913,44 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 16,
     marginBottom: 8,
+  },
+
+  // Sticky Footer
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    zIndex: 100,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  stickyExecuteButton: {
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    minHeight: 56,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  stickyExecuteButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
 });
 
