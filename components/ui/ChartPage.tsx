@@ -20,11 +20,13 @@ interface ChartPageProps {
   onClose: () => void;
   asset: AssetItem;
   marketType: MarketType;
+  onBuyPress?: () => void;
+  onSellPress?: () => void;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketType }) => {
+const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketType, onBuyPress, onSellPress }) => {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [selectedTimeframe, setSelectedTimeframe] = useState('5D');
@@ -214,7 +216,9 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             <TouchableOpacity
               style={[styles.actionButton, styles.buyButton, { backgroundColor: theme.colors.success }]}
               onPress={() => {
-                onClose();
+                if (onBuyPress) {
+                  onBuyPress();
+                }
               }}
               activeOpacity={0.8}
             >
@@ -223,7 +227,9 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             <TouchableOpacity
               style={[styles.actionButton, styles.sellButton, { backgroundColor: theme.colors.error }]}
               onPress={() => {
-                onClose();
+                if (onSellPress) {
+                  onSellPress();
+                }
               }}
               activeOpacity={0.8}
             >

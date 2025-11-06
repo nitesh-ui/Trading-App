@@ -1092,6 +1092,24 @@ const WatchlistContent = memo(() => {
           onClose={handleCloseChartPage}
           asset={chartAsset}
           marketType={watchlistState.marketType}
+          onBuyPress={() => {
+            if (chartAsset) {
+              setTradeAsset(chartAsset);
+              setTradeAction('buy');
+              setIsChartPageVisible(false);
+              setChartAsset(null);
+              setIsTradePageVisible(true);
+            }
+          }}
+          onSellPress={() => {
+            if (chartAsset) {
+              setTradeAsset(chartAsset);
+              setTradeAction('sell');
+              setIsChartPageVisible(false);
+              setChartAsset(null);
+              setIsTradePageVisible(true);
+            }
+          }}
         />
       )}
 

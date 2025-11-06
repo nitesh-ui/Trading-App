@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { memo, useEffect, useState } from 'react';
-import { Alert, Linking, Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { memo, useEffect, useState, useCallback } from 'react';
+import { Alert, Linking, Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { Card, Text, Button } from '../../components/atomic';
 import WalletPage from '../../components/ui/WalletPage';
 import DepositPage from '../../components/ui/DepositPage';
@@ -12,7 +12,8 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useRenderPerformance } from '../../hooks/usePerformance';
 import AuthUtils from '../../services/authUtils';
 import { sessionManager } from '../../services/sessionManager';
-import { tradingApiService } from '../../services/tradingApiService';
+import { tradingApiService, WalletBalanceData } from '../../services/tradingApiService';
+import { useAuthErrorHandler } from '../../hooks/useAuthErrorHandler';
 
 /**
  * Memoized Settings Section Component
@@ -77,6 +78,7 @@ MemoizedSettingsItem.displayName = 'MemoizedSettingsItem';
 export default function SettingsScreen() {
   const { theme, themeType, setTheme } = useTheme();
   const { showNotification } = useNotification();
+  const { handle401 } = useAuthErrorHandler();
   
   // Performance monitoring
   useRenderPerformance('SettingsScreen');
@@ -102,6 +104,8 @@ export default function SettingsScreen() {
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
   const [isDepositPageVisible, setIsDepositPageVisible] = useState(false);
   const [isWithdrawalPageVisible, setIsWithdrawalPageVisible] = useState(false);
+  const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
 
   const handleResetPasswordPress = () => {
     router.push('/auth/forgot-password');
@@ -114,6 +118,8 @@ export default function SettingsScreen() {
 
   const handleCloseWalletPage = () => {
     setIsWalletPageVisible(false);
+    // Refresh wallet balance when closing wallet page
+    fetchWalletBalance();
   };
 
   const handleDepositPress = () => {
@@ -122,6 +128,8 @@ export default function SettingsScreen() {
 
   const handleCloseDepositPage = () => {
     setIsDepositPageVisible(false);
+    // Refresh wallet balance after deposit
+    fetchWalletBalance();
   };
 
   const handleWithdrawPress = () => {
@@ -130,6 +138,8 @@ export default function SettingsScreen() {
 
   const handleCloseWithdrawalPage = () => {
     setIsWithdrawalPageVisible(false);
+    // Refresh wallet balance after withdrawal
+    fetchWalletBalance();
   };
 
   const handleReportsPress = () => {
@@ -140,12 +150,43 @@ export default function SettingsScreen() {
     setIsReportsPageVisible(false);
   };
 
+  // Fetch wallet balance from API
+  const fetchWalletBalance = useCallback(async () => {
+    try {
+      setLoadingBalance(true);
+      
+      const response = await tradingApiService.getWalletBalance();
+      
+      if (response.data) {
+        setWalletData(response.data);
+        // Update current balance in userInfo - use 'amount' field from API
+        const balance = parseFloat(response.data.amount || '0');
+        setUserInfo(prev => ({
+          ...prev,
+          currentBalance: `₹${balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        }));
+      }
+    } catch (err: any) {
+      console.error('Error fetching wallet balance:', err);
+      
+      if (err.status === 401) {
+        await handle401();
+      } else {
+        // Don't show notification for balance fetch errors in settings
+        console.error('Failed to fetch wallet balance:', err.message);
+      }
+    } finally {
+      setLoadingBalance(false);
+    }
+  }, [handle401]);
+
   // Load user data from session
   useEffect(() => {
     const loadUserData = async () => {
       const currentUser = sessionManager.getCurrentUser();
       if (currentUser) {
-        setUserInfo({
+        setUserInfo(prev => ({
+          ...prev,
           name: currentUser.name || 'Trading User',
           email: currentUser.email || 'user@example.com',
           mobile: '+91 98765 43210', // This would come from API
@@ -153,13 +194,15 @@ export default function SettingsScreen() {
           accountType: 'Live Account',
           joinDate: '15 Jan 2024', // This would come from API
           totalTrades: 127, // This would come from API
-          currentBalance: '₹5,00,000', // This would come from API
-        });
+        }));
       }
+      
+      // Fetch wallet balance
+      await fetchWalletBalance();
     };
 
     loadUserData();
-  }, []);
+  }, [fetchWalletBalance]);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -303,10 +346,10 @@ export default function SettingsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
-              onRefresh={() => {
+              onRefresh={async () => {
                 setIsRefreshing(true);
-                // Simulate refresh
-                setTimeout(() => setIsRefreshing(false), 1000);
+                await fetchWalletBalance();
+                setIsRefreshing(false);
               }}
               tintColor={theme.colors.primary}
               colors={[theme.colors.primary]}
@@ -337,17 +380,13 @@ export default function SettingsScreen() {
 
         <View style={styles.accountStats}>
           <View style={styles.statItem}>
-            <Text variant="body" weight="semibold" color="text">
-              {userInfo.totalTrades}
-            </Text>
-            <Text variant="caption" color="textSecondary">
-              Total Trades
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text variant="body" weight="semibold" color="text">
-              {userInfo.currentBalance}
-            </Text>
+            {loadingBalance ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <Text variant="body" weight="semibold" color="text">
+                {userInfo.currentBalance}
+              </Text>
+            )}
             <Text variant="caption" color="textSecondary">
               Current Balance
             </Text>
@@ -696,7 +735,6 @@ const styles = StyleSheet.create({
   },
   accountStats: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.1)',

@@ -64,6 +64,8 @@ const TradePage: React.FC<TradePageProps> = ({
   const [requiredMargin, setRequiredMargin] = useState<number>(0);
   const [isLoadingMargin, setIsLoadingMargin] = useState(false);
   const [marginData, setMarginData] = useState<RequiredMarginData | null>(null);
+  const [baseMarginPerLot, setBaseMarginPerLot] = useState<number>(0); // Margin per single lot
+  const [marginQuantity, setMarginQuantity] = useState<number>(1); // Quantity used for margin calculation
   const [walletBalance, setWalletBalance] = useState<string>('0');
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
@@ -106,12 +108,14 @@ const TradePage: React.FC<TradePageProps> = ({
 
   const calculateRequiredAmount = () => {
     // Use API margin data if available, otherwise fallback to calculation
-    if (requiredMargin > 0) {
-      return requiredMargin;
+    if (baseMarginPerLot > 0) {
+      // Scale the base margin by current quantity
+      return baseMarginPerLot * quantity;
     }
     
     const price = orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price;
-    return quantity * price;
+    const lotSize = asset.lotSize || 1;
+    return quantity * price * lotSize;
   };
 
   const getAvailableFormatted = () => {
@@ -265,21 +269,29 @@ const TradePage: React.FC<TradePageProps> = ({
         setMarginData(marginInfo);
         setRequiredMargin(marginInfo.Requiredmargin);
         
+        // Calculate and store base margin per lot for scaling
+        // The API returns margin for the requested quantity, so divide by quantity to get per-lot margin
+        const marginPerLot = quantity > 0 ? marginInfo.Requiredmargin / quantity : marginInfo.Requiredmargin;
+        setBaseMarginPerLot(marginPerLot);
+        setMarginQuantity(quantity);
+        
         // For market orders, auto-fill the price field with the last price
         if (orderType === 'MARKET') {
           setLimitPrice(asset.price.toString());
         }
         
-        console.log('✅ Required margin fetched:', marginInfo.Requiredmargin);
+        console.log('✅ Required margin fetched:', marginInfo.Requiredmargin, '| Per lot:', marginPerLot);
       } else {
         console.error('❌ Failed to fetch required margin:', response);
-        // Fallback to calculated amount
-        setRequiredMargin(calculateRequiredAmount());
+        // Fallback to calculated amount - reset base margin
+        setBaseMarginPerLot(0);
+        setRequiredMargin(0);
       }
     } catch (error) {
       console.error('❌ Error fetching required margin:', error);
-      // Fallback to calculated amount
-      setRequiredMargin(calculateRequiredAmount());
+      // Fallback to calculated amount - reset base margin
+      setBaseMarginPerLot(0);
+      setRequiredMargin(0);
       // showNotification({
       //   type: 'warning',
       //   title: 'Margin Calculation',
