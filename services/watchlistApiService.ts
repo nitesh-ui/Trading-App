@@ -498,6 +498,7 @@ class WatchlistApiService {
   /**
    * Search for symbols to add to watchlist
    * Returns combined results from both objLstWatchList (already in watchlist) and watchlistDataForAdd (available to add)
+   * Also includes forex data from Polygon API when searching for forex or all exchanges
    */
   async searchSymbols(query: string, exchange?: string): Promise<SearchResult[]> {
     try {
@@ -521,7 +522,11 @@ class WatchlistApiService {
         requestBody
       });
 
-      const response = await fetch(`${this.baseUrl}/WatchListApi/GetWatchListData`, {
+      // Prepare parallel API calls
+      const apiCalls: Promise<any>[] = [];
+
+      // 1. Main watchlist API call
+      const watchlistCall = fetch(`${this.baseUrl}/WatchListApi/GetWatchListData`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
@@ -529,24 +534,52 @@ class WatchlistApiService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error(`Search API request failed with status: ${response.status}`);
+        }
+        return response.json();
       });
+      apiCalls.push(watchlistCall);
 
-      if (!response.ok) {
-        throw new Error(`Search API request failed with status: ${response.status}`);
+      // 2. Forex API call (if exchange is 'all', 'forex', or empty)
+      const shouldFetchForex = !exchange || exchange === '' || exchange.toLowerCase() === 'all' || exchange.toLowerCase() === 'forex';
+      let forexCall: Promise<any> | null = null;
+      
+      if (shouldFetchForex && query && query.length >= 2) {
+        console.log('🔍 Fetching forex data from Polygon API for query:', query);
+        forexCall = fetch(
+          `https://api.polygon.io/v3/reference/tickers?market=fx&search=${encodeURIComponent(query)}&active=true&order=asc&limit=100&sort=ticker&apiKey=4wqkqLIE5GW8YhLTXGcPE15V8z8EL0aK`
+        )
+          .then(response => {
+            if (!response.ok) {
+              console.warn('⚠️ Forex API request failed:', response.status);
+              return null;
+            }
+            return response.json();
+          })
+          .catch(error => {
+            console.error('❌ Error fetching forex data:', error);
+            return null;
+          });
+        apiCalls.push(forexCall);
       }
 
-      const data: WatchlistApiResponse = await response.json();
+      // Execute all API calls in parallel
+      const [watchlistData, forexData] = await Promise.all(apiCalls);
+
       console.log('✅ Search API Response:', {
-        message: data.message,
-        watchlistItems: data.data?.objLstWatchList?.length || 0,
-        availableToAdd: data.data?.watchlistDataForAdd?.length || 0
+        message: watchlistData.message,
+        watchlistItems: watchlistData.data?.objLstWatchList?.length || 0,
+        availableToAdd: watchlistData.data?.watchlistDataForAdd?.length || 0,
+        forexItems: forexData?.results?.length || 0
       });
 
       const results: SearchResult[] = [];
 
       // Add items already in watchlist (show without add button)
-      if (data.data?.objLstWatchList) {
-        const watchlistAssets = this.transformApiDataToAssets(data.data.objLstWatchList);
+      if (watchlistData.data?.objLstWatchList) {
+        const watchlistAssets = this.transformApiDataToAssets(watchlistData.data.objLstWatchList);
         const watchlistResults: SearchResult[] = watchlistAssets.map(asset => ({
           ...asset,
           isInWatchlist: true,
@@ -556,8 +589,8 @@ class WatchlistApiService {
       }
 
       // Add items available to add (show with add button)
-      if (data.data?.watchlistDataForAdd) {
-        const availableAssets = this.transformWatchlistDataForAddToAssets(data.data.watchlistDataForAdd);
+      if (watchlistData.data?.watchlistDataForAdd) {
+        const availableAssets = this.transformWatchlistDataForAddToAssets(watchlistData.data.watchlistDataForAdd);
         const availableResults: SearchResult[] = availableAssets.map(asset => ({
           ...asset,
           isInWatchlist: false,
@@ -568,6 +601,13 @@ class WatchlistApiService {
         results.push(...availableResults);
       }
 
+      // Add forex data from Polygon API
+      if (forexData && forexData.results && forexData.results.length > 0) {
+        const forexResults = this.transformPolygonForexToSearchResults(forexData.results);
+        results.push(...forexResults);
+        console.log('✅ Added', forexResults.length, 'forex results from Polygon API');
+      }
+
       console.log('✅ Combined search results:', results.length, 'items');
       return results;
       
@@ -575,6 +615,43 @@ class WatchlistApiService {
       console.error('❌ Error searching symbols:', error);
       return [];
     }
+  }
+
+  /**
+   * Transform Polygon API forex data to SearchResult format
+   */
+  private transformPolygonForexToSearchResults(forexItems: any[]): SearchResult[] {
+    return forexItems.map(item => {
+      // Extract currency pair from ticker (e.g., "C:EURUSD" -> "EURUSD")
+      const symbol = item.ticker?.replace('C:', '') || item.ticker;
+      const name = item.name || symbol;
+      
+      return {
+        symbol,
+        name,
+        price: item.last_quote?.ask || 0,
+        change: 0, // Not available in reference data
+        changePercent: 0,
+        volume: 0,
+        marketCap: 0,
+        exchange: 'FOREX',
+        currency: 'USD',
+        sector: 'Forex',
+        type: 'forex' as const,
+        high: 0,
+        low: 0,
+        open: 0,
+        previousClose: 0,
+        marketStatus: item.active ? 'open' : 'closed',
+        lastUpdated: item.last_updated_utc || new Date().toISOString(),
+        isInWatchlist: false,
+        canAdd: true,
+        lotSize: 1,
+        size: 1,
+        intWID: 0,
+        scriptCode: 0,
+      };
+    });
   }
 }
 
