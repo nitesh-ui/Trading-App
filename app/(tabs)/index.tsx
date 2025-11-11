@@ -818,6 +818,19 @@ const WatchlistContent = memo(() => {
     return updatedAsset || selectedAssetForDetails;
   }, [selectedAssetForDetails, enhancedAssets]);
 
+  // Get real-time updated trade asset
+  const updatedTradeAsset = React.useMemo(() => {
+    if (!tradeAsset) return null;
+    
+    // Find the updated asset from enhancedAssets (which includes real-time data)
+    const updatedAsset = enhancedAssets.find(
+      (a) => a.symbol === tradeAsset.symbol && a.exchange === tradeAsset.exchange
+    );
+    
+    // Return updated asset if found, otherwise return the original
+    return updatedAsset || tradeAsset;
+  }, [tradeAsset, enhancedAssets]);
+
   // Asset action handlers
   const handleAssetPress = useCallback((asset: AssetItem) => {
     setSelectedAssetForDetails(asset);
@@ -1119,11 +1132,11 @@ const WatchlistContent = memo(() => {
       )}
 
       {/* Trade Page */}
-      {tradeAsset && (
+      {updatedTradeAsset && (
         <TradePage
           visible={isTradePageVisible}
           onClose={handleCloseTradePage}
-          asset={tradeAsset}
+          asset={updatedTradeAsset}
           marketType={watchlistState.marketType}
           action={tradeAction}
           availableBalance={50000} // Mock balance

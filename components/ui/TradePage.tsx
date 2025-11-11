@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, Text, Button } from '../atomic';
+import { PriceDisplay } from '../trading';
 import SlidingPage from './SlidingPage';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -365,20 +366,41 @@ const TradePage: React.FC<TradePageProps> = ({
             { paddingBottom: 180 } // Space for button (90px) + tab bar (64px) + padding (26px)
           ]}
         >
-        {/* Asset Header with Bid/Ask - No border, clean design */}
-        <View style={styles.headerContainer}>
-          <Text variant="headline" weight="bold" color="text">
-            {asset.exchange || 'NSE'}
-          </Text>
+        {/* Asset Header with Real-time Price */}
+        <Card padding="medium" style={styles.priceHeaderCard}>
+          <View style={styles.headerContainer}>
+            <View style={styles.assetInfo}>
+              <Text variant="headline" weight="bold" color="text">
+                {asset.symbol}
+              </Text>
+              <Text variant="caption" color="textSecondary">
+                {asset.exchange || 'NSE'}
+              </Text>
+            </View>
+            <View style={styles.priceContainer}>
+              <PriceDisplay
+                price={asset.price}
+                change={asset.change}
+                changePercent={asset.changePercent}
+                size="large"
+                showCurrency={marketType === 'stocks'}
+                currencySymbol={marketType === 'stocks' ? '₹' : '$'}
+                showSymbol={true}
+                showChange={true}
+                align="right"
+                theme={theme}
+              />
+            </View>
+          </View>
           <View style={styles.bidAskContainer}>
-            <Text variant="caption" weight="medium" color="success" style={styles.bidAskText}>
-              B: {formatPrice(bid, marketType)}
+            <Text variant="caption" weight="medium" color="success">
+              Bid: {formatPrice(bid, marketType)}
             </Text>
-            <Text variant="caption" weight="medium" color="error" style={styles.askPriceText}>
-              A: {formatPrice(ask, marketType)}
+            <Text variant="caption" weight="medium" color="error">
+              Ask: {formatPrice(ask, marketType)}
             </Text>
           </View>
-        </View>
+        </Card>
 
         {/* Market Data - Only show fields available from API */}
         <Card 
@@ -719,13 +741,27 @@ const styles = StyleSheet.create({
   },
   
   // Header Container - No border/background
+  priceHeaderCard: {
+    marginBottom: 12,
+  },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 0,
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    gap: 12,
+  },
+  assetInfo: {
+    flex: 1,
+    minWidth: 0, // Important: allows flex child to shrink below content size
+  },
+  priceContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  symbolText: {
+    flexWrap: 'wrap',
+    flexShrink: 1,
   },
   headerCard: {
     marginBottom: 8,
@@ -743,16 +779,6 @@ const styles = StyleSheet.create({
   bidAskContainer: {
     flexDirection: 'row',
     gap: 16,
-  },
-  bidAskText: {
-    fontSize: 12,
-  },
-  askPrice: {
-    marginLeft: 8,
-  },
-  askPriceText: {
-    fontSize: 12,
-    marginLeft: 8,
   },
   
   // Market Data
