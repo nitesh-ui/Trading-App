@@ -110,6 +110,7 @@ interface WatchlistContextType {
   // Computed values
   filteredAssets: AssetItem[];
   searchResults: AssetItem[];
+  marketIndices: AssetItem[]; // Add indices
   
   // Actions
   setMarketType: (type: MarketType) => void;
@@ -296,6 +297,15 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   }, [watchlistState.searchQuery, filteredAssets]);
 
+  // Extract market indices from API data
+  const marketIndices = useMemo((): AssetItem[] => {
+    if (apiAssets.length > 0) {
+      const categorized = watchlistApiService.categorizeAssets(apiAssets);
+      return categorized.indices;
+    }
+    return [];
+  }, [apiAssets]);
+
   // Action creators - INSTANT tab switching with smooth content animation
   const setMarketType = useCallback((type: MarketType) => {
     // 🚀 INSTANT tab switch - UI shows new tab immediately
@@ -369,6 +379,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Computed values
     filteredAssets,
     searchResults,
+    marketIndices,
     
     // Actions
     setMarketType,
@@ -394,6 +405,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     cryptoPairs,
     filteredAssets,
     searchResults,
+    marketIndices,
     setMarketType,
     setExchangeFilter,
     setSearchQuery,

@@ -157,6 +157,17 @@ class WatchlistApiService {
         itemCount: data.data?.objLstWatchList?.length || 0
       });
 
+      // Log first item to see raw API structure
+      if (data.data?.objLstWatchList && data.data.objLstWatchList.length > 0) {
+        console.log('📊 Sample API item (first):', {
+          symbol: data.data.objLstWatchList[0].scriptTradingSymbol,
+          lastprice: data.data.objLstWatchList[0].lastprice,
+          close: data.data.objLstWatchList[0].close,
+          high: data.data.objLstWatchList[0].high,
+          low: data.data.objLstWatchList[0].low,
+        });
+      }
+
       // Transform API data to our internal format
       if (data.data?.objLstWatchList && data.data.objLstWatchList.length > 0) {
         const transformedAssets = this.transformApiDataToAssets(data.data.objLstWatchList);
@@ -257,9 +268,20 @@ class WatchlistApiService {
    * Transform API data to our internal AssetItem format
    */
   private transformApiDataToAssets(apiItems: WatchlistApiItem[]): AssetItem[] {
-    return apiItems.map(item => {
+    return apiItems.map((item, index) => {
       const change = item.lastprice - item.close;
       const changePercent = item.close !== 0 ? (change / item.close) * 100 : 0;
+
+      // Debug logging for first 3 items to see actual values
+      if (index < 3) {
+        console.log('📊 Asset price calculation:', {
+          symbol: item.scriptTradingSymbol,
+          lastprice: item.lastprice,
+          close: item.close,
+          calculatedChange: change,
+          changePercent: changePercent
+        });
+      }
 
       return {
         symbol: item.scriptTradingSymbol,

@@ -42,8 +42,26 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Memoized Market Indices Components
-const StockIndices = memo(() => {
+const StockIndices = memo(({ indices }: { indices: AssetItem[] }) => {
   const { theme } = useTheme();
+  
+  // Find major indices from the provided data
+  const nifty50 = indices?.find(idx => idx.symbol.includes('NIFTY 50') || idx.symbol === 'NIFTY50');
+  const sensex = indices?.find(idx => idx.symbol.includes('SENSEX'));
+  const bankNifty = indices?.find(idx => idx.symbol.includes('BANK NIFTY') || idx.symbol.includes('BANKNIFTY'));
+  
+  // Fallback to hardcoded values if not found in API
+  const defaultIndices = [
+    { symbol: 'NIFTY 50', price: 19674.25, change: 123.45, changePercent: 0.63 },
+    { symbol: 'SENSEX', price: 65953.48, change: 245.67, changePercent: 0.37 },
+    { symbol: 'BANK NIFTY', price: 45234.80, change: -89.25, changePercent: -0.20 },
+  ];
+  
+  const displayIndices = [
+    nifty50 || defaultIndices[0],
+    sensex || defaultIndices[1],
+    bankNifty || defaultIndices[2],
+  ];
   
   return (
     <View style={styles.indicesContainer}>
@@ -52,42 +70,22 @@ const StockIndices = memo(() => {
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.indicesRow}>
-          <Card padding="medium" style={styles.indexCard}>
-            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>NIFTY 50</Text>
-            <PriceDisplay
-              price={19674.25}
-              change={123.45}
-              changePercent={0.63}
-              size="medium"
-              showSymbol={false}
-              showChange={true}
-              align="center"
-            />
-          </Card>
-          <Card padding="medium" style={styles.indexCard}>
-            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>SENSEX</Text>
-            <PriceDisplay
-              price={65953.48}
-              change={245.67}
-              changePercent={0.37}
-              size="medium"
-              showSymbol={false}
-              showChange={true}
-              align="center"
-            />
-          </Card>
-          <Card padding="medium" style={styles.indexCard}>
-            <Text variant="caption" color="textSecondary" style={styles.indexLabel}>BANK NIFTY</Text>
-            <PriceDisplay
-              price={45234.80}
-              change={-89.25}
-              changePercent={-0.20}
-              size="medium"
-              showSymbol={false}
-              showChange={true}
-              align="center"
-            />
-          </Card>
+          {displayIndices.map((index, i) => (
+            <Card key={i} padding="medium" style={styles.indexCard}>
+              <Text variant="caption" color="textSecondary" style={styles.indexLabel}>
+                {index.symbol}
+              </Text>
+              <PriceDisplay
+                price={index.price}
+                change={index.change}
+                changePercent={index.changePercent}
+                size="medium"
+                showSymbol={false}
+                showChange={true}
+                align="center"
+              />
+            </Card>
+          ))}
         </View>
       </ScrollView>
     </View>
@@ -224,6 +222,7 @@ const SlidingTabContainer = memo(({
 // Individual Tab Content Components - Using FlatList with ListHeaderComponent to avoid nesting
 const StocksTabContent = memo(({ 
   assets,
+  indices,
   onAssetPress, 
   onBuyPress, 
   onSellPress, 
@@ -231,6 +230,7 @@ const StocksTabContent = memo(({
   onFilterPress
 }: {
   assets: AssetItem[];
+  indices: AssetItem[];
   onAssetPress: (asset: AssetItem) => void;
   onBuyPress: (asset: AssetItem) => void;
   onSellPress: (asset: AssetItem) => void;
@@ -248,7 +248,7 @@ const StocksTabContent = memo(({
         {watchlistState.isLoadingIndices ? (
           <SkeletonLoader type="indices" count={3} theme={theme} fast />
         ) : (
-          <StockIndices />
+          <StockIndices indices={indices} />
         )}
       </View>
       
@@ -592,6 +592,7 @@ const WatchlistContent = memo(() => {
     filteredAssets,
     searchResults,
     selectedAssetForDetails,
+    marketIndices,
     setSelectedAssetForDetails,
     setMarketType,
     setExchangeFilter,
@@ -803,33 +804,6 @@ const WatchlistContent = memo(() => {
     return Array.from(exchanges) as StockExchangeFilter[];
   }, [watchlistState.marketType, stocks]);
 
-  // Get market indices for display
-  const marketIndices = useMemo(() => {
-    switch (watchlistState.marketType) {
-      case 'stocks':
-        return {
-          name: 'NIFTY 50',
-          value: 19234.56,
-          change: 145.23,
-          changePercent: 0.76,
-        };
-      case 'forex':
-        return {
-          name: 'USD Index',
-          value: 103.45,
-          change: -0.12,
-          changePercent: -0.12,
-        };
-      case 'crypto':
-        return {
-          name: 'Total Market Cap',
-          value: 1.2e12,
-          change: 25.4e9,
-          changePercent: 2.15,
-        };
-    }
-  }, [watchlistState.marketType]);
-
   // Asset action handlers
   const handleAssetPress = useCallback((asset: AssetItem) => {
     setSelectedAssetForDetails(asset);
@@ -1024,6 +998,7 @@ const WatchlistContent = memo(() => {
         <SlidingTabContainer currentTab={watchlistState.marketType}>
           <StocksTabContent 
             assets={enhancedAssets}
+            indices={marketIndices}
             onAssetPress={handleAssetPress}
             onBuyPress={handleBuyPress}
             onSellPress={handleSellPress}

@@ -33,7 +33,21 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
   const { theme: contextTheme } = useTheme();
   const theme = providedTheme || contextTheme;
   
-  const isPositive = change >= 0;
+  // Calculate change from changePercent if change is 0 or very small
+  let displayChange = change;
+  if (Math.abs(change) < 0.01 && Math.abs(changePercent) > 0.01) {
+    // Calculate change value from percentage: change = (price * changePercent) / 100
+    displayChange = (price * changePercent) / 100;
+    console.log('🔄 Calculated change from percent:', {
+      price,
+      changePercent,
+      calculatedChange: displayChange,
+      originalChange: change
+    });
+  }
+  
+  // Use changePercent to determine color (more reliable than change value)
+  const isPositive = changePercent >= 0;
   const changeColor = isPositive ? theme.colors.success : theme.colors.error;
   
   // Format price with consistent decimal places to prevent layout shifts
@@ -41,16 +55,30 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
     return value.toFixed(2);
   };
   
-  // Format change with consistent formatting
+  // Format change with consistent formatting - preserves sign
   const formatChange = (value: number): string => {
-    const formatted = Math.abs(value).toFixed(2);
-    return isPositive ? `+${formatted}` : `-${formatted}`;
+    const absValue = Math.abs(value);
+    const formatted = absValue.toFixed(2);
+    
+    // If both change and percent are essentially 0, show 0.00
+    if (absValue < 0.01 && Math.abs(changePercent) < 0.01) {
+      return '0.00';
+    }
+    
+    return value >= 0 ? `+${formatted}` : `-${formatted}`;
   };
   
-  // Format percentage with consistent formatting
+  // Format percentage with consistent formatting - preserves sign
   const formatPercent = (value: number): string => {
-    const formatted = Math.abs(value).toFixed(2);
-    return isPositive ? `+${formatted}%` : `-${formatted}%`;
+    const absValue = Math.abs(value);
+    const formatted = absValue.toFixed(2);
+    
+    // If value is 0, just return 0.00% without sign
+    if (absValue < 0.01) {
+      return '0.00%';
+    }
+    
+    return value >= 0 ? `+${formatted}%` : `-${formatted}%`;
   };
 
   const sizeStyles = {
@@ -108,7 +136,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
             }}
             weight="medium"
           >
-            {formatChange(change)}
+            {formatChange(displayChange)}
           </Text>
           <Text 
             style={{
