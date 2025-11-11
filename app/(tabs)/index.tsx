@@ -611,7 +611,7 @@ const WatchlistContent = memo(() => {
 
   // Real-time price updates state
   const [realtimePrices, setRealtimePrices] = React.useState<Map<string, any>>(new Map());
-  const priceUpdateTimeoutRef = React.useRef<any>(null);
+
   
   // Constants for memory management
   const MAX_PRICE_ENTRIES = 1000; // Limit Map size to prevent memory leaks
@@ -725,23 +725,13 @@ const WatchlistContent = memo(() => {
           });
         }
 
-        // Throttle updates to avoid excessive re-renders (max once per 500ms)
-        // Clear any existing timeout first to prevent multiple pending updates
-        if (priceUpdateTimeoutRef.current) {
-          clearTimeout(priceUpdateTimeoutRef.current);
-          priceUpdateTimeoutRef.current = null;
+        // Update prices immediately - React will batch updates automatically
+        if (updateCount > 0) {
+          console.log('✅ Updating real-time prices:', updateCount, 'items updated, Map size:', newPrices.size);
+          setRealtimePrices(newPrices);
+        } else {
+          console.log('⚠️ No price updates to apply');
         }
-
-        priceUpdateTimeoutRef.current = setTimeout(() => {
-          if (updateCount > 0) {
-            console.log('✅ Updating real-time prices:', updateCount, 'items updated, Map size:', newPrices.size);
-            setRealtimePrices(newPrices);
-          } else {
-            console.log('⚠️ No price updates to apply');
-          }
-          // Clear ref after timeout executes
-          priceUpdateTimeoutRef.current = null;
-        }, 500);
       } else {
         console.log('⚠️ WebSocket message does not have Table array');
       }
@@ -750,15 +740,7 @@ const WatchlistContent = memo(() => {
     }
   }, [lastMessage]);
 
-  // Cleanup timeout on unmount
-  React.useEffect(() => {
-    return () => {
-      if (priceUpdateTimeoutRef.current) {
-        clearTimeout(priceUpdateTimeoutRef.current);
-        priceUpdateTimeoutRef.current = null;
-      }
-    };
-  }, []);
+
   
   // Periodic cleanup of old price entries every 2 minutes
   React.useEffect(() => {
@@ -795,24 +777,39 @@ const WatchlistContent = memo(() => {
     }
 
     return filteredAssets.map(asset => {
-      // Try to find real-time data by matching with InstrumentToken
-      // We need to map symbols to instrument tokens - for now we'll check by symbol matching
+      // Skip real-time updates for crypto and forex as they use different data sources
+      // Crypto uses Binance API with 24h change data
+      // Forex uses forex service with its own update mechanism
+      if (asset.exchange === 'CRYPTO' || asset.exchange === 'Crypto' || 
+          asset.exchange === 'Forex' || asset.exchange === 'FOREX') {
+        // Debug log crypto/forex data
+        if (asset.exchange === 'CRYPTO' || asset.exchange === 'Crypto') {
+          console.log(`💰 Crypto asset preserved: ${asset.symbol}`, {
+            price: asset.price,
+            change: asset.change,
+            changePercent: asset.changePercent,
+          });
+        }
+        // Return asset as-is with its original change data from API
+        return asset;
+      }
+
+      // For stocks: Try to find real-time data by matching with InstrumentToken
       let realtimeData = null;
       
-      // Look for real-time data - we might need to maintain a mapping
-      // For now, let's try to find by matching some pattern or create a mapping
+      // Try to match by scriptCode, intWID, or other identifiers
       for (const [instrumentToken, priceData] of realtimePrices) {
-        // This is a placeholder logic - you'll need to implement proper mapping
-        // based on how your symbols relate to instrument tokens
+        // Match by various possible identifiers
         if (asset.scriptCode?.toString() === instrumentToken || 
-            asset.intWID?.toString() === instrumentToken) {
+            asset.intWID?.toString() === instrumentToken ||
+            asset.instrumentToken?.toString() === instrumentToken) {
           realtimeData = priceData;
           break;
         }
       }
 
       if (realtimeData) {
-        // Merge real-time data with asset
+        // Merge real-time data with asset (stocks only)
         return {
           ...asset,
           price: realtimeData.lastPrice,
@@ -831,6 +828,7 @@ const WatchlistContent = memo(() => {
         };
       }
 
+      // Return original asset if no real-time data found
       return asset;
     });
   }, [filteredAssets, realtimePrices]);

@@ -134,8 +134,8 @@ class BinanceService {
   private updateInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    // Disabled live updates for static charts until API integration
-    // this.startLiveUpdates();
+    // Enable live updates for real-time crypto price changes
+    this.startLiveUpdates();
   }
 
   /**

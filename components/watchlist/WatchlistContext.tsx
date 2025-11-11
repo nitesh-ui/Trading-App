@@ -183,6 +183,15 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Crypto
     const cryptoUnsubscribe = binanceService.subscribe((updatedPairs) => {
+      console.log('💰 Crypto pairs updated from binanceService:', updatedPairs.length, 'pairs');
+      if (updatedPairs.length > 0) {
+        console.log('💰 Sample crypto data:', {
+          symbol: updatedPairs[0].symbol,
+          price: updatedPairs[0].price,
+          change24h: updatedPairs[0].change24h,
+          changePercent24h: updatedPairs[0].changePercent24h,
+        });
+      }
       setCryptoPairs(updatedPairs);
     });
 
@@ -224,9 +233,34 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             stock.exchange === watchlistState.exchangeFilter
           );
         case 'forex':
-          return categorized.forex;
+          // ALWAYS use live forex data from forexService, not static API data
+          // This ensures real-time price and change updates for forex pairs
+          return forexPairs.map(pair => ({
+            symbol: pair.symbol,
+            name: pair.name,
+            exchange: 'Forex',
+            price: pair.price,
+            change: pair.change,
+            changePercent: pair.changePercent,
+            high: pair.high,
+            low: pair.low,
+            volume: pair.volume,
+          }));
         case 'crypto':
-          return categorized.crypto;
+          // ALWAYS use live crypto data from binanceService, not static API data
+          // This ensures real-time price and change updates for crypto
+          return cryptoPairs.map(pair => ({
+            symbol: pair.symbol,
+            name: pair.name,
+            exchange: 'Crypto',
+            price: pair.price,
+            change: pair.change24h || 0,
+            changePercent: pair.changePercent24h || 0,
+            volume: pair.volume24h || 0,
+            marketCap: pair.marketCap || 0,
+            high: pair.price * 1.05,
+            low: pair.price * 0.95,
+          }));
         default:
           return [...categorized.stocks, ...categorized.commodities];
       }

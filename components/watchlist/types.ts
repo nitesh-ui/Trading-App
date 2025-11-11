@@ -26,6 +26,7 @@ export interface AssetItem {
   // API-specific fields for trading operations
   scriptCode?: number;
   intWID?: number;
+  instrumentToken?: string | number;
   // Real-time WebSocket data fields
   bid?: number;
   ask?: number;

@@ -249,10 +249,9 @@ export const forexService = {
     forexSubscribers.push(callback);
     
     // Start simulation when first subscriber joins
-    // Disabled for static data during development
-    // if (forexSubscribers.length === 1) {
-    //   startForexSimulation();
-    // }
+    if (forexSubscribers.length === 1) {
+      startForexSimulation();
+    }
     
     // Return unsubscribe function
     return () => {
@@ -261,11 +260,10 @@ export const forexService = {
         forexSubscribers.splice(index, 1);
       }
       
-      // Stop simulation when no subscribers left
-      // Disabled for static data during development
-      // if (forexSubscribers.length === 0) {
-      //   stopForexSimulation();
-      // }
+      // Stop simulation when no subscribers left (cleanup)
+      if (forexSubscribers.length === 0) {
+        stopForexSimulation();
+      }
     };
   },
   
