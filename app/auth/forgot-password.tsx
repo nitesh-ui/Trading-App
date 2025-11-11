@@ -86,7 +86,8 @@ export default function ForgotPasswordScreen() {
 
       const result = await tradingApiService.sendForgotPasswordOtp({
         email: form.identifier,
-        domainURL: 'uat.sanaitatechnologies.com'
+        // domainURL: 'uat.sanaitatechnologies.com'
+        domainURL: 'demo.sanaitatechnologies.com'
       });
 
       if (result.success) {

@@ -70,7 +70,7 @@ export interface AddScriptRequest {
 }
 
 class WatchlistApiService {
-  private readonly baseUrl = 'https://tradingapi.sanaitatechnologies.com';
+  private readonly baseUrl = 'https://prod_tradingapi.sanaitatechnologies.com';
   private unauthorizedHandler?: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>;
 
   /**
@@ -542,37 +542,37 @@ class WatchlistApiService {
       });
       apiCalls.push(watchlistCall);
 
-      // 2. Forex API call (if exchange is 'all', 'forex', or empty)
-      const shouldFetchForex = !exchange || exchange === '' || exchange.toLowerCase() === 'all' || exchange.toLowerCase() === 'forex';
-      let forexCall: Promise<any> | null = null;
+      // 2. Forex API call - COMMENTED OUT as main API now supports forex
+      // const shouldFetchForex = !exchange || exchange === '' || exchange.toLowerCase() === 'all' || exchange.toLowerCase() === 'forex';
+      // let forexCall: Promise<any> | null = null;
       
-      if (shouldFetchForex && query && query.length >= 2) {
-        console.log('🔍 Fetching forex data from Polygon API for query:', query);
-        forexCall = fetch(
-          `https://api.polygon.io/v3/reference/tickers?market=fx&search=${encodeURIComponent(query)}&active=true&order=asc&limit=100&sort=ticker&apiKey=4wqkqLIE5GW8YhLTXGcPE15V8z8EL0aK`
-        )
-          .then(response => {
-            if (!response.ok) {
-              console.warn('⚠️ Forex API request failed:', response.status);
-              return null;
-            }
-            return response.json();
-          })
-          .catch(error => {
-            console.error('❌ Error fetching forex data:', error);
-            return null;
-          });
-        apiCalls.push(forexCall);
-      }
+      // if (shouldFetchForex && query && query.length >= 2) {
+      //   console.log('🔍 Fetching forex data from Polygon API for query:', query);
+      //   forexCall = fetch(
+      //     `https://api.polygon.io/v3/reference/tickers?market=fx&search=${encodeURIComponent(query)}&active=true&order=asc&limit=100&sort=ticker&apiKey=4wqkqLIE5GW8YhLTXGcPE15V8z8EL0aK`
+      //   )
+      //     .then(response => {
+      //       if (!response.ok) {
+      //         console.warn('⚠️ Forex API request failed:', response.status);
+      //         return null;
+      //       }
+      //       return response.json();
+      //     })
+      //     .catch(error => {
+      //       console.error('❌ Error fetching forex data:', error);
+      //       return null;
+      //     });
+      //   apiCalls.push(forexCall);
+      // }
 
       // Execute all API calls in parallel
-      const [watchlistData, forexData] = await Promise.all(apiCalls);
+      const [watchlistData] = await Promise.all(apiCalls);
+      const forexData = null; // Forex data now comes from main API
 
       console.log('✅ Search API Response:', {
         message: watchlistData.message,
         watchlistItems: watchlistData.data?.objLstWatchList?.length || 0,
-        availableToAdd: watchlistData.data?.watchlistDataForAdd?.length || 0,
-        forexItems: forexData?.results?.length || 0
+        availableToAdd: watchlistData.data?.watchlistDataForAdd?.length || 0
       });
 
       const results: SearchResult[] = [];
@@ -601,14 +601,15 @@ class WatchlistApiService {
         results.push(...availableResults);
       }
 
-      // Add forex data from Polygon API
-      if (forexData && forexData.results && forexData.results.length > 0) {
-        const forexResults = this.transformPolygonForexToSearchResults(forexData.results);
-        results.push(...forexResults);
-        console.log('✅ Added', forexResults.length, 'forex results from Polygon API');
-      }
+      // COMMENTED OUT: Forex data now comes directly from main API
+      // // Add forex data from Polygon API
+      // if (forexData && forexData.results && forexData.results.length > 0) {
+      //   const forexResults = this.transformPolygonForexToSearchResults(forexData.results);
+      //   results.push(...forexResults);
+      //   console.log('✅ Added', forexResults.length, 'forex results from Polygon API');
+      // }
 
-      console.log('✅ Combined search results:', results.length, 'items');
+      console.log('✅ Search results from main API:', results.length, 'items');
       return results;
       
     } catch (error) {

@@ -143,7 +143,8 @@ export default function RegisterScreen() {
         mobilenumber: form.mobile,
         password: form.password,
         confirmPassword: form.confirmPassword,
-        domainURL: 'uat.sanaitatechnologies.com',
+        // domainURL: 'uat.sanaitatechnologies.com',
+        domainURL: 'demo.sanaitatechnologies.com',
         sponserId: form.sponserId || 'NEW'
       });
 

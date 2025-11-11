@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sessionManager } from './sessionManager';
 
-const API_BASE_URL = 'https://tradingapi.sanaitatechnologies.com';
+const API_BASE_URL = 'https://prod_tradingapi.sanaitatechnologies.com';
 
 export interface LoginRequest {
   emailOrUsername: string;
@@ -468,7 +468,8 @@ class TradingApiService {
       const requestBody: LoginRequest = {
         emailOrUsername: credentials.emailOrUsername,
         password: credentials.password,
-        domainURL: 'uat.sanaitatechnologies.com',
+       // domainURL: 'uat.sanaitatechnologies.com',
+        domainURL: 'demo.sanaitatechnologies.com',
         user_Location: '',
         ipAddess: ''
       };
@@ -725,7 +726,8 @@ class TradingApiService {
       const testBody = {
         emailOrUsername: 'test',
         password: 'test',
-        domainURL: 'uat.sanaitatechnologies.com',
+        // domainURL: 'uat.sanaitatechnologies.com',
+        domainURL: 'demo.sanaitatechnologies.com',
         user_Location: '',
         ipAddess: ''
       };
@@ -939,7 +941,8 @@ class TradingApiService {
         mobilenumber: data.mobilenumber,
         password: data.password,
         confirmPassword: data.confirmPassword,
-        domainURL: data.domainURL || 'uat.sanaitatechnologies.com',
+        // domainURL: data.domainURL || 'uat.sanaitatechnologies.com',
+        domainURL: data.domainURL || 'demo.sanaitatechnologies.com',
         sponserId: data.sponserId
       };
 
@@ -1751,13 +1754,15 @@ class TradingApiService {
         CurrentPosition: request.CurrentPosition
       });
 
-      console.log('🚀 GetRequiredMargin API Request:', {
-        url: `https://uat.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
-        method: 'GET'
-      });
+      // const response = await this.makeAuthenticatedRequest(
+      //   `https://uat.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
+      //   {
+      //     method: 'GET'
+      //   }
+      // );
 
       const response = await this.makeAuthenticatedRequest(
-        `https://uat.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
+        `https://demo.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
         {
           method: 'GET'
         }
