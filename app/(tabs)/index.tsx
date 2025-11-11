@@ -804,6 +804,20 @@ const WatchlistContent = memo(() => {
     return Array.from(exchanges) as StockExchangeFilter[];
   }, [watchlistState.marketType, stocks]);
 
+  // Keep the selected asset updated with real-time data
+  const selectedAssetWithRealTimeData = useMemo(() => {
+    if (!selectedAssetForDetails) return null;
+    
+    // Find the updated asset in enhancedAssets
+    const updatedAsset = enhancedAssets.find(
+      asset => asset.symbol === selectedAssetForDetails.symbol && 
+               asset.exchange === selectedAssetForDetails.exchange
+    );
+    
+    // Return updated asset if found, otherwise return the original
+    return updatedAsset || selectedAssetForDetails;
+  }, [selectedAssetForDetails, enhancedAssets]);
+
   // Asset action handlers
   const handleAssetPress = useCallback((asset: AssetItem) => {
     setSelectedAssetForDetails(asset);
@@ -1025,7 +1039,7 @@ const WatchlistContent = memo(() => {
       {/* Unified Drawer - handles asset details only, trading moved to TradePage */}
       <UnifiedDrawer
         visible={!!selectedAssetForDetails}
-        asset={selectedAssetForDetails}
+        asset={selectedAssetWithRealTimeData}
         marketType={watchlistState.marketType}
         drawerType="asset-details"
         availableBalance={availableBalance}

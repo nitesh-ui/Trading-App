@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { Text, Card } from '../atomic';
-import { CandlestickChart } from '../trading';
+import { CandlestickChart, PriceDisplay } from '../trading';
 import { AssetItem, MarketType, TradeState } from './types';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
 import TradingDrawer from './TradingDrawer';
@@ -184,35 +184,50 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
     
     if (marketType === 'stocks') {
       // Calculate derived values only if we have the necessary data
-      const prevClose = asset.price - (asset.change || 0);
+      // Use previousClose if available from real-time data, otherwise calculate
+      const prevClose = asset.previousClose || (asset.price - (asset.change || 0));
       
-      // Only show Open if we have high/low data to calculate a reasonable estimate
-      if (asset.high !== undefined && asset.high !== null && asset.low !== undefined && asset.low !== null) {
-        const open = asset.high - Math.abs(asset.change || 0) * 0.5;
-        stats.push({ label: 'Open', value: formatPrice(open) });
+      // Open - from real-time data or calculate estimate
+      const openPrice = asset.open || (asset.high && asset.low ? (asset.high + asset.low) / 2 : null);
+      if (openPrice !== undefined && openPrice !== null) {
+        stats.push({ label: 'Open', value: formatPrice(openPrice) });
       }
       
-      // High - only show if available from API
+      // High - only show if available from API or real-time
       if (asset.high !== undefined && asset.high !== null) {
         stats.push({ label: 'High', value: formatPrice(asset.high) });
       }
       
-      // Low - only show if available from API
+      // Low - only show if available from API or real-time
       if (asset.low !== undefined && asset.low !== null) {
         stats.push({ label: 'Low', value: formatPrice(asset.low) });
       }
       
-      // Previous Close - always show as we can calculate it
+      // Previous Close - always show
       stats.push({ label: 'Prev Close', value: formatPrice(prevClose) });
       
-      // Volume - only show if provided by API
-      if (asset.volume !== undefined && asset.volume !== null) {
+      // Volume - only show if provided by API or real-time
+      if (asset.volume !== undefined && asset.volume !== null && asset.volume > 0) {
         stats.push({ label: 'Volume', value: `${(asset.volume / 100000).toFixed(1)}L` });
       }
       
       // Market Cap - only show if provided by API
-      if (asset.marketCap !== undefined && asset.marketCap !== null) {
+      if (asset.marketCap !== undefined && asset.marketCap !== null && asset.marketCap > 0) {
         stats.push({ label: 'Market Cap', value: `₹${(asset.marketCap / 1e7).toFixed(1)}L Cr` });
+      }
+      
+      // Real-time specific data (if available from WebSocket)
+      if (asset.bid !== undefined && asset.bid !== null && asset.bid > 0) {
+        stats.push({ label: 'Bid', value: formatPrice(asset.bid) });
+      }
+      if (asset.ask !== undefined && asset.ask !== null && asset.ask > 0) {
+        stats.push({ label: 'Ask', value: formatPrice(asset.ask) });
+      }
+      
+      // Last updated timestamp (for real-time data)
+      if (asset.lastUpdated) {
+        const lastUpdateTime = new Date(asset.lastUpdated).toLocaleTimeString();
+        stats.push({ label: 'Last Updated', value: lastUpdateTime });
       }
       
     } else if (marketType === 'forex') {
@@ -340,18 +355,21 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                     {asset.name}
                   </Text>
 
-                  {/* Price Section */}
+                  {/* Price Section - Using PriceDisplay for real-time updates */}
                   <Card padding="medium" style={styles.priceCard}>
                     <View style={styles.priceSection}>
-                      <Text variant="display" weight="bold" color="text">
-                        {formatPrice(asset.price)}
-                      </Text>
-                      <View style={[styles.changeContainer, { backgroundColor: changeColor + '20' }]}>
-                        <Ionicons name={changeIcon} size={16} color={changeColor} />
-                        <Text variant="body" weight="medium" style={{ color: changeColor, marginLeft: 6 }}>
-                          {asset.change >= 0 ? '+' : ''}{formatPrice(asset.change)} ({asset.changePercent.toFixed(2)}%)
-                        </Text>
-                      </View>
+                      <PriceDisplay
+                        price={asset.price}
+                        change={asset.change}
+                        changePercent={asset.changePercent}
+                        size="large"
+                        showCurrency={marketType === 'stocks'}
+                        currencySymbol={marketType === 'stocks' ? '₹' : '$'}
+                        showSymbol={true}
+                        showChange={true}
+                        align="left"
+                        theme={theme}
+                      />
                     </View>
                   </Card>
 
