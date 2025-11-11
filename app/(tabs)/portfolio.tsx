@@ -8,7 +8,6 @@ import { StockCardSkeleton } from '../../components/LoadingComponents';
 import NotificationsPage from '../../components/ui/NotificationsPage';
 import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import WalletPage from '../../components/ui/WalletPage';
-import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useRenderPerformance } from '../../hooks/usePerformance';
 import { queryKeys } from '../../services/queryClient';
@@ -195,7 +194,6 @@ MemoizedHoldingCard.displayName = 'MemoizedHoldingCard';
 
 export default function PortfolioScreen() {
   const { theme } = useTheme();
-  const { showNotification } = useNotification();
   
   // Performance monitoring
   useRenderPerformance('PortfolioScreen');
@@ -203,8 +201,11 @@ export default function PortfolioScreen() {
   // Modal states
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
+  
+  // Real-time polling state
+  const [isPollingEnabled, setIsPollingEnabled] = useState(true);
 
-  // React Query for optimized data fetching
+  // React Query for optimized data fetching with real-time polling
   const { 
     data: holdings = [], 
     isLoading: holdingsLoading, 
@@ -212,11 +213,18 @@ export default function PortfolioScreen() {
     isRefetching: holdingsRefetching 
   } = useQuery({
     queryKey: queryKeys.userPortfolio(),
-    queryFn: portfolioService.getHoldings,
-    staleTime: 30 * 1000, // 30 seconds
+    queryFn: async () => {
+      if (isPollingEnabled) {
+        console.log('🔄 [Portfolio] Polling holdings data...');
+      }
+      return portfolioService.getHoldings();
+    },
+    staleTime: 0, // Always fetch fresh data
+    refetchInterval: isPollingEnabled ? 500 : false, // Poll every 500ms when enabled
+    refetchIntervalInBackground: false, // Don't poll in background
   });
 
-  // Separate wallet balance query for immediate refresh
+  // Separate wallet balance query for immediate refresh with polling
   const {
     data: walletBalance,
     isLoading: walletLoading,
@@ -229,6 +237,8 @@ export default function PortfolioScreen() {
       return response.data?.amount || '0';
     },
     staleTime: 0, // Always fetch fresh data
+    refetchInterval: isPollingEnabled ? 500 : false, // Poll every 500ms when enabled
+    refetchIntervalInBackground: false,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
@@ -257,7 +267,9 @@ export default function PortfolioScreen() {
         walletBalance: walletBalance || '0',
       };
     },
-    staleTime: 30 * 1000,
+    staleTime: 0,
+    refetchInterval: isPollingEnabled ? 500 : false, // Poll every 500ms when enabled
+    refetchIntervalInBackground: false,
     enabled: !!walletBalance, // Only run when wallet balance is available
   });
 
@@ -315,11 +327,37 @@ export default function PortfolioScreen() {
               <Text variant="headline" weight="bold" color="text">
                 Portfolio
               </Text>
-              <Text variant="body" color="textSecondary">
-                Track your investments
-              </Text>
+              {/* Real-time indicator */}
+              <View style={styles.realtimeIndicator}>
+                <View style={[
+                  styles.realtimeDot, 
+                  { backgroundColor: isPollingEnabled ? theme.colors.success : theme.colors.textSecondary }
+                ]} />
+                <Text variant="caption" color="textSecondary">
+                  {isPollingEnabled ? 'Live' : 'Paused'}
+                </Text>
+              </View>
             </View>
             <View style={styles.headerRight}>
+              {/* Polling toggle button */}
+              <TouchableOpacity 
+                style={[
+                  styles.actionButton, 
+                  { 
+                    backgroundColor: isPollingEnabled ? theme.colors.success + '20' : theme.colors.surface,
+                    borderColor: isPollingEnabled ? theme.colors.success : theme.colors.border,
+                    borderWidth: 1 
+                  }
+                ]} 
+                onPress={() => setIsPollingEnabled(!isPollingEnabled)}
+              >
+                <Ionicons 
+                  name={isPollingEnabled ? "pulse" : "pause"} 
+                  size={20} 
+                  color={isPollingEnabled ? theme.colors.success : theme.colors.textSecondary} 
+                />
+              </TouchableOpacity>
+              
               <TouchableOpacity 
                 style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]} 
                 onPress={handleWalletPress}
@@ -491,6 +529,17 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+  },
+  realtimeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  realtimeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   headerRight: {
     flexDirection: 'row',

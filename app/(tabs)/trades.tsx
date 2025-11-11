@@ -272,8 +272,11 @@ export default function TradesScreen() {
   // Modal states
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
+  
+  // Real-time polling state
+  const [isPollingEnabled, setIsPollingEnabled] = useState(true);
 
-  // React Query for optimized data fetching
+  // React Query for optimized data fetching with real-time polling
   const { 
     data: trades = [], 
     isLoading, 
@@ -282,7 +285,10 @@ export default function TradesScreen() {
   } = useQuery({
     queryKey: queryKeys.userTrades(),
     queryFn: tradesService.getTrades,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 0, // Always consider data stale for real-time updates
+    refetchInterval: isPollingEnabled ? 500 : false, // Poll every 500ms when enabled
+    refetchIntervalInBackground: false, // Don't poll when app is in background
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
   // Refresh trades data when screen is focused (e.g., after executing a trade)
@@ -292,6 +298,18 @@ export default function TradesScreen() {
       refetch();
     }, [refetch])
   );
+
+  // Log polling status changes
+  React.useEffect(() => {
+    console.log(`📊 Trades polling ${isPollingEnabled ? 'ENABLED' : 'DISABLED'} - Refresh interval: ${isPollingEnabled ? '500ms' : 'OFF'}`);
+  }, [isPollingEnabled]);
+
+  // Log data updates
+  React.useEffect(() => {
+    if (trades.length > 0) {
+      console.log(`✅ Trades data updated: ${trades.length} trades loaded`);
+    }
+  }, [trades]);
 
   // Memoized filtered data
   const filteredTrades = useMemo(() => {
@@ -485,6 +503,10 @@ export default function TradesScreen() {
     setIsWalletPageVisible(false);
   }, []);
 
+  const togglePolling = useCallback(() => {
+    setIsPollingEnabled(prev => !prev);
+  }, [isPollingEnabled, showNotification]);
+
   const onRefresh = useCallback(() => {
     refetch();
   }, [refetch]);
@@ -542,8 +564,37 @@ export default function TradesScreen() {
               <Text variant="headline" weight="bold" color="text">
                 Trades
               </Text>
+              {/* Real-time indicator */}
+              <View style={styles.realtimeIndicator}>
+                <View style={[
+                  styles.realtimeDot, 
+                  { backgroundColor: isPollingEnabled ? theme.colors.success : theme.colors.textSecondary }
+                ]} />
+                <Text variant="caption" color="textSecondary">
+                  {isPollingEnabled ? 'Live' : 'Paused'}
+                </Text>
+              </View>
             </View>
             <View style={styles.headerRight}>
+              {/* Polling toggle button */}
+              <TouchableOpacity 
+                style={[
+                  styles.actionButton, 
+                  { 
+                    backgroundColor: isPollingEnabled ? theme.colors.success + '20' : theme.colors.surface,
+                    borderColor: isPollingEnabled ? theme.colors.success : theme.colors.border,
+                    borderWidth: 1 
+                  }
+                ]} 
+                onPress={togglePolling}
+              >
+                <Ionicons 
+                  name={isPollingEnabled ? "pulse" : "pause"} 
+                  size={20} 
+                  color={isPollingEnabled ? theme.colors.success : theme.colors.textSecondary} 
+                />
+              </TouchableOpacity>
+              
               <TouchableOpacity 
                 style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]} 
                 onPress={handleWalletPress}
@@ -663,6 +714,17 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+  },
+  realtimeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  realtimeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   headerRight: {
     flexDirection: 'row',
