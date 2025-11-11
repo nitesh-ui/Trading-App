@@ -8,6 +8,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { indianStockService } from './indianStockService';
 import { forexService } from './forexService';
 import { sessionExpiryHandler } from './sessionExpiryHandler';
+import { logger } from '@/utils/logger';
 
 // Create query client with optimized defaults for mobile and session handling
 export const queryClient = new QueryClient({
@@ -66,7 +67,7 @@ let unsubscribe: (() => void) | null = null;
 
 export const setupNetworkListener = () => {
   unsubscribe = NetInfo.addEventListener((state) => {
-    console.log('📶 Network state changed:', {
+    logger.log('Network state changed:', {
       isConnected: state.isConnected,
       type: state.type,
       isInternetReachable: state.isInternetReachable,

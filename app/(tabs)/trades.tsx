@@ -275,8 +275,10 @@ export default function TradesScreen() {
   
   // Real-time polling state
   const [isPollingEnabled, setIsPollingEnabled] = useState(true);
+  const [isScreenFocused, setIsScreenFocused] = useState(false);
 
   // React Query for optimized data fetching with real-time polling
+  // Only poll when screen is focused AND polling is enabled
   const { 
     data: trades = [], 
     isLoading, 
@@ -286,23 +288,30 @@ export default function TradesScreen() {
     queryKey: queryKeys.userTrades(),
     queryFn: tradesService.getTrades,
     staleTime: 0, // Always consider data stale for real-time updates
-    refetchInterval: isPollingEnabled ? 500 : false, // Poll every 500ms when enabled
+    refetchInterval: (isPollingEnabled && isScreenFocused) ? 2000 : false, // Only poll when screen is focused and enabled
     refetchIntervalInBackground: false, // Don't poll when app is in background
     refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
-  // Refresh trades data when screen is focused (e.g., after executing a trade)
+  // Track screen focus state and refresh data when screen is focused
   useFocusEffect(
     useCallback(() => {
-      console.log('🔄 Trades screen focused, refreshing data');
+      console.log('🔄 Trades screen focused, enabling polling and refreshing data');
+      setIsScreenFocused(true);
       refetch();
+      
+      return () => {
+        console.log('⏸️ Trades screen unfocused, disabling polling');
+        setIsScreenFocused(false);
+      };
     }, [refetch])
   );
 
   // Log polling status changes
   React.useEffect(() => {
-    console.log(`📊 Trades polling ${isPollingEnabled ? 'ENABLED' : 'DISABLED'} - Refresh interval: ${isPollingEnabled ? '500ms' : 'OFF'}`);
-  }, [isPollingEnabled]);
+    const isActive = isPollingEnabled && isScreenFocused;
+    console.log(`📊 Trades polling ${isActive ? 'ACTIVE' : 'INACTIVE'} - User toggle: ${isPollingEnabled ? 'ON' : 'OFF'}, Screen: ${isScreenFocused ? 'FOCUSED' : 'UNFOCUSED'}`);
+  }, [isPollingEnabled, isScreenFocused]);
 
   // Log data updates
   React.useEffect(() => {

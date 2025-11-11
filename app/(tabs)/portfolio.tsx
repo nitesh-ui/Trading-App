@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import React, { memo, Suspense, useCallback, useState } from 'react';
 import { Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -204,6 +205,20 @@ export default function PortfolioScreen() {
   
   // Real-time polling state
   const [isPollingEnabled, setIsPollingEnabled] = useState(true);
+  const [isScreenFocused, setIsScreenFocused] = useState(false);
+
+  // Track screen focus to control polling
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📈 [Portfolio] Screen focused - enabling polling');
+      setIsScreenFocused(true);
+      
+      return () => {
+        console.log('📉 [Portfolio] Screen unfocused - disabling polling');
+        setIsScreenFocused(false);
+      };
+    }, [])
+  );
 
   // React Query for optimized data fetching with real-time polling
   const { 
@@ -214,13 +229,13 @@ export default function PortfolioScreen() {
   } = useQuery({
     queryKey: queryKeys.userPortfolio(),
     queryFn: async () => {
-      if (isPollingEnabled) {
+      if (isPollingEnabled && isScreenFocused) {
         console.log('🔄 [Portfolio] Polling holdings data...');
       }
       return portfolioService.getHoldings();
     },
     staleTime: 0, // Always fetch fresh data
-    refetchInterval: isPollingEnabled ? 500 : false, // Poll every 500ms when enabled
+    refetchInterval: (isPollingEnabled && isScreenFocused) ? 2000 : false, // Poll only when enabled AND screen is focused
     refetchIntervalInBackground: false, // Don't poll in background
   });
 
@@ -237,7 +252,7 @@ export default function PortfolioScreen() {
       return response.data?.amount || '0';
     },
     staleTime: 0, // Always fetch fresh data
-    refetchInterval: isPollingEnabled ? 500 : false, // Poll every 500ms when enabled
+    refetchInterval: (isPollingEnabled && isScreenFocused) ? 2000 : false, // Poll only when enabled AND screen is focused
     refetchIntervalInBackground: false,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
@@ -268,7 +283,7 @@ export default function PortfolioScreen() {
       };
     },
     staleTime: 0,
-    refetchInterval: isPollingEnabled ? 500 : false, // Poll every 500ms when enabled
+    refetchInterval: (isPollingEnabled && isScreenFocused) ? 2000 : false, // Poll only when enabled AND screen is focused
     refetchIntervalInBackground: false,
     enabled: !!walletBalance, // Only run when wallet balance is available
   });
