@@ -617,8 +617,17 @@ const WatchlistContent = memo(() => {
     if (lastMessage && lastMessage.data) {
       const { data } = lastMessage;
       
+      console.log('🔄 Processing WebSocket message in watchlist:', {
+        hasData: !!data,
+        hasTable: !!data.Table,
+        hasTable1: !!data.Table1,
+        tableLength: data.Table?.length || 0,
+        table1Length: data.Table1?.length || 0,
+      });
+      
       // Process the WebSocket data structure: { Table: [...], Table1: [...] }
       if (data.Table && Array.isArray(data.Table)) {
+        console.log('✅ Processing Table with', data.Table.length, 'items');
         
         // Batch update prices to avoid too many re-renders
         const newPrices = new Map(realtimePrices);
@@ -692,10 +701,17 @@ const WatchlistContent = memo(() => {
 
         priceUpdateTimeoutRef.current = setTimeout(() => {
           if (updateCount > 0) {
+            console.log('✅ Updating real-time prices:', updateCount, 'items updated');
             setRealtimePrices(newPrices);
+          } else {
+            console.log('⚠️ No price updates to apply');
           }
         }, 500);
+      } else {
+        console.log('⚠️ WebSocket message does not have Table array');
       }
+    } else {
+      console.log('⚠️ WebSocket lastMessage is empty or has no data');
     }
   }, [lastMessage]);
 

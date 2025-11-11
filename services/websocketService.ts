@@ -1,7 +1,22 @@
 /**
  * WebSocket Service for real-time trading data
  * Handles connection to wss://uat.sanaitatechnologies.com/ws
+ * 
+ * IMPORTANT DEBUGGING NOTES:
+ * 1. Check browser console for WebSocket connection logs (🔌, ✅, ❌ emojis)
+ * 2. WebSocket now includes session token in connection URL as query parameter
+ * 3. After connection, a subscription message is sent to request market data
+ * 4. All incoming messages are logged with 📨 emoji
+ * 5. Subscription management is logged with ✅ emoji
+ * 
+ * TROUBLESHOOTING:
+ * - If "No session token available": User must be logged in first
+ * - If "Connection timeout": Check network/firewall, server might be down
+ * - If messages received but prices not updating: Check InstrumentToken mapping in index.tsx
+ * - Expected message format: { Table: [...], Table1: [...] } or { type: 'market_data', data: {...} }
  */
+
+import { tradingApiService } from './tradingApiService';
 
 export interface WebSocketMessage {
   type: string;
@@ -22,9 +37,10 @@ class WebSocketService {
   private maxReconnectAttempts = 5;
   private reconnectInterval = 5000; // 5 seconds
   private heartbeatInterval: any = null;
-  private url = 'wss://uat.sanaitatechnologies.com/ws';
+  private url = 'wss:/demo.sanaitatechnologies.com/ws';
   private isConnecting = false;
   private shouldReconnect = true;
+  private sessionToken: string | null = null;
 
   static getInstance(): WebSocketService {
     if (!WebSocketService.instance) {
@@ -38,17 +54,33 @@ class WebSocketService {
    */
   async connect(): Promise<boolean> {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      console.log('✅ WebSocket already connected');
       return true;
     }
 
     if (this.isConnecting) {
+      console.log('⏳ WebSocket connection already in progress');
       return false;
     }
 
     try {
+      // Get session token from trading API service
+      const sessionData = await tradingApiService.getSessionData();
+      if (!sessionData?.sessionToken) {
+        console.error('❌ No session token available for WebSocket connection');
+        return false;
+      }
+
+      this.sessionToken = sessionData.sessionToken;
+      console.log('🔑 WebSocket connecting with session token:', this.sessionToken ? '***TOKEN***' : 'None');
+
       this.isConnecting = true;
 
-      this.ws = new WebSocket(this.url);
+      // Add session token as query parameter or header
+      const wsUrlWithAuth = `${this.url}?token=${encodeURIComponent(this.sessionToken || '')}`;
+      console.log('🔌 Connecting to WebSocket:', wsUrlWithAuth.replace(this.sessionToken || '', '***TOKEN***'));
+
+      this.ws = new WebSocket(wsUrlWithAuth);
 
       return new Promise((resolve, reject) => {
         if (!this.ws) {
@@ -57,17 +89,24 @@ class WebSocketService {
         }
 
         this.ws.onopen = (event) => {
+          console.log('✅ WebSocket connected successfully');
           this.isConnecting = false;
           this.reconnectAttempts = 0;
+          
+          // Send subscription message after connection
+          this.sendSubscriptionMessage();
+          
           this.startHeartbeat();
           resolve(true);
         };
 
         this.ws.onmessage = (event) => {
+          console.log('📨 WebSocket message received:', event.data?.substring(0, 200));
           this.handleMessage(event.data);
         };
 
         this.ws.onclose = (event) => {
+          console.log('🔌 WebSocket closed:', event.code, event.reason);
           this.isConnecting = false;
           this.stopHeartbeat();
           
@@ -77,6 +116,7 @@ class WebSocketService {
         };
 
         this.ws.onerror = (error) => {
+          console.error('❌ WebSocket error:', error);
           this.isConnecting = false;
           reject(error);
         };
@@ -84,6 +124,7 @@ class WebSocketService {
         // Connection timeout
         setTimeout(() => {
           if (this.ws?.readyState !== WebSocket.OPEN) {
+            console.error('❌ WebSocket connection timeout');
             this.ws?.close();
             this.isConnecting = false;
             reject(new Error('Connection timeout'));
@@ -91,9 +132,30 @@ class WebSocketService {
         }, 10000); // 10 second timeout
       });
     } catch (error) {
+      console.error('❌ WebSocket connection error:', error);
       this.isConnecting = false;
       throw error;
     }
+  }
+
+  /**
+   * Send subscription message to request real-time data
+   */
+  private sendSubscriptionMessage(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('❌ Cannot send subscription: WebSocket not connected');
+      return;
+    }
+
+    // Send subscription request - adjust this based on your API requirements
+    const subscriptionMessage = {
+      type: 'subscribe',
+      channels: ['market_data', 'price_updates', 'trades'],
+      timestamp: Date.now()
+    };
+
+    console.log('📤 Sending subscription message:', subscriptionMessage);
+    this.send(subscriptionMessage);
   }
 
   /**
@@ -116,18 +178,29 @@ class WebSocketService {
    */
   private handleMessage(data: string): void {
     try {
+      console.log('📨 Raw WebSocket message received (first 300 chars):', data.substring(0, 300));
       
       let message: WebSocketMessage;
       
       // Try to parse as JSON
       try {
         const parsed = JSON.parse(data);
-        message = {
+        console.log('✅ WebSocket message parsed successfully:', {
           type: parsed.type || 'unknown',
+          hasTable: !!parsed.Table,
+          hasTable1: !!parsed.Table1,
+          hasData: !!parsed.data,
+          tableLength: parsed.Table?.length || 0,
+          table1Length: parsed.Table1?.length || 0,
+        });
+        
+        message = {
+          type: parsed.type || 'market_data',
           data: parsed.data || parsed,
           timestamp: Date.now()
         };
       } catch (parseError) {
+        console.warn('⚠️ Failed to parse WebSocket message as JSON, treating as raw');
         // If not JSON, treat as raw message
         message = {
           type: 'raw',
@@ -136,6 +209,11 @@ class WebSocketService {
         };
       }
 
+      console.log('📢 Notifying subscribers:', {
+        messageType: message.type,
+        subscriberCount: this.subscriptions.get(message.type)?.length || 0,
+        allSubscriberCount: this.subscriptions.get('all')?.length || 0
+      });
 
       // Notify subscribers based on message type
       this.notifySubscribers(message.type, message.data);
@@ -163,6 +241,12 @@ class WebSocketService {
       callback
     });
 
+    console.log('✅ WebSocket subscription added:', {
+      subscriptionId,
+      messageType,
+      totalSubscriptions: this.getSubscriptionCount(),
+      subscriptionTypes: this.getSubscriptionTypes()
+    });
     
     return subscriptionId;
   }
