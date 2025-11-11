@@ -70,7 +70,7 @@ export interface AddScriptRequest {
 }
 
 class WatchlistApiService {
-  private readonly baseUrl = 'https://prod_tradingapi.sanaitatechnologies.com';
+  private readonly baseUrl = 'https://prod-tradingapi.sanaitatechnologies.com';
   private unauthorizedHandler?: (notificationSystem?: { showNotification: (notification: any) => void }) => Promise<void>;
 
   /**

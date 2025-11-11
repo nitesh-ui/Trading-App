@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sessionManager } from './sessionManager';
 
-const API_BASE_URL = 'https://prod_tradingapi.sanaitatechnologies.com';
+const API_BASE_URL = 'https://prod-tradingapi.sanaitatechnologies.com';
 
 export interface LoginRequest {
   emailOrUsername: string;

@@ -167,7 +167,7 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose }) => 
       // Join all parts with CRLF
       const formBody = formParts.join('\r\n');
 
-      const response = await fetch('https://prod_tradingapi.sanaitatechnologies.com/FundRequestApi/AddFundInformationHistory', {
+      const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/FundRequestApi/AddFundInformationHistory', {
         method: 'POST',
         headers: {
           'accept': '*/*',
