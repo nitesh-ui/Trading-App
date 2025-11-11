@@ -612,6 +612,10 @@ const WatchlistContent = memo(() => {
   // Real-time price updates state
   const [realtimePrices, setRealtimePrices] = React.useState<Map<string, any>>(new Map());
   const priceUpdateTimeoutRef = React.useRef<any>(null);
+  
+  // Constants for memory management
+  const MAX_PRICE_ENTRIES = 1000; // Limit Map size to prevent memory leaks
+  const PRICE_ENTRY_TTL = 5 * 60 * 1000; // 5 minutes time-to-live for price entries
 
   // WebSocket data processing with performance optimization
   React.useEffect(() => {
@@ -633,6 +637,32 @@ const WatchlistContent = memo(() => {
         // Batch update prices to avoid too many re-renders
         const newPrices = new Map(realtimePrices);
         let updateCount = 0;
+        const now = Date.now();
+
+        // Clean up old entries to prevent unbounded growth
+        if (newPrices.size > MAX_PRICE_ENTRIES) {
+          console.log('🧹 Cleaning up old price entries, current size:', newPrices.size);
+          const entriesToRemove: string[] = [];
+          
+          for (const [key, value] of newPrices) {
+            // Remove entries older than TTL
+            if (now - value.timestamp > PRICE_ENTRY_TTL) {
+              entriesToRemove.push(key);
+            }
+          }
+          
+          entriesToRemove.forEach(key => newPrices.delete(key));
+          console.log('🧹 Removed', entriesToRemove.length, 'old entries, new size:', newPrices.size);
+          
+          // If still too large, remove oldest entries
+          if (newPrices.size > MAX_PRICE_ENTRIES) {
+            const sortedEntries = Array.from(newPrices.entries())
+              .sort((a, b) => a[1].timestamp - b[1].timestamp);
+            const toRemove = sortedEntries.slice(0, newPrices.size - MAX_PRICE_ENTRIES);
+            toRemove.forEach(([key]) => newPrices.delete(key));
+            console.log('🧹 Removed', toRemove.length, 'oldest entries, final size:', newPrices.size);
+          }
+        }
 
         data.Table.forEach((item: any) => {
           if (item.InstrumentToken && item.Lastprice !== undefined) {
@@ -648,7 +678,7 @@ const WatchlistContent = memo(() => {
               ask: parseFloat(item.Ask),
               bidQty: parseInt(item.BidQty),
               askQty: parseInt(item.AskQty),
-              timestamp: Date.now()
+              timestamp: now // Use consistent timestamp
             };
 
             // Calculate change percentage
@@ -696,17 +726,21 @@ const WatchlistContent = memo(() => {
         }
 
         // Throttle updates to avoid excessive re-renders (max once per 500ms)
+        // Clear any existing timeout first to prevent multiple pending updates
         if (priceUpdateTimeoutRef.current) {
           clearTimeout(priceUpdateTimeoutRef.current);
+          priceUpdateTimeoutRef.current = null;
         }
 
         priceUpdateTimeoutRef.current = setTimeout(() => {
           if (updateCount > 0) {
-            console.log('✅ Updating real-time prices:', updateCount, 'items updated');
+            console.log('✅ Updating real-time prices:', updateCount, 'items updated, Map size:', newPrices.size);
             setRealtimePrices(newPrices);
           } else {
             console.log('⚠️ No price updates to apply');
           }
+          // Clear ref after timeout executes
+          priceUpdateTimeoutRef.current = null;
         }, 500);
       } else {
         console.log('⚠️ WebSocket message does not have Table array');
@@ -721,9 +755,38 @@ const WatchlistContent = memo(() => {
     return () => {
       if (priceUpdateTimeoutRef.current) {
         clearTimeout(priceUpdateTimeoutRef.current);
+        priceUpdateTimeoutRef.current = null;
       }
     };
   }, []);
+  
+  // Periodic cleanup of old price entries every 2 minutes
+  React.useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      setRealtimePrices(prevPrices => {
+        const now = Date.now();
+        const newPrices = new Map(prevPrices);
+        let removedCount = 0;
+        
+        for (const [key, value] of newPrices) {
+          if (now - value.timestamp > PRICE_ENTRY_TTL) {
+            newPrices.delete(key);
+            removedCount++;
+          }
+        }
+        
+        if (removedCount > 0) {
+          console.log('🧹 Periodic cleanup removed', removedCount, 'expired entries, Map size:', newPrices.size);
+        }
+        
+        return newPrices;
+      });
+    }, 2 * 60 * 1000); // Run every 2 minutes
+    
+    return () => {
+      clearInterval(cleanupInterval);
+    };
+  }, [PRICE_ENTRY_TTL]);
 
   // Merge real-time prices with watchlist assets for performance
   const enhancedAssets = React.useMemo(() => {
