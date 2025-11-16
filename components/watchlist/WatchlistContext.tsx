@@ -110,7 +110,6 @@ interface WatchlistContextType {
   // Computed values
   filteredAssets: AssetItem[];
   searchResults: AssetItem[];
-  marketIndices: AssetItem[]; // Add indices
   
   // Actions
   setMarketType: (type: MarketType) => void;
@@ -221,21 +220,34 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (apiAssets.length > 0) {
       const categorized = watchlistApiService.categorizeAssets(apiAssets);
       
+      // Debug log categorization
+      console.log('📊 Asset categorization:', {
+        stocks: categorized.stocks.length,
+        forex: categorized.forex.length,
+        crypto: categorized.crypto.length,
+        indices: categorized.indices.length,
+        commodities: categorized.commodities.length,
+        forexSymbols: categorized.forex.map(f => f.symbol),
+      });
+      
       switch (watchlistState.marketType) {
         case 'stocks':
-          // Include both stocks and commodities in the stocks tab
-          const stocksAndCommodities = [
+          // Include stocks, commodities, and indices in the stocks tab
+          // Indices (like NIFTY 50, SENSEX) now appear as regular stocks when added to watchlist
+          const stocksAndCommoditiesAndIndices = [
             ...categorized.stocks,
-            ...categorized.commodities
+            ...categorized.commodities,
+            ...categorized.indices
           ];
-          return stocksAndCommodities.filter(stock => 
+          return stocksAndCommoditiesAndIndices.filter(stock => 
             watchlistState.exchangeFilter === 'All' || 
             stock.exchange === watchlistState.exchangeFilter
           );
         case 'forex':
-          // ALWAYS use live forex data from forexService, not static API data
-          // This ensures real-time price and change updates for forex pairs
-          return forexPairs.map(pair => ({
+          // Combine categorized forex assets from API (includes CDS tickers)
+          // with live forex data from forexService
+          const apiForexAssets = categorized.forex || [];
+          const liveForexAssets = forexPairs.map(pair => ({
             symbol: pair.symbol,
             name: pair.name,
             exchange: 'Forex',
@@ -246,6 +258,21 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             low: pair.low,
             volume: pair.volume,
           }));
+          
+          // Merge both sources, prioritizing live data for symbols that exist in both
+          const forexMap = new Map<string, AssetItem>();
+          
+          // Add API forex assets first (includes CDS tickers)
+          apiForexAssets.forEach(asset => {
+            forexMap.set(asset.symbol, asset);
+          });
+          
+          // Update with live data where available
+          liveForexAssets.forEach(asset => {
+            forexMap.set(asset.symbol, asset);
+          });
+          
+          return Array.from(forexMap.values());
         case 'crypto':
           // ALWAYS use live crypto data from binanceService, not static API data
           // This ensures real-time price and change updates for crypto
@@ -262,7 +289,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             low: pair.price * 0.95,
           }));
         default:
-          return [...categorized.stocks, ...categorized.commodities];
+          return [...categorized.stocks, ...categorized.commodities, ...categorized.indices];
       }
     }
 
@@ -330,15 +357,6 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       asset.name.toLowerCase().includes(query)
     );
   }, [watchlistState.searchQuery, filteredAssets]);
-
-  // Extract market indices from API data
-  const marketIndices = useMemo((): AssetItem[] => {
-    if (apiAssets.length > 0) {
-      const categorized = watchlistApiService.categorizeAssets(apiAssets);
-      return categorized.indices;
-    }
-    return [];
-  }, [apiAssets]);
 
   // Action creators - INSTANT tab switching with smooth content animation
   const setMarketType = useCallback((type: MarketType) => {
@@ -413,7 +431,6 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Computed values
     filteredAssets,
     searchResults,
-    marketIndices,
     
     // Actions
     setMarketType,
@@ -439,7 +456,6 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     cryptoPairs,
     filteredAssets,
     searchResults,
-    marketIndices,
     setMarketType,
     setExchangeFilter,
     setSearchQuery,

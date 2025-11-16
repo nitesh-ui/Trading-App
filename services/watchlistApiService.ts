@@ -324,6 +324,10 @@ class WatchlistApiService {
         crypto.push(asset);
       } else if (asset.exchange === 'FOREX') {
         forex.push(asset);
+      } else if (asset.exchange === 'CDS' || this.isCDSTicker(asset.symbol)) {
+        // Currency Derivatives (CDS) - e.g., USDINR26116FUT
+        // These are forex derivatives and should be categorized under Forex
+        forex.push(asset);
       } else if (asset.exchange === 'MCX' || asset.exchange === 'NCDEX' || asset.exchange === 'NCO') {
         commodities.push(asset);
       } else if (
@@ -359,6 +363,19 @@ class WatchlistApiService {
       commodities,
       derivatives
     };
+  }
+
+  /**
+   * Check if a symbol is a CDS (Currency Derivative Segment) ticker
+   * CDS tickers typically follow patterns like: USDINR26116FUT, EURINR25DECFUT, etc.
+   */
+  private isCDSTicker(symbol: string): boolean {
+    // Check if symbol contains currency pairs followed by date and FUT
+    // Common currency pairs: USDINR, EURINR, GBPINR, JPYINR, etc.
+    const cdsPairs = ['USDINR', 'EURINR', 'GBPINR', 'JPYINR', 'AUDINR', 'CADINR', 'CHFINR', 'SGDINR', 'HKDINR', 'NZDINR', 'SEKUSD', 'NOKUSD', 'DKKUSD', 'ZARUSD'];
+    
+    // Check if symbol starts with any currency pair and contains FUT
+    return cdsPairs.some(pair => symbol.startsWith(pair)) && symbol.includes('FUT');
   }
 
   /**
@@ -462,10 +479,17 @@ class WatchlistApiService {
       return 'crypto';
     } else if (exchange === 'FOREX') {
       return 'forex';
+    } else if (exchange === 'CDS' || this.isCDSTicker(symbol)) {
+      // Currency Derivatives (CDS) should be treated as forex
+      return 'forex';
     } else if (exchange === 'MCX' || exchange === 'NCDEX' || exchange === 'NCO') {
       return 'commodity';
     } else if (exchange === 'NFO' || symbol.includes('FUT') || symbol.includes('CE') || symbol.includes('PE')) {
-      return 'derivative';
+      // Only treat as derivative if it's not a CDS ticker
+      if (!this.isCDSTicker(symbol)) {
+        return 'derivative';
+      }
+      return 'forex';
     } else if (
       symbol.includes('NIFTY') || 
       symbol.includes('SENSEX') || 
