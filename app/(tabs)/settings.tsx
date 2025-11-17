@@ -6,6 +6,7 @@ import { Card, Text, Button } from '../../components/atomic';
 import WalletPage from '../../components/ui/WalletPage';
 import DepositPage from '../../components/ui/DepositPage';
 import WithdrawalPage from '../../components/ui/WithdrawalPage';
+import NotificationsPage from '../../components/ui/NotificationsPage';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -104,6 +105,7 @@ export default function SettingsScreen() {
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
   const [isDepositPageVisible, setIsDepositPageVisible] = useState(false);
   const [isWithdrawalPageVisible, setIsWithdrawalPageVisible] = useState(false);
+  const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
@@ -111,6 +113,14 @@ export default function SettingsScreen() {
     router.push('/auth/forgot-password');
   };
   const [isReportsPageVisible, setIsReportsPageVisible] = useState(false);
+
+  const handleNotificationsPress = () => {
+    setIsNotificationsPageVisible(true);
+  };
+
+  const handleCloseNotificationsPage = () => {
+    setIsNotificationsPageVisible(false);
+  };
 
   const handleWalletPress = () => {
     setIsWalletPageVisible(true);
@@ -566,11 +576,7 @@ export default function SettingsScreen() {
           icon="notifications-outline"
           title="Notifications"
           subtitle="Push notifications, alerts"
-          onPress={() => showNotification({
-            type: 'info',
-            title: 'Notification Settings',
-            message: 'Notification preferences coming soon'
-          })}
+          onPress={handleNotificationsPress}
         />
         
         <SettingItem
@@ -665,6 +671,10 @@ export default function SettingsScreen() {
       <WithdrawalPage
         visible={isWithdrawalPageVisible}
         onClose={handleCloseWithdrawalPage}
+      />
+      <NotificationsPage
+        visible={isNotificationsPageVisible}
+        onClose={handleCloseNotificationsPage}
       />
     </ScreenErrorBoundary>
   );
