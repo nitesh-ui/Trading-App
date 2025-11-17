@@ -7,6 +7,7 @@ import WalletPage from '../../components/ui/WalletPage';
 import DepositPage from '../../components/ui/DepositPage';
 import WithdrawalPage from '../../components/ui/WithdrawalPage';
 import NotificationsPage from '../../components/ui/NotificationsPage';
+import ChangePasswordPage from '../../components/ui/ChangePasswordPage';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -106,12 +107,18 @@ export default function SettingsScreen() {
   const [isDepositPageVisible, setIsDepositPageVisible] = useState(false);
   const [isWithdrawalPageVisible, setIsWithdrawalPageVisible] = useState(false);
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
+  const [isChangePasswordPageVisible, setIsChangePasswordPageVisible] = useState(false);
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
   const handleResetPasswordPress = () => {
-    router.push('/auth/forgot-password');
+    setIsChangePasswordPageVisible(true);
   };
+  
+  const handleCloseChangePasswordPage = () => {
+    setIsChangePasswordPageVisible(false);
+  };
+  
   const [isReportsPageVisible, setIsReportsPageVisible] = useState(false);
 
   const handleNotificationsPress = () => {
@@ -675,6 +682,10 @@ export default function SettingsScreen() {
       <NotificationsPage
         visible={isNotificationsPageVisible}
         onClose={handleCloseNotificationsPage}
+      />
+      <ChangePasswordPage
+        visible={isChangePasswordPageVisible}
+        onClose={handleCloseChangePasswordPage}
       />
     </ScreenErrorBoundary>
   );
