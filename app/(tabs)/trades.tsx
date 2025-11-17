@@ -56,6 +56,7 @@ import { OptimizedFlatList } from '../../components/OptimizedList';
 import NotificationsPage from '../../components/ui/NotificationsPage';
 import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import WalletPage from '../../components/ui/WalletPage';
+import EditTradeTargetPage from '../../components/ui/EditTradeTargetPage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useDebounce, useRenderPerformance } from '../../hooks/usePerformance';
@@ -75,9 +76,11 @@ interface Trade {
   productType?: string;
   priceType?: string;
   exchange?: string;
-  // Original API fields needed for square-off
+  // Original API fields needed for square-off and editing
   activeTradeID: number;
   apiStatus: string;
+  target?: string;
+  stopLoss?: string;
 }
 
 /**
@@ -110,9 +113,11 @@ const transformApiTradeToUi = (apiTrade: ActiveTradeItem): Trade => {
     productType: apiTrade.productType,
     priceType: apiTrade.priceType,
     exchange: apiTrade.objScriptDTO?.scriptExchange,
-    // Original API fields needed for square-off
+    // Original API fields needed for square-off and editing
     activeTradeID: apiTrade.activeTradeID,
-    apiStatus: apiTrade.status
+    apiStatus: apiTrade.status,
+    target: apiTrade.tgT2 ? apiTrade.tgT2.toString() : undefined,
+    stopLoss: apiTrade.sl ? apiTrade.sl.toString() : undefined
   };
 };
 
@@ -135,7 +140,8 @@ const MemoizedTradeCard = memo<{
   trade: Trade;
   onPress?: (trade: Trade) => void;
   onSquareOff?: (trade: Trade) => void;
-}>(({ trade, onPress, onSquareOff }) => {
+  onEdit?: (trade: Trade) => void;
+}>(({ trade, onPress, onSquareOff, onEdit }) => {
   const { theme } = useTheme();
   
   const getStatusColor = (status: string) => {
@@ -164,6 +170,11 @@ const MemoizedTradeCard = memo<{
     onSquareOff?.(trade);
   }, [onSquareOff, trade]);
 
+  const handleEdit = useCallback((e: any) => {
+    e?.stopPropagation?.();
+    onEdit?.(trade);
+  }, [onEdit, trade]);
+
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card style={styles.tradeCard}>
@@ -181,13 +192,29 @@ const MemoizedTradeCard = memo<{
             </View>
           </View>
           <View style={styles.tradeStatus}>
-            <Text 
-              variant="caption" 
-              weight="medium"
-              style={{ color: getStatusColor(trade.status) }}
-            >
-              {trade.status}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text 
+                variant="caption" 
+                weight="medium"
+                style={{ color: getStatusColor(trade.status) }}
+              >
+                {trade.status === 'COMPLETED' ? 'ACTIVE' : trade.status}
+              </Text>
+              {/* Edit icon for completed/active trades */}
+              {trade.status === 'COMPLETED' && trade.apiStatus === 'COMPLETE' && (
+                <TouchableOpacity 
+                  onPress={handleEdit}
+                  style={{ padding: 4 }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons 
+                    name="create-outline" 
+                    size={18} 
+                    color={theme.colors.primary} 
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
         
@@ -272,6 +299,8 @@ export default function TradesScreen() {
   // Modal states
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
+  const [isEditTradePageVisible, setIsEditTradePageVisible] = useState(false);
+  const [selectedTradeForEdit, setSelectedTradeForEdit] = useState<Trade | null>(null);
   
   // Real-time polling state
   const [isPollingEnabled, setIsPollingEnabled] = useState(true);
@@ -324,9 +353,10 @@ export default function TradesScreen() {
   const filteredTrades = useMemo(() => {
     let filtered: Trade[] = trades;
     
-    // Filter by status
+    // Filter by status - map ACTIVE to COMPLETED
     if (selectedFilter !== 'ALL') {
-      filtered = filtered.filter((trade: Trade) => trade.status === selectedFilter);
+      const statusFilter = selectedFilter === 'ACTIVE' ? 'COMPLETED' : selectedFilter;
+      filtered = filtered.filter((trade: Trade) => trade.status === statusFilter);
     }
     
     // Filter by search query
@@ -512,6 +542,21 @@ export default function TradesScreen() {
     setIsWalletPageVisible(false);
   }, []);
 
+  const handleEditTrade = useCallback((trade: Trade) => {
+    setSelectedTradeForEdit(trade);
+    setIsEditTradePageVisible(true);
+  }, []);
+
+  const handleCloseEditTradePage = useCallback(() => {
+    setIsEditTradePageVisible(false);
+    setSelectedTradeForEdit(null);
+  }, []);
+
+  const handleSaveTradeEdit = useCallback(() => {
+    // Refresh trades list after saving
+    refetch();
+  }, [refetch]);
+
   const togglePolling = useCallback(() => {
     setIsPollingEnabled(prev => !prev);
   }, [isPollingEnabled, showNotification]);
@@ -525,8 +570,9 @@ export default function TradesScreen() {
       trade={item}
       onPress={handleTradePress}
       onSquareOff={handleSquareOff}
+      onEdit={handleEditTrade}
     />
-  ), [handleTradePress, handleSquareOff]);
+  ), [handleTradePress, handleSquareOff, handleEditTrade]);
 
   const keyExtractor = useCallback((item: Trade) => item.id, []);
 
@@ -627,7 +673,7 @@ export default function TradesScreen() {
             style={[styles.filterContainer, { backgroundColor: 'transparent' }]}
             contentContainerStyle={styles.filterContainer}
           >
-            {['ALL', 'COMPLETED', 'PENDING', 'CANCELLED'].map((filter) => (
+            {['ALL', 'ACTIVE', 'PENDING', 'CANCELLED'].map((filter) => (
               <TouchableOpacity
                 key={filter}
                 style={[
@@ -686,6 +732,25 @@ export default function TradesScreen() {
           visible={isWalletPageVisible}
           onClose={handleCloseWalletPage}
         />
+
+        {/* Edit Trade Target/Stop Loss Page */}
+        {selectedTradeForEdit && (
+          <EditTradeTargetPage
+            visible={isEditTradePageVisible}
+            onClose={handleCloseEditTradePage}
+            trade={{
+              id: selectedTradeForEdit.id,
+              symbol: selectedTradeForEdit.symbol,
+              type: selectedTradeForEdit.type,
+              quantity: selectedTradeForEdit.quantity,
+              price: selectedTradeForEdit.price,
+              activeTradeID: selectedTradeForEdit.activeTradeID,
+              currentTarget: selectedTradeForEdit.target,
+              currentStopLoss: selectedTradeForEdit.stopLoss
+            }}
+            onSave={handleSaveTradeEdit}
+          />
+        )}
       </View>
     </ScreenErrorBoundary>
   );

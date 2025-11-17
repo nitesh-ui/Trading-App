@@ -309,7 +309,7 @@ const TradePage: React.FC<TradePageProps> = ({
         quantity: quantity.toString(),
         price: (orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price).toString(),
         triggerPrice: triggerPrice || '0',
-        productType: productType, // 'MIS' or 'NRML'
+        productType: (orderType === 'LIMIT' || orderType === 'SL' || orderType === 'SL-M') ? '' : productType, // Empty string for LIMIT, SL, SL-M; selected value for MARKET
         marketType: orderType, // 'MARKET', 'LIMIT', 'SL', 'SL-M'
         tradeID: '', // Default empty string
         status: '', // Default empty string

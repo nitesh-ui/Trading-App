@@ -1285,6 +1285,54 @@ class TradingApiService {
   }
 
   /**
+   * Update target and stop loss for an active trade
+   */
+  async updateTradeTargetStopLoss(
+    activeTradeID: number, 
+    target: string, 
+    stopLoss: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🚀 Updating trade target/stop loss:', { activeTradeID, target, stopLoss });
+
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/WatchListApi/UpdateTradeTargetStopLoss`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            activeTradeID,
+            target,
+            stopLoss
+          })
+        }
+      );
+
+      console.log('📡 UpdateTradeTargetStopLoss API Response Status:', response.status);
+
+      const data = await response.json();
+      console.log('✅ UpdateTradeTargetStopLoss API Response:', data);
+
+      if (response.ok && (data.success !== false)) {
+        return {
+          success: true,
+          message: data.message || 'Target and stop loss updated successfully'
+        };
+      } else {
+        return {
+          success: false,
+          message: data.message || data.error || 'Failed to update target and stop loss'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error updating trade target/stop loss:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to update target and stop loss'
+      };
+    }
+  }
+
+  /**
    * Get session statistics for debugging and monitoring
    */
   async getSessionStats(): Promise<any> {
