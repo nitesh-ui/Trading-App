@@ -222,6 +222,8 @@ export interface TransactionHistoryReportsItem {
   exitprice: number;
   qty: number;
   profitorloss: number;
+  brokerage: number;
+  netprofitorloss: number;
   scriptExchange: string;
   total_Page: number;
 }

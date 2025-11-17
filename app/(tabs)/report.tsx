@@ -42,6 +42,8 @@ interface TransactionDisplayItem {
   exitPrice: number;
   qty: number;
   profitLoss: number;
+  brokerage: number;
+  netProfitLoss: number;
   scriptExchange: string;
   total_Page: number;
 }
@@ -119,6 +121,8 @@ export default function ReportScreen() {
           exitPrice: item.exitprice,
           qty: item.qty,
           profitLoss: item.profitorloss,
+          brokerage: item.brokerage || 0,
+          netProfitLoss: item.netprofitorloss || item.profitorloss,
           scriptExchange: item.scriptExchange,
           total_Page: item.total_Page,
         }));
@@ -229,12 +233,40 @@ export default function ReportScreen() {
   // Format date for display
   const formatDateTime = (dateTime: string) => {
     try {
-      // Parse DD-MM-YYYY HH:MM format
-      const [datePart, timePart] = dateTime.split(' ');
-      const [day, month, year] = datePart.split('-');
-      const [hours, minutes] = timePart.split(':');
+      // Parse M/D/YYYY HH:MM AM/PM format (e.g., "9/28/2025 9:29 PM")
+      const [datePart, ...timeParts] = dateTime.split(' ');
+      const timePart = timeParts.join(' '); // Join back in case time has AM/PM
       
-      const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hours), Number(minutes));
+      const [month, day, year] = datePart.split('/');
+      
+      // Parse time with AM/PM
+      let hours = 0;
+      let minutes = 0;
+      
+      if (timePart) {
+        const timeMatch = timePart.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+        if (timeMatch) {
+          hours = parseInt(timeMatch[1]);
+          minutes = parseInt(timeMatch[2]);
+          const meridiem = timeMatch[3];
+          
+          // Convert to 24-hour format if AM/PM is present
+          if (meridiem) {
+            if (meridiem.toUpperCase() === 'PM' && hours !== 12) {
+              hours += 12;
+            } else if (meridiem.toUpperCase() === 'AM' && hours === 12) {
+              hours = 0;
+            }
+          }
+        }
+      }
+      
+      const date = new Date(Number(year), Number(month) - 1, Number(day), hours, minutes);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return dateTime;
+      }
       
       return date.toLocaleString('en-IN', {
         day: '2-digit',
@@ -242,6 +274,7 @@ export default function ReportScreen() {
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        hour12: true,
       });
     } catch (error) {
       return dateTime;
@@ -283,6 +316,11 @@ export default function ReportScreen() {
         </View>
         
         <View style={styles.detailRow}>
+          <Text variant="caption" color="textSecondary">Quantity</Text>
+          <Text variant="caption" color="text" weight="medium">{item.qty}</Text>
+        </View>
+        
+        <View style={styles.detailRow}>
           <Text variant="caption" color="textSecondary">Entry Time</Text>
           <Text variant="caption" color="text">{formatDateTime(item.entryTime)}</Text>
         </View>
@@ -303,6 +341,35 @@ export default function ReportScreen() {
           <Text variant="caption" color="textSecondary">Exit Price</Text>
           <Text variant="caption" color="text" weight="medium">
             {formatIndianCurrency(item.exitPrice)}
+          </Text>
+        </View>
+        
+        <View style={styles.detailRow}>
+          <Text variant="caption" color="textSecondary">P&L (Gross)</Text>
+          <Text 
+            variant="caption" 
+            color={item.profitLoss >= 0 ? 'success' : 'error'}
+            weight="bold"
+          >
+            {formatIndianCurrency(item.profitLoss)}
+          </Text>
+        </View>
+        
+        <View style={styles.detailRow}>
+          <Text variant="caption" color="textSecondary">Brokerage</Text>
+          <Text variant="caption" color="error" weight="medium">
+            {formatIndianCurrency(item.brokerage)}
+          </Text>
+        </View>
+        
+        <View style={[styles.detailRow, styles.netProfitRow]}>
+          <Text variant="body" color="text" weight="semibold">Net P&L</Text>
+          <Text 
+            variant="body" 
+            color={item.netProfitLoss >= 0 ? 'success' : 'error'}
+            weight="bold"
+          >
+            {formatIndianCurrency(item.netProfitLoss)}
           </Text>
         </View>
       </View>
@@ -846,5 +913,11 @@ const createStyles = (theme: any) =>
     skeleton: {
       backgroundColor: theme.colors.border,
       borderRadius: 4,
+    },
+    netProfitRow: {
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
     },
   });
