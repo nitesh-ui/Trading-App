@@ -95,7 +95,7 @@ const StocksTabContent = memo(({
   onAssetPress: (asset: AssetItem) => void;
   onBuyPress: (asset: AssetItem) => void;
   onSellPress: (asset: AssetItem) => void;
-  onRemovePress: (symbol: string) => void;
+  onRemovePress: (symbol: string, scriptCode?: number, wid?: number) => void;
   onFilterPress: () => void;
 }) => {
   const { theme } = useTheme();
@@ -132,7 +132,7 @@ const StocksTabContent = memo(({
       onPress: () => onAssetPress(item),
       onBuyPress: () => onBuyPress(item),
       onSellPress: () => onSellPress(item),
-      onRemovePress: () => onRemovePress(item.symbol),
+      onRemovePress: () => onRemovePress(item.symbol, item.scriptCode, item.wid),
     };
 
     return (
@@ -197,7 +197,7 @@ const ForexTabContent = memo(({
   onAssetPress: (asset: AssetItem) => void;
   onBuyPress: (asset: AssetItem) => void;
   onSellPress: (asset: AssetItem) => void;
-  onRemovePress: (symbol: string) => void;
+  onRemovePress: (symbol: string, scriptCode?: number, wid?: number) => void;
 }) => {
   const { theme } = useTheme();
   const { watchlistState } = useWatchlist();
@@ -226,7 +226,7 @@ const ForexTabContent = memo(({
       onPress: () => onAssetPress(item),
       onBuyPress: () => onBuyPress(item),
       onSellPress: () => onSellPress(item),
-      onRemovePress: () => onRemovePress(item.symbol),
+      onRemovePress: () => onRemovePress(item.symbol, item.scriptCode, item.wid),
     };
 
     return (
@@ -291,7 +291,7 @@ const CryptoTabContent = memo(({
   onAssetPress: (asset: AssetItem) => void;
   onBuyPress: (asset: AssetItem) => void;
   onSellPress: (asset: AssetItem) => void;
-  onRemovePress: (symbol: string) => void;
+  onRemovePress: (symbol: string, scriptCode?: number, wid?: number) => void;
 }) => {
   const { theme } = useTheme();
   const { watchlistState } = useWatchlist();
@@ -320,7 +320,7 @@ const CryptoTabContent = memo(({
       onPress: () => onAssetPress(item),
       onBuyPress: () => onBuyPress(item),
       onSellPress: () => onSellPress(item),
-      onRemovePress: () => onRemovePress(item.symbol),
+      onRemovePress: () => onRemovePress(item.symbol, item.scriptCode, item.wid),
     };
 
     // Convert AssetItem to CryptoData format for CryptoCard
@@ -739,17 +739,25 @@ const WatchlistContent = memo(() => {
     setIsTradePageVisible(true);
   }, []);
 
-  const handleRemoveFromWatchlist = useCallback((symbol: string) => {
+  const handleRemoveFromWatchlist = useCallback(async (symbol: string, scriptCode?: number, wid?: number) => {
     // Web-compatible confirmation dialog
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(`Are you sure you want to remove ${symbol} from your watchlist?`);
       if (confirmed) {
-        removeFromWatchlist(symbol);
+        const result = await removeFromWatchlist(symbol, scriptCode, wid);
         setSelectedAssetForDetails(null);
-        showNotification({ 
-          type: 'success', 
-          title: `${symbol} removed from watchlist` 
-        });
+        if (result.success) {
+          showNotification({ 
+            type: 'success', 
+            title: `${symbol} removed from watchlist` 
+          });
+        } else {
+          showNotification({ 
+            type: 'error', 
+            title: `Failed to remove ${symbol}`,
+            message: result.message || 'Please try again'
+          });
+        }
       }
     } else {
       // Native mobile alert
@@ -761,13 +769,21 @@ const WatchlistContent = memo(() => {
           {
             text: 'Remove',
             style: 'destructive',
-            onPress: () => {
-              removeFromWatchlist(symbol);
+            onPress: async () => {
+              const result = await removeFromWatchlist(symbol, scriptCode, wid);
               setSelectedAssetForDetails(null);
-              showNotification({ 
-                type: 'success', 
-                title: `${symbol} removed from watchlist` 
-              });
+              if (result.success) {
+                showNotification({ 
+                  type: 'success', 
+                  title: `${symbol} removed from watchlist` 
+                });
+              } else {
+                showNotification({ 
+                  type: 'error', 
+                  title: `Failed to remove ${symbol}`,
+                  message: result.message || 'Please try again'
+                });
+              }
             },
           },
         ]
@@ -963,7 +979,7 @@ const WatchlistContent = memo(() => {
         }}
         onRemoveFromWatchlist={() => {
           if (selectedAssetForDetails) {
-            handleRemoveFromWatchlist(selectedAssetForDetails.symbol);
+            handleRemoveFromWatchlist(selectedAssetForDetails.symbol, selectedAssetForDetails.scriptCode, selectedAssetForDetails.wid);
           }
         }}
         onViewChart={() => {

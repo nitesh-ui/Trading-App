@@ -119,7 +119,7 @@ interface WatchlistContextType {
   setFilterVisible: (visible: boolean) => void;
   setRefreshing: (refreshing: boolean) => void;
   addToWatchlist: (symbol: string) => void;
-  removeFromWatchlist: (symbol: string) => void;
+  removeFromWatchlist: (symbol: string, scriptCode?: number, wid?: number) => Promise<{ success: boolean; message?: string }>;
   updateTradeState: (updates: Partial<TradeState>) => void;
   resetTradeState: () => void;
   refreshData: () => Promise<void>;
@@ -407,9 +407,37 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     watchlistDispatch({ type: 'ADD_TO_WATCHLIST', payload: symbol });
   }, []);
 
-  const removeFromWatchlist = useCallback((symbol: string) => {
-    watchlistDispatch({ type: 'REMOVE_FROM_WATCHLIST', payload: symbol });
-  }, []);
+  const removeFromWatchlist = useCallback(async (symbol: string, scriptCode?: number, wid?: number) => {
+    try {
+      // If scriptCode and wid are provided, call the API to delete from server
+      if (scriptCode !== undefined && wid !== undefined) {
+        console.log(`🗑️ Removing ${symbol} with scriptCode ${scriptCode} and wid ${wid} from watchlist via API`);
+        const result = await watchlistApiService.removeFromWatchlist(scriptCode, wid);
+        
+        if (!result.success) {
+          console.error('❌ Failed to remove from watchlist via API:', result.message);
+          return { success: false, message: result.message };
+        }
+        
+        console.log('✅ Successfully removed from watchlist via API');
+      } else {
+        console.warn('⚠️ scriptCode or wid not provided, skipping API call');
+        return { success: false, message: 'Missing required information to delete' };
+      }
+      
+      // Update local state
+      watchlistDispatch({ type: 'REMOVE_FROM_WATCHLIST', payload: symbol });
+      
+      // Refresh the watchlist data from API to get updated list
+      await loadApiData();
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error in removeFromWatchlist:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to remove from watchlist';
+      return { success: false, message: errorMessage };
+    }
+  }, [loadApiData]);
 
   const updateTradeState = useCallback((updates: Partial<TradeState>) => {
     tradeDispatch({ type: 'UPDATE_TRADE_STATE', payload: updates });

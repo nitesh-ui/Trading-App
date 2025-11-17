@@ -296,6 +296,7 @@ class WatchlistApiService {
         marketCap: 0, // Not provided in API
         scriptCode: item.scriptCode,
         intWID: item.wid,
+        wid: item.wid, // Watchlist ID for delete operations
         lotSize: item.scriptLotSize, // Include lot size from API
       };
     });
@@ -451,24 +452,58 @@ class WatchlistApiService {
   /**
    * Remove a symbol from watchlist
    */
-  async removeFromWatchlist(symbol: string, exchange: string): Promise<boolean> {
+  async removeFromWatchlist(scriptCode: number, watchListID: number = 0): Promise<{ success: boolean; message?: string }> {
     try {
       const sessionData = await tradingApiService.getSessionData();
       if (!sessionData?.sessionToken) {
-        throw new Error('No valid session token found.');
+        return { success: false, message: 'No valid session token found.' };
       }
 
-      // You would implement the actual API call here
-      // For now, we'll just return true to indicate success
-      console.log(`🗑️ Removing ${symbol} (${exchange}) from watchlist`);
+      console.log(`🗑️ Removing script from watchlist:`, { scriptCode, watchListID });
+
+      const requestBody = {
+        watchListID: watchListID,
+        scriptCode: scriptCode
+      };
+
+      const response = await fetch(`${this.baseUrl}/WatchListApi/DeleteScript`, {
+        method: 'DELETE',
+        headers: {
+          'accept': '*/*',
+          'X-Session-Key': sessionData.sessionToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('🗑️ Delete Script API Response Status:', response.status);
+
+      const responseData = await response.json();
+      console.log('📋 Delete Script API Response:', responseData);
+
+      // Check if deletion was successful
+      // The API returns { message: string, data: number }
+      if (responseData.message && responseData.message.toLowerCase().includes('unable to delete')) {
+        // Deletion failed with a specific reason
+        console.error('❌ Delete Script Failed:', responseData.message);
+        return { success: false, message: responseData.message };
+      }
+
+      // Check response status
+      if (!response.ok) {
+        console.error('❌ Delete Script API Error:', response.status, response.statusText);
+        return { 
+          success: false, 
+          message: responseData.message || `Failed to delete script (Status: ${response.status})` 
+        };
+      }
       
-      // Placeholder for actual API call
-      // const response = await fetch(`${this.baseUrl}/WatchListApi/RemoveFromWatchList`, {...});
-      
-      return true;
+      console.log('✅ Delete Script API Success');
+      return { success: true };
     } catch (error) {
       console.error('❌ Error removing from watchlist:', error);
-      return false;
+      const errorMessage = error instanceof Error ? error.message : 'Failed to remove from watchlist';
+      return { success: false, message: errorMessage };
     }
   }
 

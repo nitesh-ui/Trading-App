@@ -26,6 +26,7 @@ export interface AssetItem {
   // API-specific fields for trading operations
   scriptCode?: number;
   intWID?: number;
+  wid?: number; // Watchlist ID from API - used for delete operations
   instrumentToken?: string | number;
   // Real-time WebSocket data fields
   bid?: number;
