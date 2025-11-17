@@ -296,6 +296,7 @@ class WatchlistApiService {
         marketCap: 0, // Not provided in API
         scriptCode: item.scriptCode,
         intWID: item.wid,
+        lotSize: item.scriptLotSize, // Include lot size from API
       };
     });
   }

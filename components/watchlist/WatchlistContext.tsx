@@ -257,19 +257,33 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             high: pair.high,
             low: pair.low,
             volume: pair.volume,
+            lotSize: 1, // Default lot size for regular forex pairs
           }));
           
-          // Merge both sources, prioritizing live data for symbols that exist in both
+          // Merge both sources, prioritizing live price data but preserving API metadata
           const forexMap = new Map<string, AssetItem>();
           
-          // Add API forex assets first (includes CDS tickers)
+          // Add API forex assets first (includes CDS tickers with correct lotSize)
           apiForexAssets.forEach(asset => {
             forexMap.set(asset.symbol, asset);
           });
           
-          // Update with live data where available
-          liveForexAssets.forEach(asset => {
-            forexMap.set(asset.symbol, asset);
+          // Update with live data where available, but preserve important API fields
+          liveForexAssets.forEach(liveAsset => {
+            const existingAsset = forexMap.get(liveAsset.symbol);
+            if (existingAsset) {
+              // Merge: use live prices but keep API metadata (lotSize, scriptCode, etc.)
+              forexMap.set(liveAsset.symbol, {
+                ...existingAsset, // Keep all API fields (lotSize, scriptCode, intWID, etc.)
+                ...liveAsset, // Override with live price data
+                lotSize: existingAsset.lotSize, // Explicitly preserve lotSize from API
+                scriptCode: existingAsset.scriptCode, // Preserve scriptCode
+                intWID: existingAsset.intWID, // Preserve intWID
+              });
+            } else {
+              // New symbol not in API data, add as-is
+              forexMap.set(liveAsset.symbol, liveAsset);
+            }
           });
           
           return Array.from(forexMap.values());

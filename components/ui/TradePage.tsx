@@ -125,8 +125,13 @@ const TradePage: React.FC<TradePageProps> = ({
   };
 
   const handleQuantityChange = (change: number) => {
-    const newQuantity = Math.max(1, quantity + change);
+    // Get lot size from asset, default to 1
+    const lotSize = asset.lotSize || 1;
+    
+    // Increment/decrement by lot size
+    const newQuantity = Math.max(lotSize, quantity + (change * lotSize));
     setQuantity(newQuantity);
+    
     // Trigger margin recalculation with new quantity
     if (visible) {
       setTimeout(() => fetchRequiredMargin(), 300); // Small delay to avoid too many API calls
@@ -344,6 +349,15 @@ const TradePage: React.FC<TradePageProps> = ({
     }
   }, [visible, fetchWalletBalance]);
 
+  // Initialize quantity with lot size when page opens or asset changes
+  useEffect(() => {
+    if (visible && asset) {
+      const lotSize = asset.lotSize || 1;
+      setQuantity(lotSize);
+      console.log('📊 Initialized quantity with lot size:', lotSize, 'for asset:', asset.symbol);
+    }
+  }, [visible, asset.lotSize, asset.symbol]);
+
   // Fetch required margin when wallet balance is available and parameters change
   useEffect(() => {
     if (visible && walletBalance !== '0') {
@@ -498,7 +512,7 @@ const TradePage: React.FC<TradePageProps> = ({
           {/* Unit Header */}
           <View style={styles.quantityHeader}>
             <Text variant="body" color="text">Unit</Text>
-            <Text variant="body" color="text">Lot (Lot Size: 1)</Text>
+            <Text variant="body" color="text">Lot (Lot Size: {asset.lotSize || 1})</Text>
           </View>
           
           {/* Unit Dropdown and Quantity Controls - Side by Side */}
