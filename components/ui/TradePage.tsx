@@ -375,19 +375,16 @@ const TradePage: React.FC<TradePageProps> = ({
         <ScrollView 
           style={[styles.container, { backgroundColor: theme.colors.background }]}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: 180 } // Space for button (90px) + tab bar (64px) + padding (26px)
-          ]}
+          contentContainerStyle={styles.scrollContent}
         >
         {/* Asset Header with Real-time Price */}
         <Card padding="medium" style={styles.priceHeaderCard}>
           <View style={styles.headerContainer}>
             <View style={styles.assetInfo}>
-              <Text variant="headline" weight="bold" color="text">
+              <Text variant="title" weight="bold" color="text" style={styles.symbolText}>
                 {asset.symbol}
               </Text>
-              <Text variant="caption" color="textSecondary">
+              <Text variant="caption" color="textSecondary" style={styles.exchangeText}>
                 {asset.exchange || 'NSE'}
               </Text>
             </View>
@@ -396,7 +393,7 @@ const TradePage: React.FC<TradePageProps> = ({
                 price={asset.price}
                 change={asset.change}
                 changePercent={asset.changePercent}
-                size="large"
+                size="medium"
                 showCurrency={marketType === 'stocks'}
                 currencySymbol={marketType === 'stocks' ? '₹' : '$'}
                 showSymbol={true}
@@ -407,10 +404,10 @@ const TradePage: React.FC<TradePageProps> = ({
             </View>
           </View>
           <View style={styles.bidAskContainer}>
-            <Text variant="caption" weight="medium" color="success">
+            <Text variant="caption" weight="medium" color="success" style={styles.bidAskText}>
               Bid: {formatPrice(bid, marketType)}
             </Text>
-            <Text variant="caption" weight="medium" color="error">
+            <Text variant="caption" weight="medium" color="error" style={styles.bidAskText}>
               Ask: {formatPrice(ask, marketType)}
             </Text>
           </View>
@@ -551,7 +548,7 @@ const TradePage: React.FC<TradePageProps> = ({
         {/* Order Type and Price Inputs Section */}
         <Card padding="small" style={styles.orderCard}>
           {/* Order Type Selection */}
-          <View style={{ paddingHorizontal: 8, paddingTop: 16 }}>
+          <View style={{ paddingHorizontal: 8, paddingTop: 8 }}>
             <Text variant="body" color="text" style={styles.sectionTitle}>
               Order Type
             </Text>
@@ -713,7 +710,7 @@ const TradePage: React.FC<TradePageProps> = ({
         styles.footer,
         {
           backgroundColor: theme.colors.background,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           bottom: 64, // Position above the bottom tab bar (typical tab bar height)
         }
       ]}>
@@ -750,20 +747,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    gap: 2,
+    padding: 12,
+    paddingBottom: 140, // Space for button and tab bar
   },
   
   // Header Container - No border/background
   priceHeaderCard: {
-    marginBottom: 12,
+    marginBottom: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
-    gap: 12,
+    marginBottom: 6,
+    gap: 8,
   },
   assetInfo: {
     flex: 1,
@@ -776,6 +775,13 @@ const styles = StyleSheet.create({
   symbolText: {
     flexWrap: 'wrap',
     flexShrink: 1,
+    fontSize: 20,
+  },
+  exchangeText: {
+    fontSize: 11,
+  },
+  bidAskText: {
+    fontSize: 11,
   },
   headerCard: {
     marginBottom: 8,
@@ -792,14 +798,16 @@ const styles = StyleSheet.create({
   },
   bidAskContainer: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   
   // Market Data
   marketDataCard: {
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: 4,
     borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
   marketDataGrid: {
     flexDirection: 'row',
@@ -818,42 +826,42 @@ const styles = StyleSheet.create({
   marketDataItem: {
     minWidth: '18%',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
     flex: 1,
   },
   marketDataLabel: {
-    fontSize: 12,
-    marginBottom: 2,
+    fontSize: 10,
+    marginBottom: 1,
   },
   marketDataValue: {
-    fontSize: 12,
+    fontSize: 11,
   },
   
   // Product Type
   productTypeContainer: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     justifyContent: 'center',
   },
   productTypeRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     justifyContent: 'flex-end',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   productTypeButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
-    minWidth: 80,
+    minWidth: 70,
     alignItems: 'center',
   },
   
   // Quantity
   quantitySection: {
-    gap: 16,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 8,
   },
   quantityHeader: {
     flexDirection: 'row',
@@ -863,7 +871,7 @@ const styles = StyleSheet.create({
   unitQuantityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   unitSelector: {
     gap: 16,
@@ -875,23 +883,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     flex: 1.2,
-    minWidth: 120,
+    minWidth: 100,
   },
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 5,
+    gap: 4,
     flex: 1.8,
-    minWidth: 160,
+    minWidth: 140,
   },
   quantityButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -902,61 +910,66 @@ const styles = StyleSheet.create({
   
   // Order Type and Advanced Options Combined
   orderCard: {
-    marginBottom: 8,
+    marginBottom: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
   sectionTitle: {
-    marginBottom: 12,
+    marginBottom: 6,
   },
   orderTypeContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+    gap: 6,
+    marginBottom: 8,
     paddingHorizontal: 2,
   },
   orderTypeButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: 70,
   },
   
   // Advanced Options
   advancedRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 8,
   },
   advancedGrid: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 8,
   },
   advancedItem: {
     flex: 1,
   },
   advancedLabel: {
-    marginBottom: 4,
+    marginBottom: 2,
+    fontSize: 13,
   },
   advancedInput: {
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginTop: 4,
-    fontSize: 16,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 2,
+    fontSize: 14,
   },
   
   // Summary
   summaryCard: {
-    marginBottom: 8,
+    marginBottom: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   
   // Execute Button
@@ -973,32 +986,32 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
     zIndex: 100,
     elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   stickyExecuteButton: {
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    minHeight: 56,
-    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    minHeight: 48,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   stickyExecuteButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
