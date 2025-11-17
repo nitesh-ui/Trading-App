@@ -240,6 +240,26 @@ const MemoizedTradeCard = memo<{
             </View>
           )}
         </View>
+
+        {/* Target and Stop Loss Row */}
+        <View style={styles.targetStopLossRow}>
+          <View style={styles.targetStopLossLeft}>
+            <Text variant="caption" color="textSecondary">Target</Text>
+            <Text variant="caption" color="text" weight="medium">
+              {trade.target && parseFloat(trade.target) > 0 
+                ? `₹${parseFloat(trade.target).toFixed(2)}` 
+                : 'N/A'}
+            </Text>
+          </View>
+          <View style={styles.targetStopLossRight}>
+            <Text variant="caption" color="textSecondary">Stop Loss</Text>
+            <Text variant="caption" color="text" weight="medium">
+              {trade.stopLoss && parseFloat(trade.stopLoss) > 0 
+                ? `₹${parseFloat(trade.stopLoss).toFixed(2)}` 
+                : 'N/A'}
+            </Text>
+          </View>
+        </View>
         
         <View style={styles.tradeFooter}>
           <Text variant="caption" color="textSecondary" style={styles.timestamp}>
@@ -897,6 +917,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tradeDetailRight: {
+    alignItems: 'flex-end',
+  },
+  targetStopLossRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+  },
+  targetStopLossLeft: {
+    alignItems: 'flex-start',
+  },
+  targetStopLossRight: {
     alignItems: 'flex-end',
   },
   tradeSymbol: {
