@@ -71,6 +71,151 @@ const TradePage: React.FC<TradePageProps> = ({
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
 
+  // Validation function for trade inputs
+  const validateTradeInputs = (): { isValid: boolean; errorMessage: string } => {
+    const marketPrice = asset.price;
+    const orderPrice = parseFloat(limitPrice) || 0;
+    const trigger = parseFloat(triggerPrice) || 0;
+    const target = parseFloat(targetPrice) || 0;
+    const stopLoss = parseFloat(stopLossPrice) || 0;
+
+    // For BUY orders
+    if (action === 'buy') {
+      switch (orderType) {
+        case 'MARKET':
+          // Target > Market Price, StopLoss < Market Price
+          if (target > 0 && target <= marketPrice) {
+            return { isValid: false, errorMessage: 'Target price must be greater than current market price' };
+          }
+          if (stopLoss > 0 && stopLoss >= marketPrice) {
+            return { isValid: false, errorMessage: 'Stop loss must be lower than current market price' };
+          }
+          break;
+
+        case 'LIMIT':
+          // Price < Market Price
+          if (orderPrice <= 0) {
+            return { isValid: false, errorMessage: 'Please enter a valid limit price' };
+          }
+          if (orderPrice >= marketPrice) {
+            return { isValid: false, errorMessage: 'Limit price must be lower than current market price' };
+          }
+          // Target > Order Price, StopLoss < Order Price
+          if (target > 0 && target <= orderPrice) {
+            return { isValid: false, errorMessage: 'Target price must be greater than order price' };
+          }
+          if (stopLoss > 0 && stopLoss >= orderPrice) {
+            return { isValid: false, errorMessage: 'Stop loss must be lower than order price' };
+          }
+          break;
+
+        case 'SL':
+          // Trigger Price > Market Price
+          if (trigger <= 0) {
+            return { isValid: false, errorMessage: 'Please enter a valid trigger price' };
+          }
+          if (trigger <= marketPrice) {
+            return { isValid: false, errorMessage: 'Trigger price must be greater than current market price' };
+          }
+          // Price > Trigger Price
+          if (orderPrice <= 0) {
+            return { isValid: false, errorMessage: 'Please enter a valid order price' };
+          }
+          if (orderPrice <= trigger) {
+            return { isValid: false, errorMessage: 'Order price must be greater than trigger price' };
+          }
+          // Target > Order Price, StopLoss < Order Price
+          if (target > 0 && target <= orderPrice) {
+            return { isValid: false, errorMessage: 'Target price must be greater than order price' };
+          }
+          if (stopLoss > 0 && stopLoss >= orderPrice) {
+            return { isValid: false, errorMessage: 'Stop loss must be lower than order price' };
+          }
+          break;
+
+        case 'SL-M':
+          // Trigger Price > Market Price
+          if (trigger <= 0) {
+            return { isValid: false, errorMessage: 'Please enter a valid trigger price' };
+          }
+          if (trigger <= marketPrice) {
+            return { isValid: false, errorMessage: 'Trigger price must be greater than current market price' };
+          }
+          // No Target and StopLoss required for SL-M
+          break;
+      }
+    }
+    
+    // For SELL orders
+    if (action === 'sell') {
+      switch (orderType) {
+        case 'MARKET':
+          // Target < Market Price, StopLoss > Market Price
+          if (target > 0 && target >= marketPrice) {
+            return { isValid: false, errorMessage: 'Target price must be lower than current market price' };
+          }
+          if (stopLoss > 0 && stopLoss <= marketPrice) {
+            return { isValid: false, errorMessage: 'Stop loss must be greater than current market price' };
+          }
+          break;
+
+        case 'LIMIT':
+          // Price > Market Price
+          if (orderPrice <= 0) {
+            return { isValid: false, errorMessage: 'Please enter a valid limit price' };
+          }
+          if (orderPrice <= marketPrice) {
+            return { isValid: false, errorMessage: 'Limit price must be greater than current market price' };
+          }
+          // Target < Order Price, StopLoss > Order Price
+          if (target > 0 && target >= orderPrice) {
+            return { isValid: false, errorMessage: 'Target price must be lower than order price' };
+          }
+          if (stopLoss > 0 && stopLoss <= orderPrice) {
+            return { isValid: false, errorMessage: 'Stop loss must be greater than order price' };
+          }
+          break;
+
+        case 'SL':
+          // Trigger Price < Market Price
+          if (trigger <= 0) {
+            return { isValid: false, errorMessage: 'Please enter a valid trigger price' };
+          }
+          if (trigger >= marketPrice) {
+            return { isValid: false, errorMessage: 'Trigger price must be lower than current market price' };
+          }
+          // Price < Trigger Price
+          if (orderPrice <= 0) {
+            return { isValid: false, errorMessage: 'Please enter a valid order price' };
+          }
+          if (orderPrice >= trigger) {
+            return { isValid: false, errorMessage: 'Order price must be lower than trigger price' };
+          }
+          // Target < Order Price, StopLoss > Order Price
+          if (target > 0 && target >= orderPrice) {
+            return { isValid: false, errorMessage: 'Target price must be lower than order price' };
+          }
+          if (stopLoss > 0 && stopLoss <= orderPrice) {
+            return { isValid: false, errorMessage: 'Stop loss must be greater than order price' };
+          }
+          break;
+
+        case 'SL-M':
+          // Trigger Price < Market Price
+          if (trigger <= 0) {
+            return { isValid: false, errorMessage: 'Please enter a valid trigger price' };
+          }
+          if (trigger >= marketPrice) {
+            return { isValid: false, errorMessage: 'Trigger price must be lower than current market price' };
+          }
+          // No Target and StopLoss required for SL-M
+          break;
+      }
+    }
+
+    return { isValid: true, errorMessage: '' };
+  };
+
   // Calculate bid/ask based on actual asset price (simple estimation)
   const getBidAsk = () => {
     const spread = marketType === 'stocks' ? 0.05 : 0.0001; // Small spread for stocks, smaller for forex
@@ -141,6 +286,17 @@ const TradePage: React.FC<TradePageProps> = ({
   const handleExecuteTrade = async () => {
     // Prevent multiple simultaneous executions
     if (isExecutingTrade) return;
+    
+    // Validate inputs before executing trade
+    const validation = validateTradeInputs();
+    if (!validation.isValid) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: validation.errorMessage
+      });
+      return;
+    }
     
     setIsExecutingTrade(true);
     
@@ -596,17 +752,17 @@ const TradePage: React.FC<TradePageProps> = ({
               <Text variant="body" color="text" style={styles.advancedLabel}>Target (Abs)</Text>
               <TextInput
                 style={[styles.advancedInput, { 
-                  backgroundColor: theme.colors.surface, 
+                  backgroundColor: orderType === 'SL-M' ? theme.colors.border + '40' : theme.colors.surface, 
                   color: theme.colors.text,
                   borderColor: theme.colors.border,
-                  opacity: 1 // Target is always enabled
+                  opacity: orderType === 'SL-M' ? 0.5 : 1 // Disabled for SL-M
                 }]}
                 value={targetPrice}
                 onChangeText={setTargetPrice}
                 placeholder="0"
                 placeholderTextColor={theme.colors.textSecondary}
                 keyboardType="numeric"
-                editable={true} // Target is always enabled
+                editable={orderType !== 'SL-M'} // Disabled for SL-M
               />
             </View>
             
@@ -614,17 +770,17 @@ const TradePage: React.FC<TradePageProps> = ({
               <Text variant="body" color="text" style={styles.advancedLabel}>Stop Loss (Abs)</Text>
               <TextInput
                 style={[styles.advancedInput, { 
-                  backgroundColor: theme.colors.surface, 
+                  backgroundColor: orderType === 'SL-M' ? theme.colors.border + '40' : theme.colors.surface, 
                   color: theme.colors.text,
                   borderColor: theme.colors.border,
-                  opacity: 1 // Stop Loss is always enabled
+                  opacity: orderType === 'SL-M' ? 0.5 : 1 // Disabled for SL-M
                 }]}
                 value={stopLossPrice}
                 onChangeText={setStopLossPrice}
                 placeholder="0"
                 placeholderTextColor={theme.colors.textSecondary}
                 keyboardType="numeric"
-                editable={true} // Stop Loss is always enabled
+                editable={orderType !== 'SL-M'} // Disabled for SL-M
               />
             </View>
           </View>
@@ -635,17 +791,17 @@ const TradePage: React.FC<TradePageProps> = ({
               <Text variant="body" color="text" style={styles.advancedLabel}>Price</Text>
               <TextInput
                 style={[styles.advancedInput, { 
-                  backgroundColor: orderType === 'MARKET' ? theme.colors.border + '40' : theme.colors.surface, 
+                  backgroundColor: (orderType === 'MARKET' || orderType === 'SL-M') ? theme.colors.border + '40' : theme.colors.surface, 
                   color: theme.colors.text,
                   borderColor: theme.colors.border,
-                  opacity: orderType === 'MARKET' ? 0.7 : 1 // Slightly faded for MARKET
+                  opacity: (orderType === 'MARKET' || orderType === 'SL-M') ? 0.5 : 1 // Disabled for MARKET and SL-M
                 }]}
                 value={orderType === 'MARKET' ? asset.price.toString() : limitPrice}
-                onChangeText={orderType === 'MARKET' ? undefined : setLimitPrice}
+                onChangeText={(orderType === 'MARKET' || orderType === 'SL-M') ? undefined : setLimitPrice}
                 placeholder="0"
                 placeholderTextColor={theme.colors.textSecondary}
                 keyboardType="numeric"
-                editable={orderType !== 'MARKET'} // Read-only for MARKET
+                editable={orderType !== 'MARKET' && orderType !== 'SL-M'} // Read-only for MARKET and SL-M
               />
             </View>
             
@@ -653,10 +809,10 @@ const TradePage: React.FC<TradePageProps> = ({
               <Text variant="body" color="text" style={styles.advancedLabel}>Trigger Price</Text>
               <TextInput
                 style={[styles.advancedInput, { 
-                  backgroundColor: theme.colors.surface, 
+                  backgroundColor: (orderType === 'SL' || orderType === 'SL-M') ? theme.colors.surface : theme.colors.border + '40', 
                   color: theme.colors.text,
                   borderColor: theme.colors.border,
-                  opacity: (orderType === 'SL' || orderType === 'SL-M') ? 1 : 0.5 // Enabled only for SL and SL-M
+                  opacity: (orderType === 'SL' || orderType === 'SL-M') ? 1 : 0.5 // Disabled for MARKET and LIMIT
                 }]}
                 value={triggerPrice}
                 onChangeText={setTriggerPrice}
