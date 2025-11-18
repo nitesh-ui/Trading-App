@@ -328,7 +328,7 @@ const MemoizedTradeCard = memo<{
             {trade.timestamp}
           </Text>
           
-          {/* Square Off Button for Completed Trades */}
+          {/* Square Off Button for Completed (Active) Trades */}
           {trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
             <TouchableOpacity 
               style={[styles.squareOffButton, { 
@@ -348,6 +348,32 @@ const MemoizedTradeCard = memo<{
                 variant="caption" 
                 weight="semibold"
                 style={{ color: theme.colors.error }}
+              >
+                Square Off
+              </Text>
+            </TouchableOpacity>
+          )}
+          
+          {/* Square Off Button for Pending Trades */}
+          {trade.status === 'PENDING' && trade.apiStatus.toUpperCase() === 'OPEN' && (
+            <TouchableOpacity 
+              style={[styles.squareOffButton, { 
+                backgroundColor: theme.colors.warning + '15',
+                borderColor: theme.colors.warning 
+              }]}
+              onPress={handleSquareOff}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="close-circle-outline" 
+                size={14} 
+                color={theme.colors.warning} 
+                style={{ marginRight: 4 }}
+              />
+              <Text 
+                variant="caption" 
+                weight="semibold"
+                style={{ color: theme.colors.warning }}
               >
                 Square Off
               </Text>
@@ -456,13 +482,16 @@ export default function TradesScreen() {
     return filtered;
   }, [trades, selectedFilter, debouncedSearchQuery]);
 
-  // Get completed trades for square off all functionality
-  const completedTrades = useMemo(() => {
-    return trades.filter((trade: Trade) => trade.status === 'COMPLETED');
+  // Get completed and pending trades for square off all functionality
+  const squareOffableTrades = useMemo(() => {
+    return trades.filter((trade: Trade) => 
+      (trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE') ||
+      (trade.status === 'PENDING' && trade.apiStatus.toUpperCase() === 'OPEN')
+    );
   }, [trades]);
 
   // Check if we should show "Square Off All" button
-  const showSquareOffAll = selectedFilter === 'ALL' && completedTrades.length > 0;
+  const showSquareOffAll = selectedFilter === 'ALL' && squareOffableTrades.length > 0;
 
   // Callbacks
   const handleTradePress = useCallback((trade: Trade) => {
@@ -530,20 +559,26 @@ export default function TradesScreen() {
   }, [showNotification, refetch]);
 
   const handleSquareOffAll = useCallback(async () => {
-    // Handle square off all completed trades
-    const completedCount = completedTrades.length;
+    // Handle square off all active and pending trades
+    const totalCount = squareOffableTrades.length;
+    const activeCount = squareOffableTrades.filter(t => t.status === 'COMPLETED').length;
+    const pendingCount = squareOffableTrades.filter(t => t.status === 'PENDING').length;
     
-    if (completedCount === 0) {
+    if (totalCount === 0) {
       showNotification({
         type: 'warning',
-        title: 'No Completed Trades',
-        message: 'There are no completed trades to square off'
+        title: 'No Trades to Square Off',
+        message: 'There are no active or pending trades to square off'
       });
       return;
     }
     
-    // Show confirmation dialog
-    const confirmMessage = `Are you sure you want to square off all ${completedCount} completed position${completedCount > 1 ? 's' : ''}?`;
+    // Show confirmation dialog with breakdown
+    let confirmMessage = `Are you sure you want to square off all ${totalCount} position${totalCount > 1 ? 's' : ''}?`;
+    if (activeCount > 0 && pendingCount > 0) {
+      confirmMessage = `Are you sure you want to square off ${activeCount} active and ${pendingCount} pending position${totalCount > 1 ? 's' : ''}?`;
+    }
+    
     let confirmed = false;
     
     if (Platform.OS === 'web') {
@@ -556,16 +591,9 @@ export default function TradesScreen() {
     
     if (confirmed) {
       try {
-        // Show processing notification
-        // showNotification({
-        //   type: 'info',
-        //   title: 'Processing Square Off All',
-        //   message: `Placing square off orders for ${completedCount} position${completedCount > 1 ? 's' : ''}...`
-        // });
-        
-        // Square off all completed trades
+        // Square off all active and pending trades
         const results = await Promise.allSettled(
-          completedTrades.map(trade => tradingApiService.squareOffTrade(
+          squareOffableTrades.map((trade: Trade) => tradingApiService.squareOffTrade(
             trade.activeTradeID,
             trade.apiStatus,
             trade.quantity
@@ -573,17 +601,17 @@ export default function TradesScreen() {
         );
         
         // Count successful and failed operations
-        const successful = results.filter(result => 
+        const successful = results.filter((result: any) => 
           result.status === 'fulfilled' && result.value.success
         ).length;
-        const failed = completedCount - successful;
+        const failed = totalCount - successful;
         
         // Show appropriate notification
         if (failed === 0) {
           showNotification({
             type: 'success',
             title: 'All Positions Squared Off',
-            message: `Successfully squared off all ${successful} position${successful > 1 ? 's' : ''}`
+            message: `Successfully squared off all ${successful} position${successful > 1 ? 's' : ''} (${activeCount} active, ${pendingCount} pending)`
           });
         } else if (successful === 0) {
           showNotification({
@@ -610,7 +638,7 @@ export default function TradesScreen() {
         });
       }
     }
-  }, [completedTrades, showNotification, refetch]);
+  }, [squareOffableTrades, showNotification, refetch]);
 
   const handleWalletPress = useCallback(() => {
     setIsWalletPageVisible(true);
@@ -728,6 +756,9 @@ export default function TradesScreen() {
   const renderListHeader = useCallback(() => {
     if (!showSquareOffAll) return null;
     
+    const activeCount = squareOffableTrades.filter(t => t.status === 'COMPLETED').length;
+    const pendingCount = squareOffableTrades.filter(t => t.status === 'PENDING').length;
+    
     return (
       <View style={styles.listHeader}>
         <TouchableOpacity 
@@ -749,12 +780,12 @@ export default function TradesScreen() {
             weight="semibold"
             style={{ color: theme.colors.error }}
           >
-            Square Off All ({completedTrades.length})
+            Square Off All ({squareOffableTrades.length})
           </Text>
         </TouchableOpacity>
       </View>
     );
-  }, [showSquareOffAll, theme.colors.error, handleSquareOffAll, completedTrades.length]);
+  }, [showSquareOffAll, theme.colors.error, handleSquareOffAll, squareOffableTrades]);
 
   return (
     <ScreenErrorBoundary screenName="Trades">
