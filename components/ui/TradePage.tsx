@@ -65,8 +65,7 @@ const TradePage: React.FC<TradePageProps> = ({
   const [requiredMargin, setRequiredMargin] = useState<number>(0);
   const [isLoadingMargin, setIsLoadingMargin] = useState(false);
   const [marginData, setMarginData] = useState<RequiredMarginData | null>(null);
-  const [baseMarginPerLot, setBaseMarginPerLot] = useState<number>(0); // Margin per single lot
-  const [marginQuantity, setMarginQuantity] = useState<number>(1); // Quantity used for margin calculation
+  const [isMarginFromApi, setIsMarginFromApi] = useState<boolean>(false); // Track if margin is from API
   const [walletBalance, setWalletBalance] = useState<string>('0');
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
@@ -274,12 +273,12 @@ const TradePage: React.FC<TradePageProps> = ({
   ];
 
   const calculateRequiredAmount = () => {
-    // Use API margin data if available, otherwise fallback to calculation
-    if (baseMarginPerLot > 0) {
-      // Scale the base margin by current quantity
-      return baseMarginPerLot * quantity;
+    // Use API margin data if available (already calculated for the current quantity)
+    if (isMarginFromApi && requiredMargin > 0) {
+      return requiredMargin;
     }
     
+    // Fallback to manual calculation if API data is not available
     const price = orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price;
     const lotSize = asset.lotSize || 1;
     return quantity * price * lotSize;
@@ -442,15 +441,11 @@ const TradePage: React.FC<TradePageProps> = ({
       setIsLoadingMargin(true);
       
       const request: GetRequiredMarginRequest = {
-        ScriptLotSize: asset.lotSize || 1, // Use asset lot size or default to 1
-        ScriptCode: (asset.scriptCode || 0).toString(), // Use asset script code
-        quantity: quantity,
-        Totalwalletbalance: walletData?.amount ? parseFloat(walletData.amount) : parseFloat(walletBalance) || 0,
-        MisOrNot: productType === 'MIS' ? 1 : 0,
-        Lastprice: asset.price,
-        TRADING_UNIT_TYPE: 1, // Default trading unit type
-        ScriptExchange: asset.exchange || 'NSE',
-        CurrentPosition: action === 'buy' ? 'Buy' : 'Sell'
+        currentPosition: action === 'buy' ? 'Buy' : 'Sell',
+        qty: quantity,
+        scriptCode: asset.scriptCode || 0,
+        lastprice: asset.price,
+        isMisOrder: productType === 'MIS'
       };
 
       console.log('🚀 Fetching required margin with request:', request);
@@ -460,30 +455,32 @@ const TradePage: React.FC<TradePageProps> = ({
       if (response.success && response.data && response.data.length > 0) {
         const marginInfo = response.data[0];
         setMarginData(marginInfo);
-        setRequiredMargin(marginInfo.Requiredmargin);
         
-        // Calculate and store base margin per lot for scaling
-        // The API returns margin for the requested quantity, so divide by quantity to get per-lot margin
-        const marginPerLot = quantity > 0 ? marginInfo.Requiredmargin / quantity : marginInfo.Requiredmargin;
-        setBaseMarginPerLot(marginPerLot);
-        setMarginQuantity(quantity);
+        // Use the API's requiredmargin value directly (already calculated for the given quantity)
+        setRequiredMargin(marginInfo.requiredmargin);
+        setIsMarginFromApi(true);
         
         // For market orders, auto-fill the price field with the last price
         if (orderType === 'MARKET') {
           setLimitPrice(asset.price.toString());
         }
         
-        console.log('✅ Required margin fetched:', marginInfo.Requiredmargin, '| Per lot:', marginPerLot);
+        console.log('✅ Required margin fetched from API:', {
+          requiredmargin: marginInfo.requiredmargin,
+          availablemargin: marginInfo.availablemargin,
+          usedmargin: marginInfo.usedmargin,
+          quantity: quantity
+        });
       } else {
         console.error('❌ Failed to fetch required margin:', response);
-        // Fallback to calculated amount - reset base margin
-        setBaseMarginPerLot(0);
+        // Fallback to calculated amount
+        setIsMarginFromApi(false);
         setRequiredMargin(0);
       }
     } catch (error) {
       console.error('❌ Error fetching required margin:', error);
-      // Fallback to calculated amount - reset base margin
-      setBaseMarginPerLot(0);
+      // Fallback to calculated amount
+      setIsMarginFromApi(false);
       setRequiredMargin(0);
       // showNotification({
       //   type: 'warning',

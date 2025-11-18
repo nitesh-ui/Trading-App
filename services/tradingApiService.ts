@@ -411,43 +411,40 @@ export interface TransactionDetailsResponse {
 
 // GetRequiredMargin API Interfaces
 export interface GetRequiredMarginRequest {
-  ScriptLotSize: number;
-  ScriptCode: string;
-  quantity: number;
-  Totalwalletbalance: number;
-  MisOrNot: number; // 1 for MIS, 0 for NRML
-  Lastprice: number;
-  TRADING_UNIT_TYPE: number;
-  ScriptExchange: string;
-  CurrentPosition: string; // 'Buy' or 'Sell'
+  currentPosition: string; // 'Buy' or 'Sell'
+  qty: number;
+  scriptCode: number;
+  lastprice: number;
+  isMisOrder: boolean;
 }
 
 export interface RequiredMarginData {
-  WID: number;
-  Watchlistname: string;
-  Scripts: number;
-  UserID: number;
-  Email: string;
-  ScriptExchange: string;
-  ExpireDay: number;
-  Ismanual: boolean;
-  ENABLE_SCRIPTWISE_BROKERAGE: number;
-  ENABLE_LOTWISE_BROKERAGE: number;
-  MIS_EXPOSER: number;
-  NORMAL_EXPOSER: number;
-  BROKERAGE_TYPE: number;
-  BROKERAGE_VALUE: number;
-  Banscriptid: number;
-  ScriptName: string;
-  Total_Page: number;
-  Requiredmargin: number;
-  Availablemargin: number;
-  Usedmargin: number;
-  PledgeMargin: number;
-  ScriptCode: number;
-  roleid: string;
-  rolename: string;
-  Level: number;
+  requiredmargin: number;
+  availablemargin: number;
+  usedmargin: number;
+  // Optional fields that may be returned by the API
+  WID?: number;
+  Watchlistname?: string;
+  Scripts?: number;
+  UserID?: number;
+  Email?: string;
+  ScriptExchange?: string;
+  ExpireDay?: number;
+  Ismanual?: boolean;
+  ENABLE_SCRIPTWISE_BROKERAGE?: number;
+  ENABLE_LOTWISE_BROKERAGE?: number;
+  MIS_EXPOSER?: number;
+  NORMAL_EXPOSER?: number;
+  BROKERAGE_TYPE?: number;
+  BROKERAGE_VALUE?: number;
+  Banscriptid?: number;
+  ScriptName?: string;
+  Total_Page?: number;
+  PledgeMargin?: number;
+  ScriptCode?: number;
+  roleid?: string;
+  rolename?: string;
+  Level?: number;
 }
 
 export interface GetRequiredMarginResponse {
@@ -1922,29 +1919,19 @@ class TradingApiService {
    */
   async getRequiredMargin(request: GetRequiredMarginRequest): Promise<GetRequiredMarginResponse> {
     try {
-      const queryParams = new URLSearchParams({
-        ScriptLotSize: request.ScriptLotSize.toString(),
-        ScriptCode: request.ScriptCode,
-        quantity: request.quantity.toString(),
-        Totalwalletbalance: request.Totalwalletbalance.toString(),
-        MisOrNot: request.MisOrNot.toString(),
-        Lastprice: request.Lastprice.toString(),
-        TRADING_UNIT_TYPE: request.TRADING_UNIT_TYPE.toString(),
-        ScriptExchange: request.ScriptExchange,
-        CurrentPosition: request.CurrentPosition
-      });
-
-      // const response = await this.makeAuthenticatedRequest(
-      //   `https://uat.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
-      //   {
-      //     method: 'GET'
-      //   }
-      // );
+      console.log('🚀 GetRequiredMargin API Request:', request);
 
       const response = await this.makeAuthenticatedRequest(
-        `https://demo.sanaitatechnologies.com/Trade/GetRequiredMargin?${queryParams.toString()}`,
+        `${API_BASE_URL}/WatchListApi/GetRequiredMargin`,
         {
-          method: 'GET'
+          method: 'POST',
+          body: JSON.stringify({
+            currentPosition: request.currentPosition,
+            qty: request.qty,
+            scriptCode: request.scriptCode,
+            lastprice: request.lastprice,
+            isMisOrder: request.isMisOrder
+          })
         }
       );
 
@@ -1954,17 +1941,13 @@ class TradingApiService {
         throw new Error(`GetRequiredMargin failed with status: ${response.status}`);
       }
 
-      const responseText = await response.text();
-      console.log('📋 GetRequiredMargin Raw Response:', responseText);
-
-      // Parse the JSON string response
-      const data = JSON.parse(responseText);
-      console.log('✅ GetRequiredMargin Parsed Response:', data);
+      const data = await response.json();
+      console.log('✅ GetRequiredMargin API Response:', data);
 
       return {
         success: true,
-        data: Array.isArray(data) ? data : [data],
-        message: 'Required margin fetched successfully'
+        data: Array.isArray(data.data) ? data.data : (data.data ? [data.data] : []),
+        message: data.message || 'Required margin fetched successfully'
       };
 
     } catch (error) {
