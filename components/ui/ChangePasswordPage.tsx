@@ -16,6 +16,8 @@ import {
 import { Button, Input, Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
+import { tradingApiService } from '../../services/tradingApiService';
+import { sessionExpiryHandler } from '../../services/sessionExpiryHandler';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -132,29 +134,50 @@ export default function ChangePasswordPage({ visible, onClose }: ChangePasswordP
     setLoading(true);
 
     try {
-      // TODO: Call the change password API here
-      // Example:
-      // await tradingApiService.changePassword({
-      //   currentPassword,
-      //   newPassword,
-      // });
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      showNotification({
-        type: 'success',
-        title: 'Password Changed',
-        message: 'Your password has been changed successfully',
+      console.log('🔑 Attempting to change password...');
+      
+      // Call the change password API with session expiry handling
+      const response = await sessionExpiryHandler.withSessionHandling(async () => {
+        return await tradingApiService.changePassword({
+          currentPassword,
+          newPassword,
+        });
       });
 
-      handleClose();
+      console.log('📡 Change password response:', response);
+
+      if (response.success) {
+        showNotification({
+          type: 'success',
+          title: 'Password Changed',
+          message: response.message || 'Your password has been changed successfully',
+        });
+        handleClose();
+      } else {
+        showNotification({
+          type: 'error',
+          title: 'Password Change Failed',
+          message: response.message || 'Failed to change password. Please check your current password and try again.',
+        });
+      }
     } catch (error: any) {
-      console.error('Error changing password:', error);
+      console.error('❌ Error changing password:', error);
+      
+      // Handle specific error messages
+      let errorMessage = 'Failed to change password. Please try again.';
+      
+      if (error.message?.includes('Session expired')) {
+        errorMessage = 'Your session has expired. Please login again.';
+      } else if (error.message?.includes('current password')) {
+        errorMessage = 'Current password is incorrect.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       showNotification({
         type: 'error',
         title: 'Error',
-        message: error.message || 'Failed to change password. Please try again.',
+        message: errorMessage,
       });
     } finally {
       setLoading(false);

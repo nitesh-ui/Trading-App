@@ -362,7 +362,7 @@ export default function ReportScreen() {
           </Text>
         </View>
         
-        <View style={[styles.detailRow, styles.netProfitRow]}>
+        {/* <View style={[styles.detailRow, styles.netProfitRow]}>
           <Text variant="body" color="text" weight="semibold">Net P&L</Text>
           <Text 
             variant="body" 
@@ -371,7 +371,7 @@ export default function ReportScreen() {
           >
             {formatIndianCurrency(item.netProfitLoss)}
           </Text>
-        </View>
+        </View> */}
       </View>
     </Card>
   );

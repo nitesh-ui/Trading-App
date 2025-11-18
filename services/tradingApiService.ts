@@ -89,6 +89,18 @@ export interface UpdatePasswordResponse {
   success?: boolean;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordResponse {
+  message?: string;
+  data?: any;
+  error?: string;
+  success?: boolean;
+}
+
 export interface ProceedBuySellRequest {
   intWID: number;
   scriptCode: number;
@@ -905,6 +917,84 @@ class TradingApiService {
 
     } catch (error) {
       console.error('🔥 Update Password API Error:', error);
+      return {
+        success: false,
+        message: 'Network error occurred',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Change user password (requires current password)
+   */
+  async changePassword(data: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+    try {
+      console.log('🚀 Change Password API Request:', {
+        url: `${API_BASE_URL}/ProfileApi/ChangePassword`,
+        method: 'POST',
+        body: { currentPassword: '******', newPassword: '******' } // Log masked passwords
+      });
+
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/ProfileApi/ChangePassword`,
+        {
+          method: 'POST',
+          headers: {
+            'accept': '*/*',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            currentPassword: data.currentPassword,
+            newPassword: data.newPassword
+          }),
+        }
+      );
+
+      console.log('📡 Change Password API Response Status:', response.status);
+
+      const responseText = await response.text();
+      console.log('📋 Change Password Raw Response:', responseText);
+
+      let responseData: any;
+      try {
+        responseData = JSON.parse(responseText);
+        console.log('✅ Change Password Parsed Response:', responseData);
+      } catch (parseError) {
+        console.error('❌ Failed to parse response as JSON:', parseError);
+        return {
+          success: false,
+          message: 'Invalid response format from server',
+          error: responseText
+        };
+      }
+
+      if (!response.ok) {
+        console.error('❌ Change Password API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          data: responseData
+        });
+
+        return {
+          success: false,
+          message: responseData.message || 'Password change failed',
+          error: responseData.error || 'Server error'
+        };
+      }
+
+      return {
+        success: true,
+        message: responseData.message || 'Password changed successfully',
+        data: responseData.data
+      };
+
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        throw error;
+      }
+      
+      console.error('🔥 Change Password API Error:', error);
       return {
         success: false,
         message: 'Network error occurred',
