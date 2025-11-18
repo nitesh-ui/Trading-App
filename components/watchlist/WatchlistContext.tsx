@@ -271,7 +271,10 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             high: pair.high,
             low: pair.low,
             volume: pair.volume,
-            lotSize: 1, // Default lot size for regular forex pairs
+            lotSize: pair.lotSize || 1, // Use lotSize from forexService or default to 1
+            scriptCode: pair.scriptCode, // Include scriptCode from forexService
+            wid: pair.wid, // Include wid from forexService
+            intWID: pair.intWID, // Include intWID from forexService
           }));
           
           // Merge both sources, prioritizing live price data but preserving API metadata
@@ -306,8 +309,17 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 });
               }
             } else {
-              // New symbol not in API data, add as-is (won't have scriptCode/wid)
+              // New symbol not in API data, add as-is with IDs from forexService
               forexMap.set(liveAsset.symbol, liveAsset);
+              
+              // Debug: Log when a forex pair is added without API data
+              console.log('🔍 Forex pair added from forexService (no API data):', {
+                symbol: liveAsset.symbol,
+                scriptCode: liveAsset.scriptCode,
+                wid: liveAsset.wid,
+                intWID: liveAsset.intWID,
+                lotSize: liveAsset.lotSize
+              });
             }
           });
           
@@ -406,6 +418,10 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           high: pair.high,
           low: pair.low,
           volume: pair.volume,
+          lotSize: pair.lotSize || 1, // Include lotSize from forexService
+          scriptCode: pair.scriptCode, // Include scriptCode from forexService
+          wid: pair.wid, // Include wid from forexService
+          intWID: pair.intWID, // Include intWID from forexService
         }));
         break;
       case 'crypto':

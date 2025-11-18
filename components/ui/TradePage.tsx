@@ -26,6 +26,7 @@ import {
   RequiredMarginData,
   WalletBalanceData
 } from '../../services/tradingApiService';
+import { watchlistApiService } from '../../services/watchlistApiService';
 import { queryKeys } from '../../services/queryClient';
 
 interface TradePageProps {
@@ -69,6 +70,8 @@ const TradePage: React.FC<TradePageProps> = ({
   const [walletBalance, setWalletBalance] = useState<string>('0');
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
+  const [fetchedWatchlistAsset, setFetchedWatchlistAsset] = useState<AssetItem | null>(null);
+  const [isLoadingWatchlistData, setIsLoadingWatchlistData] = useState(false);
 
   // Debug: Log asset data immediately when component receives it
   React.useEffect(() => {
@@ -85,8 +88,32 @@ const TradePage: React.FC<TradePageProps> = ({
       // Log all properties to see what's available
       allKeys: Object.keys(asset)
     });
+    
+    // Highlight critical fields
+    if (!asset.scriptCode) {
+      console.error('❌ CRITICAL: scriptCode is missing from asset!');
+    }
+    if (!asset.wid && !asset.intWID) {
+      console.error('❌ CRITICAL: both wid and intWID are missing from asset!');
+    }
+    
     console.log('🔍 Full asset object:', JSON.stringify(asset, null, 2));
   }, [asset]);
+
+  // Debug: Log fetched watchlist data when it changes
+  React.useEffect(() => {
+    if (fetchedWatchlistAsset) {
+      console.log('✅ Fetched watchlist asset updated:', {
+        symbol: fetchedWatchlistAsset.symbol,
+        fetchedIntWID: fetchedWatchlistAsset.intWID,
+        fetchedWID: fetchedWatchlistAsset.wid,
+        fetchedScriptCode: fetchedWatchlistAsset.scriptCode,
+        assetIntWID: asset.intWID,
+        assetWID: asset.wid,
+        assetScriptCode: asset.scriptCode
+      });
+    }
+  }, [fetchedWatchlistAsset, asset.symbol, asset.intWID, asset.wid, asset.scriptCode]);
 
   // Validation function for trade inputs
   const validateTradeInputs = (): { isValid: boolean; errorMessage: string } => {
@@ -321,18 +348,63 @@ const TradePage: React.FC<TradePageProps> = ({
     setIsExecutingTrade(true);
     
     try {
-      // Log warning if required fields are missing
-      if (!asset.wid && !asset.intWID) {
-        console.warn('⚠️ Missing wid/intWID for asset:', asset.symbol);
+      // Use fetched watchlist asset data with multiple fallback levels
+      // Priority: 1. Fetched from watchlist API, 2. Asset props, 3. Default 0
+      const finalIntWID = fetchedWatchlistAsset?.intWID || fetchedWatchlistAsset?.wid || asset.wid || asset.intWID || 0;
+      const finalScriptCode = fetchedWatchlistAsset?.scriptCode || asset.scriptCode || 0;
+      
+      // Debug: Log the source of IDs
+      console.log('🔍 Trade ID sources for', asset.symbol, ':', {
+        intWID: {
+          value: finalIntWID,
+          source: fetchedWatchlistAsset?.intWID ? 'fetched.intWID' :
+                  fetchedWatchlistAsset?.wid ? 'fetched.wid' :
+                  asset.wid ? 'asset.wid' :
+                  asset.intWID ? 'asset.intWID' : 'default(0)'
+        },
+        scriptCode: {
+          value: finalScriptCode,
+          source: fetchedWatchlistAsset?.scriptCode ? 'fetched.scriptCode' :
+                  asset.scriptCode ? 'asset.scriptCode' : 'default(0)'
+        }
+      });
+
+      // Log warnings if critical fields are still missing
+      if (finalIntWID === 0) {
+        console.error('❌ intWID is 0 for asset:', asset.symbol, '- Trade will fail!', {
+          marketType: marketType,
+          exchange: asset.exchange,
+          fetchedAsset: fetchedWatchlistAsset,
+          assetProps: { wid: asset.wid, intWID: asset.intWID, scriptCode: asset.scriptCode },
+          allAssetKeys: Object.keys(asset)
+        });
+        showNotification({
+          type: 'error',
+          title: 'Missing Trading ID',
+          message: `Unable to place trade: Missing watchlist ID for ${asset.symbol}. This asset may not be available for trading.`
+        });
+        return;
       }
-      if (!asset.scriptCode) {
-        console.warn('⚠️ Missing scriptCode for asset:', asset.symbol);
+      if (finalScriptCode === 0 || !finalScriptCode) {
+        console.error('❌ scriptCode is 0 or undefined for asset:', asset.symbol, '- Trade will fail!', {
+          marketType: marketType,
+          exchange: asset.exchange,
+          fetchedAsset: fetchedWatchlistAsset,
+          assetProps: { scriptCode: asset.scriptCode, wid: asset.wid, intWID: asset.intWID },
+          allAssetKeys: Object.keys(asset)
+        });
+        showNotification({
+          type: 'error',
+          title: 'Missing Script Code',
+          message: `Unable to place trade: Missing script code for ${asset.symbol}. This asset may not be available for trading.`
+        });
+        return;
       }
 
       // Prepare the API request data
       const apiRequest: ProceedBuySellRequest = {
-        intWID: asset.wid || asset.intWID || 0, // Use wid from watchlist API, fallback to intWID or 0
-        scriptCode: asset.scriptCode || 0, // Use from asset data or fallback to 0
+        intWID: finalIntWID, // Use fetched value or fallback chain
+        scriptCode: finalScriptCode, // Use fetched value or fallback chain
         currentPosition: action === 'buy' ? 'Buy' : 'Sell', // Capitalize as required by API
         quantity: quantity.toString(),
         price: (orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price).toString(),
@@ -352,10 +424,20 @@ const TradePage: React.FC<TradePageProps> = ({
         name: asset.name,
         price: asset.price,
         exchange: asset.exchange,
-        scriptCode: asset.scriptCode,
-        wid: asset.wid,
-        intWID: asset.intWID,
-        usingWID: asset.wid || asset.intWID || 0
+        fetchedWatchlistAsset: fetchedWatchlistAsset ? {
+          intWID: fetchedWatchlistAsset.intWID,
+          wid: fetchedWatchlistAsset.wid,
+          scriptCode: fetchedWatchlistAsset.scriptCode
+        } : null,
+        assetProps: {
+          intWID: asset.intWID,
+          wid: asset.wid,
+          scriptCode: asset.scriptCode
+        },
+        finalValues: {
+          intWID: finalIntWID,
+          scriptCode: finalScriptCode
+        }
       });
 
       // Call the real trading API
@@ -440,10 +522,13 @@ const TradePage: React.FC<TradePageProps> = ({
     try {
       setIsLoadingMargin(true);
       
+      // Use fetched scriptCode with fallback
+      const finalScriptCode = fetchedWatchlistAsset?.scriptCode || asset.scriptCode || 0;
+      
       const request: GetRequiredMarginRequest = {
         currentPosition: action === 'buy' ? 'Buy' : 'Sell',
         qty: quantity,
-        scriptCode: asset.scriptCode || 0,
+        scriptCode: finalScriptCode,
         lastprice: asset.price,
         isMisOrder: productType === 'MIS'
       };
@@ -490,7 +575,7 @@ const TradePage: React.FC<TradePageProps> = ({
     } finally {
       setIsLoadingMargin(false);
     }
-  }, [quantity, productType, asset.price, asset.exchange, asset.scriptCode, asset.lotSize, action, walletData, walletBalance, orderType, showNotification]);
+  }, [quantity, productType, asset.price, asset.exchange, asset.scriptCode, fetchedWatchlistAsset, asset.lotSize, action, walletData, walletBalance, orderType, showNotification]);
 
   const fetchWalletBalance = useCallback(async () => {
     try {
@@ -526,6 +611,124 @@ const TradePage: React.FC<TradePageProps> = ({
     }
   }, [showNotification]);
 
+  /**
+   * Fetch watchlist data to get correct intWID and scriptCode for the asset
+   * This ensures we always have the latest values from the API
+   * 
+   * IMPORTANT FIX (Nov 18, 2025):
+   * - For forex/crypto assets: Check if IDs exist in asset props first (from forexService/binanceService)
+   * - If IDs exist in props, use them directly without backend API call
+   * - Only fetch from backend if IDs are missing from props
+   * - This fixes the issue where forex pairs like EURUSD couldn't be traded due to missing IDs
+   * - The forexService now provides mock IDs (scriptCode, wid, intWID) for all forex pairs
+   */
+  const fetchWatchlistData = useCallback(async () => {
+    try {
+      setIsLoadingWatchlistData(true);
+      
+      console.log('🔍 Fetching watchlist data for asset:', asset.symbol, {
+        exchange: asset.exchange,
+        marketType: marketType,
+        hasIDs: {
+          scriptCode: !!asset.scriptCode,
+          wid: !!asset.wid,
+          intWID: !!asset.intWID
+        }
+      });
+      
+      // For forex and crypto assets that already have IDs from their services,
+      // we can use them directly without fetching from backend
+      if ((marketType === 'forex' || marketType === 'crypto') && 
+          (asset.scriptCode || asset.intWID || asset.wid)) {
+        console.log('✅ Using IDs from forex/crypto service for', asset.symbol, ':', {
+          scriptCode: asset.scriptCode,
+          wid: asset.wid,
+          intWID: asset.intWID,
+          lotSize: asset.lotSize
+        });
+        
+        // Use the asset as-is since it already has the necessary IDs
+        setFetchedWatchlistAsset(asset);
+        setIsLoadingWatchlistData(false);
+        return;
+      }
+      
+      // Get all watchlist data from API (for stocks and forex/crypto without IDs)
+      const watchlistResponse = await watchlistApiService.fetchWatchlistData();
+      
+      if (watchlistResponse && watchlistResponse.length > 0) {
+        // Find the matching asset by symbol (try exact match first, then partial match)
+        const matchingAsset = watchlistResponse.find(
+          (item: any) => 
+            item.symbol === asset.symbol || 
+            item.scriptName === asset.symbol ||
+            item.symbol?.toLowerCase() === asset.symbol?.toLowerCase() ||
+            item.scriptName?.toLowerCase() === asset.symbol?.toLowerCase()
+        );
+        
+        if (matchingAsset) {
+          // Store the entire watchlist asset object
+          setFetchedWatchlistAsset(matchingAsset);
+          
+          console.log('✅ Watchlist asset fetched for', asset.symbol, ':', {
+            intWID: matchingAsset.intWID || matchingAsset.wid,
+            scriptCode: matchingAsset.scriptCode,
+            exchange: matchingAsset.exchange,
+            fullAsset: matchingAsset
+          });
+        } else {
+          console.warn('⚠️ Asset not found in backend watchlist:', asset.symbol);
+          
+          // For forex/crypto, check if asset props have IDs
+          if ((marketType === 'forex' || marketType === 'crypto') && 
+              (asset.scriptCode || asset.intWID || asset.wid)) {
+            console.log('✅ Using fallback IDs from asset props for', asset.symbol);
+            setFetchedWatchlistAsset(asset);
+          } else {
+            console.error('❌ No IDs available for asset:', asset.symbol);
+            setFetchedWatchlistAsset(null);
+          }
+        }
+      } else {
+        console.warn('⚠️ No watchlist data returned from API');
+        
+        // Fallback: Use asset props if they have IDs
+        if ((marketType === 'forex' || marketType === 'crypto') && 
+            (asset.scriptCode || asset.intWID || asset.wid)) {
+          console.log('✅ Using fallback IDs from asset props (no API data)');
+          setFetchedWatchlistAsset(asset);
+        } else {
+          setFetchedWatchlistAsset(null);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error fetching watchlist data:', error);
+      
+      // Fallback: Try to use asset props if they have IDs
+      if ((marketType === 'forex' || marketType === 'crypto') && 
+          (asset.scriptCode || asset.intWID || asset.wid)) {
+        console.log('✅ Using fallback IDs from asset props (error case)');
+        setFetchedWatchlistAsset(asset);
+      } else {
+        setFetchedWatchlistAsset(null);
+        showNotification({
+          type: 'warning',
+          title: 'Data Fetch',
+          message: 'Using cached asset data'
+        });
+      }
+    } finally {
+      setIsLoadingWatchlistData(false);
+    }
+  }, [asset, marketType, showNotification]);
+
+  // Fetch watchlist data when page becomes visible to get correct intWID and scriptCode
+  useEffect(() => {
+    if (visible) {
+      fetchWatchlistData();
+    }
+  }, [visible, fetchWatchlistData]);
+
   // Fetch wallet balance when page becomes visible
   useEffect(() => {
     if (visible) {
@@ -548,6 +751,13 @@ const TradePage: React.FC<TradePageProps> = ({
       fetchRequiredMargin();
     }
   }, [visible, quantity, productType, orderType, walletBalance, fetchRequiredMargin]);
+
+  // Fetch watchlist data when the component mounts or asset changes
+  useEffect(() => {
+    if (visible && asset) {
+      fetchWatchlistData();
+    }
+  }, [visible, asset, fetchWatchlistData]);
 
   return (
     <SlidingPage

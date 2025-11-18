@@ -12,6 +12,11 @@ export interface ForexPair {
   previousClose: number;
   spread: number;
   pipValue: number;
+  // Trading identifiers - mock values for forex pairs
+  scriptCode?: number;
+  wid?: number;
+  intWID?: number;
+  lotSize?: number;
 }
 
 export interface ForexIndices {
@@ -33,6 +38,8 @@ export interface ForexIndices {
 }
 
 // Mock Forex pairs data - major currency pairs
+// Note: scriptCode, wid, intWID, and lotSize are mock values for demonstration
+// In a real app, these would come from your broker's API
 const FOREX_PAIRS: ForexPair[] = [
   {
     symbol: 'USDINR',
@@ -47,6 +54,10 @@ const FOREX_PAIRS: ForexPair[] = [
     previousClose: 83.1200,
     spread: 0.0050,
     pipValue: 0.0001,
+    scriptCode: 100001,
+    wid: 100001,
+    intWID: 100001,
+    lotSize: 1,
   },
   {
     symbol: 'EURUSD',
@@ -61,6 +72,10 @@ const FOREX_PAIRS: ForexPair[] = [
     previousClose: 1.0875,
     spread: 0.0002,
     pipValue: 0.0001,
+    scriptCode: 100002,
+    wid: 100002,
+    intWID: 100002,
+    lotSize: 1,
   },
   {
     symbol: 'GBPUSD',
@@ -75,6 +90,10 @@ const FOREX_PAIRS: ForexPair[] = [
     previousClose: 1.2615,
     spread: 0.0003,
     pipValue: 0.0001,
+    scriptCode: 100003,
+    wid: 100003,
+    intWID: 100003,
+    lotSize: 1,
   },
   {
     symbol: 'USDJPY',
@@ -89,6 +108,10 @@ const FOREX_PAIRS: ForexPair[] = [
     previousClose: 150.170,
     spread: 0.050,
     pipValue: 0.01,
+    scriptCode: 100004,
+    wid: 100004,
+    intWID: 100004,
+    lotSize: 1,
   },
   {
     symbol: 'AUDUSD',
@@ -103,6 +126,10 @@ const FOREX_PAIRS: ForexPair[] = [
     previousClose: 0.6565,
     spread: 0.0002,
     pipValue: 0.0001,
+    scriptCode: 100005,
+    wid: 100005,
+    intWID: 100005,
+    lotSize: 1,
   },
   {
     symbol: 'USDCAD',
@@ -117,6 +144,10 @@ const FOREX_PAIRS: ForexPair[] = [
     previousClose: 1.3665,
     spread: 0.0003,
     pipValue: 0.0001,
+    scriptCode: 100006,
+    wid: 100006,
+    intWID: 100006,
+    lotSize: 1,
   },
   {
     symbol: 'NZDUSD',
@@ -131,6 +162,10 @@ const FOREX_PAIRS: ForexPair[] = [
     previousClose: 0.6095,
     spread: 0.0003,
     pipValue: 0.0001,
+    scriptCode: 100007,
+    wid: 100007,
+    intWID: 100007,
+    lotSize: 1,
   },
   {
     symbol: 'USDCHF',
@@ -145,6 +180,10 @@ const FOREX_PAIRS: ForexPair[] = [
     previousClose: 0.8765,
     spread: 0.0002,
     pipValue: 0.0001,
+    scriptCode: 100008,
+    wid: 100008,
+    intWID: 100008,
+    lotSize: 1,
   },
 ];
 
