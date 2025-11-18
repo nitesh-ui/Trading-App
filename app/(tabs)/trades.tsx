@@ -57,6 +57,7 @@ import NotificationsPage from '../../components/ui/NotificationsPage';
 import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import WalletPage from '../../components/ui/WalletPage';
 import EditTradeTargetPage from '../../components/ui/EditTradeTargetPage';
+import EditPendingTradePage from '../../components/ui/EditPendingTradePage';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useDebounce, useRenderPerformance } from '../../hooks/usePerformance';
@@ -81,10 +82,16 @@ interface Trade {
   apiStatus: string;
   target?: string;
   stopLoss?: string;
+  // Additional fields for proceedBuySell API
+  intWID?: number;
+  scriptCode?: number;
+  triggerPrice?: string;
+  tradinG_UNIT?: number;
 }
 
 /**
  * Transform API trade data to UI format
+ * Note: intWID and scriptCode will be fetched in edit modals when needed
  */
 const transformApiTradeToUi = (apiTrade: ActiveTradeItem): Trade => {
   // Map API status to UI status
@@ -117,7 +124,13 @@ const transformApiTradeToUi = (apiTrade: ActiveTradeItem): Trade => {
     activeTradeID: apiTrade.activeTradeID,
     apiStatus: apiTrade.status,
     target: apiTrade.tgT2 ? apiTrade.tgT2.toString() : undefined,
-    stopLoss: apiTrade.sl ? apiTrade.sl.toString() : undefined
+    stopLoss: apiTrade.sl ? apiTrade.sl.toString() : undefined,
+    // Additional fields for proceedBuySell API
+    // Note: intWID and scriptCode will be fetched from watchlist in edit modals
+    intWID: 0, // Will be populated in edit modal
+    scriptCode: 0, // Will be populated in edit modal
+    triggerPrice: apiTrade.triggerPrice,
+    tradinG_UNIT: parseFloat(apiTrade.tradinG_UNIT) || 0,
   };
 };
 
@@ -141,7 +154,9 @@ const MemoizedTradeCard = memo<{
   onPress?: (trade: Trade) => void;
   onSquareOff?: (trade: Trade) => void;
   onEdit?: (trade: Trade) => void;
-}>(({ trade, onPress, onSquareOff, onEdit }) => {
+  onEditPending?: (trade: Trade) => void;
+  onDelete?: (trade: Trade) => void;
+}>(({ trade, onPress, onSquareOff, onEdit, onEditPending, onDelete }) => {
   const { theme } = useTheme();
   
   const getStatusColor = (status: string) => {
@@ -175,6 +190,26 @@ const MemoizedTradeCard = memo<{
     onEdit?.(trade);
   }, [onEdit, trade]);
 
+  const handleEditPending = useCallback((e: any) => {
+    e?.stopPropagation?.();
+    onEditPending?.(trade);
+  }, [onEditPending, trade]);
+
+  const handleDelete = useCallback((e: any) => {
+    e?.stopPropagation?.();
+    onDelete?.(trade);
+  }, [onDelete, trade]);
+
+  // Debug: Log trade status to help identify why icons might not show
+  if (trade.status === 'PENDING') {
+    console.log('🔍 Pending trade:', {
+      symbol: trade.symbol,
+      status: trade.status,
+      apiStatus: trade.apiStatus,
+      shouldShowIcons: trade.status === 'PENDING' && trade.apiStatus === 'OPEN'
+    });
+  }
+
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card style={styles.tradeCard}>
@@ -201,7 +236,7 @@ const MemoizedTradeCard = memo<{
                 {trade.status === 'COMPLETED' ? 'ACTIVE' : trade.status}
               </Text>
               {/* Edit icon for completed/active trades */}
-              {trade.status === 'COMPLETED' && trade.apiStatus === 'COMPLETE' && (
+              {trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
                 <TouchableOpacity 
                   onPress={handleEdit}
                   style={{ padding: 4 }}
@@ -213,6 +248,33 @@ const MemoizedTradeCard = memo<{
                     color={theme.colors.primary} 
                   />
                 </TouchableOpacity>
+              )}
+              {/* Edit and Delete icons for pending trades */}
+              {trade.status === 'PENDING' && trade.apiStatus.toUpperCase() === 'OPEN' && (
+                <>
+                  <TouchableOpacity 
+                    onPress={handleEditPending}
+                    style={{ padding: 4 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons 
+                      name="create-outline" 
+                      size={18} 
+                      color={theme.colors.primary} 
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={handleDelete}
+                    style={{ padding: 4 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons 
+                      name="trash-outline" 
+                      size={18} 
+                      color={theme.colors.error} 
+                    />
+                  </TouchableOpacity>
+                </>
               )}
             </View>
           </View>
@@ -267,7 +329,7 @@ const MemoizedTradeCard = memo<{
           </Text>
           
           {/* Square Off Button for Completed Trades */}
-          {trade.status === 'COMPLETED' && trade.apiStatus === 'COMPLETE' && (
+          {trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
             <TouchableOpacity 
               style={[styles.squareOffButton, { 
                 backgroundColor: theme.colors.error + '15',
@@ -321,6 +383,8 @@ export default function TradesScreen() {
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
   const [isEditTradePageVisible, setIsEditTradePageVisible] = useState(false);
   const [selectedTradeForEdit, setSelectedTradeForEdit] = useState<Trade | null>(null);
+  const [isEditPendingTradePageVisible, setIsEditPendingTradePageVisible] = useState(false);
+  const [selectedPendingTradeForEdit, setSelectedPendingTradeForEdit] = useState<Trade | null>(null);
   
   // Real-time polling state
   const [isPollingEnabled, setIsPollingEnabled] = useState(true);
@@ -341,6 +405,8 @@ export default function TradesScreen() {
     refetchIntervalInBackground: false, // Don't poll when app is in background
     refetchOnWindowFocus: true, // Refetch when window regains focus
   });
+
+
 
   // Track screen focus state and refresh data when screen is focused
   useFocusEffect(
@@ -577,6 +643,66 @@ export default function TradesScreen() {
     refetch();
   }, [refetch]);
 
+  const handleEditPendingTrade = useCallback((trade: Trade) => {
+    setSelectedPendingTradeForEdit(trade);
+    setIsEditPendingTradePageVisible(true);
+  }, []);
+
+  const handleClosePendingTradeEditPage = useCallback(() => {
+    setIsEditPendingTradePageVisible(false);
+    setSelectedPendingTradeForEdit(null);
+  }, []);
+
+  const handleSavePendingTradeEdit = useCallback(() => {
+    // Refresh trades list after saving
+    refetch();
+  }, [refetch]);
+
+  const handleDeleteTrade = useCallback(async (trade: Trade) => {
+    // Show confirmation dialog
+    const confirmMessage = `Are you sure you want to delete this pending order for ${trade.quantity} ${trade.symbol}?`;
+    let confirmed = false;
+    
+    if (Platform.OS === 'web') {
+      confirmed = window.confirm(confirmMessage);
+    } else {
+      // For mobile, we'll proceed directly for now
+      // In a real app, you might want to implement a custom modal
+      confirmed = true;
+    }
+    
+    if (confirmed) {
+      try {
+        // Call delete API
+        const result = await tradingApiService.deleteActiveTrade(trade.activeTradeID);
+        
+        if (result.success) {
+          showNotification({
+            type: 'success',
+            title: 'Trade Deleted',
+            message: result.message
+          });
+        } else {
+          showNotification({
+            type: 'error',
+            title: 'Delete Failed',
+            message: result.message
+          });
+        }
+        
+        // Refresh the trades list after delete attempt
+        refetch();
+      } catch (error) {
+        console.error('❌ Error deleting trade:', error);
+        showNotification({
+          type: 'error',
+          title: 'Delete Failed',
+          message: 'An error occurred while deleting the trade'
+        });
+      }
+    }
+  }, [showNotification, refetch]);
+
   const togglePolling = useCallback(() => {
     setIsPollingEnabled(prev => !prev);
   }, [isPollingEnabled, showNotification]);
@@ -591,8 +717,10 @@ export default function TradesScreen() {
       onPress={handleTradePress}
       onSquareOff={handleSquareOff}
       onEdit={handleEditTrade}
+      onEditPending={handleEditPendingTrade}
+      onDelete={handleDeleteTrade}
     />
-  ), [handleTradePress, handleSquareOff, handleEditTrade]);
+  ), [handleTradePress, handleSquareOff, handleEditTrade, handleEditPendingTrade, handleDeleteTrade]);
 
   const keyExtractor = useCallback((item: Trade) => item.id, []);
 
@@ -766,9 +894,43 @@ export default function TradesScreen() {
               price: selectedTradeForEdit.price,
               activeTradeID: selectedTradeForEdit.activeTradeID,
               currentTarget: selectedTradeForEdit.target,
-              currentStopLoss: selectedTradeForEdit.stopLoss
+              currentStopLoss: selectedTradeForEdit.stopLoss,
+              productType: selectedTradeForEdit.productType,
+              priceType: selectedTradeForEdit.priceType,
+              triggerPrice: selectedTradeForEdit.triggerPrice,
+              tradinG_UNIT: selectedTradeForEdit.tradinG_UNIT,
+              apiStatus: selectedTradeForEdit.apiStatus,
+              intWID: selectedTradeForEdit.intWID,
+              scriptCode: selectedTradeForEdit.scriptCode
             }}
             onSave={handleSaveTradeEdit}
+          />
+        )}
+
+        {/* Edit Pending Trade Page */}
+        {selectedPendingTradeForEdit && (
+          <EditPendingTradePage
+            visible={isEditPendingTradePageVisible}
+            onClose={handleClosePendingTradeEditPage}
+            trade={{
+              id: selectedPendingTradeForEdit.id,
+              symbol: selectedPendingTradeForEdit.symbol,
+              type: selectedPendingTradeForEdit.type,
+              quantity: selectedPendingTradeForEdit.quantity,
+              price: selectedPendingTradeForEdit.price,
+              activeTradeID: selectedPendingTradeForEdit.activeTradeID,
+              currentOrderPrice: selectedPendingTradeForEdit.price.toString(),
+              currentTarget: selectedPendingTradeForEdit.target,
+              currentStopLoss: selectedPendingTradeForEdit.stopLoss,
+              productType: selectedPendingTradeForEdit.productType,
+              priceType: selectedPendingTradeForEdit.priceType,
+              triggerPrice: selectedPendingTradeForEdit.triggerPrice,
+              tradinG_UNIT: selectedPendingTradeForEdit.tradinG_UNIT,
+              apiStatus: selectedPendingTradeForEdit.apiStatus,
+              intWID: selectedPendingTradeForEdit.intWID,
+              scriptCode: selectedPendingTradeForEdit.scriptCode
+            }}
+            onSave={handleSavePendingTradeEdit}
           />
         )}
       </View>

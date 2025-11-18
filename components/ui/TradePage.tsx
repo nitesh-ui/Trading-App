@@ -71,6 +71,24 @@ const TradePage: React.FC<TradePageProps> = ({
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
 
+  // Debug: Log asset data immediately when component receives it
+  React.useEffect(() => {
+    console.log('🎯 === TradePage MOUNTED/UPDATED ===');
+    console.log('📊 Asset received in TradePage:', {
+      symbol: asset.symbol,
+      name: asset.name,
+      price: asset.price,
+      exchange: asset.exchange,
+      scriptCode: asset.scriptCode,
+      wid: asset.wid,
+      intWID: asset.intWID,
+      lotSize: asset.lotSize,
+      // Log all properties to see what's available
+      allKeys: Object.keys(asset)
+    });
+    console.log('🔍 Full asset object:', JSON.stringify(asset, null, 2));
+  }, [asset]);
+
   // Validation function for trade inputs
   const validateTradeInputs = (): { isValid: boolean; errorMessage: string } => {
     const marketPrice = asset.price;
@@ -237,7 +255,10 @@ const TradePage: React.FC<TradePageProps> = ({
     low: asset.low,
     exchange: asset.exchange,
     volume: asset.volume,
-    marketCap: asset.marketCap
+    marketCap: asset.marketCap,
+    wid: asset.wid,
+    intWID: asset.intWID,
+    scriptCode: asset.scriptCode
   });
 
   const orderTypeOptions = [
@@ -301,17 +322,25 @@ const TradePage: React.FC<TradePageProps> = ({
     setIsExecutingTrade(true);
     
     try {
+      // Log warning if required fields are missing
+      if (!asset.wid && !asset.intWID) {
+        console.warn('⚠️ Missing wid/intWID for asset:', asset.symbol);
+      }
+      if (!asset.scriptCode) {
+        console.warn('⚠️ Missing scriptCode for asset:', asset.symbol);
+      }
+
       // Prepare the API request data
       const apiRequest: ProceedBuySellRequest = {
-        intWID: asset.intWID || 0, // Use from asset data or fallback to 0
+        intWID: asset.wid || asset.intWID || 0, // Use wid from watchlist API, fallback to intWID or 0
         scriptCode: asset.scriptCode || 0, // Use from asset data or fallback to 0
         currentPosition: action === 'buy' ? 'Buy' : 'Sell', // Capitalize as required by API
         quantity: quantity.toString(),
         price: (orderType === 'MARKET' ? asset.price : parseFloat(limitPrice) || asset.price).toString(),
         triggerPrice: triggerPrice || '0',
-        productType: (orderType === 'LIMIT' || orderType === 'SL' || orderType === 'SL-M') ? '' : productType, // Empty string for LIMIT, SL, SL-M; selected value for MARKET
+        productType: productType, // Empty string for LIMIT, SL, SL-M; selected value for MARKET
         marketType: orderType, // 'MARKET', 'LIMIT', 'SL', 'SL-M'
-        tradeID: '', // Default empty string
+        tradeID: '0', // Default empty string
         status: '', // Default empty string
         target: targetPrice || '0',
         stopLoss: stopLossPrice || '0',
@@ -325,7 +354,9 @@ const TradePage: React.FC<TradePageProps> = ({
         price: asset.price,
         exchange: asset.exchange,
         scriptCode: asset.scriptCode,
-        intWID: asset.intWID
+        wid: asset.wid,
+        intWID: asset.intWID,
+        usingWID: asset.wid || asset.intWID || 0
       });
 
       // Call the real trading API

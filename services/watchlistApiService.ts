@@ -347,6 +347,16 @@ class WatchlistApiService {
             !asset.symbol.includes('SENSEX') && 
             !asset.symbol.includes('ETF') &&
             !asset.name.toLowerCase().includes('etf')) {
+          // Debug: Log critical fields for first few stocks
+          if (stocks.length < 2) {
+            console.log('🔍 Categorizing stock asset:', {
+              symbol: asset.symbol,
+              scriptCode: asset.scriptCode,
+              wid: asset.wid,
+              intWID: asset.intWID,
+              lotSize: asset.lotSize
+            });
+          }
           stocks.push(asset);
         } else {
           indices.push(asset);

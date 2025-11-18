@@ -452,17 +452,9 @@ const WatchlistContent = memo(() => {
     if (lastMessage && lastMessage.data) {
       const { data } = lastMessage;
       
-      console.log('🔄 Processing WebSocket message in watchlist:', {
-        hasData: !!data,
-        hasTable: !!data.Table,
-        hasTable1: !!data.Table1,
-        tableLength: data.Table?.length || 0,
-        table1Length: data.Table1?.length || 0,
-      });
       
       // Process the WebSocket data structure: { Table: [...], Table1: [...] }
       if (data.Table && Array.isArray(data.Table)) {
-        console.log('✅ Processing Table with', data.Table.length, 'items');
         
         // Batch update prices to avoid too many re-renders
         const newPrices = new Map(realtimePrices);
@@ -471,7 +463,6 @@ const WatchlistContent = memo(() => {
 
         // Clean up old entries to prevent unbounded growth
         if (newPrices.size > MAX_PRICE_ENTRIES) {
-          console.log('🧹 Cleaning up old price entries, current size:', newPrices.size);
           const entriesToRemove: string[] = [];
           
           for (const [key, value] of newPrices) {
@@ -482,7 +473,6 @@ const WatchlistContent = memo(() => {
           }
           
           entriesToRemove.forEach(key => newPrices.delete(key));
-          console.log('🧹 Removed', entriesToRemove.length, 'old entries, new size:', newPrices.size);
           
           // If still too large, remove oldest entries
           if (newPrices.size > MAX_PRICE_ENTRIES) {
@@ -490,7 +480,6 @@ const WatchlistContent = memo(() => {
               .sort((a, b) => a[1].timestamp - b[1].timestamp);
             const toRemove = sortedEntries.slice(0, newPrices.size - MAX_PRICE_ENTRIES);
             toRemove.forEach(([key]) => newPrices.delete(key));
-            console.log('🧹 Removed', toRemove.length, 'oldest entries, final size:', newPrices.size);
           }
         }
 
@@ -557,7 +546,6 @@ const WatchlistContent = memo(() => {
 
         // Update prices immediately - React will batch updates automatically
         if (updateCount > 0) {
-          console.log('✅ Updating real-time prices:', updateCount, 'items updated, Map size:', newPrices.size);
           setRealtimePrices(newPrices);
         } else {
           console.log('⚠️ No price updates to apply');
@@ -640,7 +628,8 @@ const WatchlistContent = memo(() => {
 
       if (realtimeData) {
         // Merge real-time data with asset (stocks only)
-        return {
+        // IMPORTANT: Explicitly preserve scriptCode, wid, intWID, lotSize
+        const merged = {
           ...asset,
           price: realtimeData.lastPrice,
           change: realtimeData.change,
@@ -655,7 +644,24 @@ const WatchlistContent = memo(() => {
           ask: realtimeData.ask,
           bidQty: realtimeData.bidQty,
           askQty: realtimeData.askQty,
+          // Explicitly preserve critical fields for trading
+          scriptCode: asset.scriptCode,
+          wid: asset.wid,
+          intWID: asset.intWID,
+          lotSize: asset.lotSize,
         };
+        
+        // Debug log to verify fields are preserved
+        if (!merged.scriptCode || (!merged.wid && !merged.intWID)) {
+          console.warn('⚠️ Critical fields missing after merge for:', asset.symbol, {
+            scriptCode: merged.scriptCode,
+            wid: merged.wid,
+            intWID: merged.intWID,
+            original: { scriptCode: asset.scriptCode, wid: asset.wid, intWID: asset.intWID }
+          });
+        }
+        
+        return merged;
       }
 
       // Return original asset if no real-time data found
@@ -718,8 +724,37 @@ const WatchlistContent = memo(() => {
       (a) => a.symbol === tradeAsset.symbol && a.exchange === tradeAsset.exchange
     );
     
+    if (updatedAsset) {
+      console.log('✅ Found updated asset in enhancedAssets:', {
+        symbol: updatedAsset.symbol,
+        scriptCode: updatedAsset.scriptCode,
+        wid: updatedAsset.wid,
+        intWID: updatedAsset.intWID
+      });
+    } else {
+      console.log('⚠️ Updated asset NOT found in enhancedAssets, using original');
+    }
+    
+    const finalAsset = updatedAsset || tradeAsset;
+    
+    // Log warning if scriptCode or wid is missing
+    if (!finalAsset.scriptCode) {
+      console.warn('⚠️ scriptCode missing for trade asset:', finalAsset.symbol, 'Final asset:', finalAsset);
+    }
+    if (!finalAsset.wid && !finalAsset.intWID) {
+      console.warn('⚠️ wid/intWID missing for trade asset:', finalAsset.symbol, 'Final asset:', finalAsset);
+    }
+    
+    console.log('🎯 Final trade asset to be used:', {
+      symbol: finalAsset.symbol,
+      scriptCode: finalAsset.scriptCode,
+      wid: finalAsset.wid,
+      intWID: finalAsset.intWID,
+      lotSize: finalAsset.lotSize
+    });
+    
     // Return updated asset if found, otherwise return the original
-    return updatedAsset || tradeAsset;
+    return finalAsset;
   }, [tradeAsset, enhancedAssets]);
 
   // Asset action handlers
@@ -1038,17 +1073,19 @@ const WatchlistContent = memo(() => {
       )}
 
       {/* Trade Page */}
-      {updatedTradeAsset && (
-        <TradePage
-          visible={isTradePageVisible}
-          onClose={handleCloseTradePage}
-          asset={updatedTradeAsset}
-          marketType={watchlistState.marketType}
-          action={tradeAction}
-          availableBalance={50000} // Mock balance
-          onTradeExecute={handleTradePageExecute}
-        />
-      )}
+      {updatedTradeAsset && (() => {
+        return (
+          <TradePage
+            visible={isTradePageVisible}
+            onClose={handleCloseTradePage}
+            asset={updatedTradeAsset}
+            marketType={watchlistState.marketType}
+            action={tradeAction}
+            availableBalance={50000} // Mock balance
+            onTradeExecute={handleTradePageExecute}
+          />
+        );
+      })()}
 
       {/* Filter Drawer */}
       <FilterDrawer

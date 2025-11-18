@@ -239,6 +239,20 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             ...categorized.commodities,
             ...categorized.indices
           ];
+          
+          // Debug: Log first stock to see if scriptCode and wid are present
+          if (stocksAndCommoditiesAndIndices.length > 0) {
+            const firstStock = stocksAndCommoditiesAndIndices[0];
+            console.log('🔍 First stock in filteredAssets:', {
+              symbol: firstStock.symbol,
+              scriptCode: firstStock.scriptCode,
+              wid: firstStock.wid,
+              intWID: firstStock.intWID,
+              lotSize: firstStock.lotSize,
+              allKeys: Object.keys(firstStock)
+            });
+          }
+          
           return stocksAndCommoditiesAndIndices.filter(stock => 
             watchlistState.exchangeFilter === 'All' || 
             stock.exchange === watchlistState.exchangeFilter
@@ -278,19 +292,31 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 ...liveAsset, // Override with live price data
                 lotSize: existingAsset.lotSize, // Explicitly preserve lotSize from API
                 scriptCode: existingAsset.scriptCode, // Preserve scriptCode
+                wid: existingAsset.wid, // Preserve wid
                 intWID: existingAsset.intWID, // Preserve intWID
               });
+              
+              // Debug: Log first forex merge to verify fields are preserved
+              if (forexMap.size === 1) {
+                console.log('🔍 First forex after merge:', {
+                  symbol: liveAsset.symbol,
+                  scriptCode: forexMap.get(liveAsset.symbol)?.scriptCode,
+                  wid: forexMap.get(liveAsset.symbol)?.wid,
+                  lotSize: forexMap.get(liveAsset.symbol)?.lotSize
+                });
+              }
             } else {
-              // New symbol not in API data, add as-is
+              // New symbol not in API data, add as-is (won't have scriptCode/wid)
               forexMap.set(liveAsset.symbol, liveAsset);
             }
           });
           
           return Array.from(forexMap.values());
         case 'crypto':
-          // ALWAYS use live crypto data from binanceService, not static API data
-          // This ensures real-time price and change updates for crypto
-          return cryptoPairs.map(pair => ({
+          // Combine categorized crypto assets from API with live crypto data from Binance
+          // API has scriptCode, wid, lotSize - Binance has real-time prices
+          const apiCryptoAssets = categorized.crypto || [];
+          const liveCryptoAssets = cryptoPairs.map(pair => ({
             symbol: pair.symbol,
             name: pair.name,
             exchange: 'Crypto',
@@ -302,6 +328,45 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             high: pair.price * 1.05,
             low: pair.price * 0.95,
           }));
+          
+          // Merge both sources, prioritizing live price data but preserving API metadata
+          const cryptoMap = new Map<string, AssetItem>();
+          
+          // Add API crypto assets first (includes scriptCode, wid, lotSize)
+          apiCryptoAssets.forEach(asset => {
+            cryptoMap.set(asset.symbol, asset);
+          });
+          
+          // Update with live data where available, but preserve important API fields
+          liveCryptoAssets.forEach(liveAsset => {
+            const existingAsset = cryptoMap.get(liveAsset.symbol);
+            if (existingAsset) {
+              // Merge: use live prices but keep API metadata (lotSize, scriptCode, wid, etc.)
+              cryptoMap.set(liveAsset.symbol, {
+                ...existingAsset, // Keep all API fields (lotSize, scriptCode, wid, etc.)
+                ...liveAsset, // Override with live price data
+                lotSize: existingAsset.lotSize, // Explicitly preserve lotSize from API
+                scriptCode: existingAsset.scriptCode, // Preserve scriptCode
+                wid: existingAsset.wid, // Preserve wid
+                intWID: existingAsset.intWID, // Preserve intWID
+              });
+              
+              // Debug: Log first crypto merge to verify fields are preserved
+              if (cryptoMap.size === 1) {
+                console.log('🔍 First crypto after merge:', {
+                  symbol: liveAsset.symbol,
+                  scriptCode: cryptoMap.get(liveAsset.symbol)?.scriptCode,
+                  wid: cryptoMap.get(liveAsset.symbol)?.wid,
+                  lotSize: cryptoMap.get(liveAsset.symbol)?.lotSize
+                });
+              }
+            } else {
+              // New symbol not in API data, add as-is (won't have scriptCode/wid)
+              cryptoMap.set(liveAsset.symbol, liveAsset);
+            }
+          });
+          
+          return Array.from(cryptoMap.values());
         default:
           return [...categorized.stocks, ...categorized.commodities, ...categorized.indices];
       }

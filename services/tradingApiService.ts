@@ -1333,6 +1333,46 @@ class TradingApiService {
   }
 
   /**
+   * Delete an active/pending trade
+   */
+  async deleteActiveTrade(activeTradeID: number): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🗑️ Deleting active trade:', { activeTradeID });
+
+      const response = await this.makeAuthenticatedRequest(
+        `${API_BASE_URL}/WatchListApi/DeleteActiveTrade?ActiveTradeID=${activeTradeID}`,
+        {
+          method: 'POST',
+          body: ''
+        }
+      );
+
+      console.log('📡 DeleteActiveTrade API Response Status:', response.status);
+
+      const data = await response.json();
+      console.log('✅ DeleteActiveTrade API Response:', data);
+
+      if (response.ok && (data.success !== false)) {
+        return {
+          success: true,
+          message: data.message || 'Trade deleted successfully'
+        };
+      } else {
+        return {
+          success: false,
+          message: data.message || data.error || 'Failed to delete trade'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error deleting trade:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to delete trade'
+      };
+    }
+  }
+
+  /**
    * Get session statistics for debugging and monitoring
    */
   async getSessionStats(): Promise<any> {
