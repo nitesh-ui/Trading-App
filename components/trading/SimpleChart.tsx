@@ -129,10 +129,10 @@ export const SimpleChart: React.FC<SimpleChartProps> = ({
         {/* Price labels */}
         <View style={styles.priceLabels}>
           <Text variant="caption" color="textSecondary">
-            ₹{maxPrice.toFixed(2)}
+            {maxPrice.toFixed(2)}
           </Text>
           <Text variant="caption" color="textSecondary">
-            ₹{minPrice.toFixed(2)}
+            {minPrice.toFixed(2)}
           </Text>
         </View>
       </View>

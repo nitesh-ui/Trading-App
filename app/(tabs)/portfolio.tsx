@@ -171,8 +171,8 @@ const MemoizedHoldingCard = memo<{
         <View style={styles.holdingDetails}>
           <View style={styles.detailRow}>
             <Text variant="caption" color="textSecondary">Qty: {holding.quantity}</Text>
-            <Text variant="caption" color="textSecondary">Avg: ₹{holding.avgPrice.toFixed(2)}</Text>
-            <Text variant="caption" color="textSecondary">LTP: ₹{holding.currentPrice.toFixed(2)}</Text>
+            <Text variant="caption" color="textSecondary">Avg: {holding.avgPrice.toFixed(2)}</Text>
+            <Text variant="caption" color="textSecondary">LTP: {holding.currentPrice.toFixed(2)}</Text>
           </View>
           <View style={styles.tradeInfo}>
             <Text variant="caption" color="textSecondary">
@@ -420,7 +420,7 @@ export default function PortfolioScreen() {
                     <View style={styles.summaryItem}>
                       <Text variant="caption" color="textSecondary">Wallet Balance</Text>
                       <Text variant="body" weight="semibold" color="text">
-                        ₹{walletBalance || '0'}
+                        {walletBalance || '0'}
                       </Text>
                     </View>
                     <View style={styles.summaryItem}>

@@ -314,12 +314,12 @@ const TradePage: React.FC<TradePageProps> = ({
   const getAvailableFormatted = () => {
     // Use available margin from API if available, otherwise use wallet balance
     if (isMarginFromApi && marginData?.availablemargin !== undefined) {
-      console.log(`[TradePage] Using available margin from API: ₹${marginData.availablemargin.toFixed(2)}`);
-      return `₹${marginData.availablemargin.toFixed(2)}`;
+      console.log(`[TradePage] Using available margin from API: ${marginData.availablemargin.toFixed(2)}`);
+      return `${marginData.availablemargin.toFixed(2)}`;
     }
     // Fallback to wallet balance if margin data is not available
-    console.log(`[TradePage] Falling back to wallet balance: ₹${walletBalance}`);
-    return `₹${walletBalance}`;
+    console.log(`[TradePage] Falling back to wallet balance: ${walletBalance}`);
+    return `${walletBalance}`;
   };
 
   const handleQuantityChange = (change: number) => {
@@ -795,7 +795,7 @@ const TradePage: React.FC<TradePageProps> = ({
                 changePercent={asset.changePercent}
                 size="medium"
                 showCurrency={marketType === 'stocks'}
-                currencySymbol={marketType === 'stocks' ? '₹' : '$'}
+                currencySymbol=""
                 showSymbol={true}
                 showChange={true}
                 align="right"

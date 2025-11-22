@@ -241,19 +241,19 @@ export function CandlestickChart({ symbol, data }: CandlestickChartProps) {
         <View style={styles.priceItem}>
           <Text variant="caption" color="textSecondary">Current</Text>
           <Text variant="body" weight="semibold" color="text">
-            ₹{chartData[chartData.length - 1]?.close.toFixed(2)}
+            {chartData[chartData.length - 1]?.close.toFixed(2)}
           </Text>
         </View>
         <View style={styles.priceItem}>
           <Text variant="caption" color="textSecondary">High</Text>
           <Text variant="body" weight="semibold" color="success">
-            ₹{Math.max(...chartData.map(d => d.high)).toFixed(2)}
+            {Math.max(...chartData.map(d => d.high)).toFixed(2)}
           </Text>
         </View>
         <View style={styles.priceItem}>
           <Text variant="caption" color="textSecondary">Low</Text>
           <Text variant="body" weight="semibold" color="error">
-            ₹{Math.min(...chartData.map(d => d.low)).toFixed(2)}
+            {Math.min(...chartData.map(d => d.low)).toFixed(2)}
           </Text>
         </View>
       </View>

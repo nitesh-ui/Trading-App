@@ -265,7 +265,7 @@ const EditPendingTradePage: React.FC<EditPendingTradePageProps> = ({
             </View>
             <View style={styles.infoRow}>
               <Text variant="body" color="textSecondary">Current Price</Text>
-              <Text variant="body" weight="semibold" color="text">₹{trade.price.toFixed(2)}</Text>
+              <Text variant="body" weight="semibold" color="text">{trade.price.toFixed(2)}</Text>
             </View>
           </Card>
 

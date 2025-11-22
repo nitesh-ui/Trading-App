@@ -396,7 +396,7 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
         <View style={styles.resultActions}>
           {item.price > 0 && (
             <Text variant="body" weight="semibold" color="text">
-              ${item.price.toFixed(item.exchange === 'CRYPTO' ? 4 : 2)}
+              {item.price.toFixed(item.exchange === 'CRYPTO' ? 4 : 2)}
             </Text>
           )}
           {showAsAdded ? (

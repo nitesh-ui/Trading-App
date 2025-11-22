@@ -205,7 +205,7 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
               Market Cap
             </Text>
             <Text variant="body" weight="semibold" color="text">
-              {asset.marketCap ? `₹${(asset.marketCap / 1e7).toFixed(1)}L Cr` : '₹1.7L Cr'}
+              {asset.marketCap ? `${(asset.marketCap / 1e7).toFixed(1)}L Cr` : '1.7L Cr'}
             </Text>
           </Card>
         </View>

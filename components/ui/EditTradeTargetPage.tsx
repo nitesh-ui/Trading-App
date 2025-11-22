@@ -255,7 +255,7 @@ const EditTradeTargetPage: React.FC<EditTradeTargetPageProps> = ({
           </View>
           <View style={styles.infoRow}>
             <Text variant="body" color="textSecondary">Entry Price</Text>
-            <Text variant="body" weight="semibold" color="text">₹{trade.price.toFixed(2)}</Text>
+            <Text variant="body" weight="semibold" color="text">{trade.price.toFixed(2)}</Text>
           </View>
         </Card>
 
@@ -283,12 +283,12 @@ const EditTradeTargetPage: React.FC<EditTradeTargetPageProps> = ({
             />
             {trade.type === 'BUY' && (
               <Text variant="caption" color="textSecondary" style={styles.hint}>
-                Target should be greater than ₹{trade.price.toFixed(2)}
+                Target should be greater than {trade.price.toFixed(2)}
               </Text>
             )}
             {trade.type === 'SELL' && (
               <Text variant="caption" color="textSecondary" style={styles.hint}>
-                Target should be lower than ₹{trade.price.toFixed(2)}
+                Target should be lower than {trade.price.toFixed(2)}
               </Text>
             )}
           </View>
@@ -311,12 +311,12 @@ const EditTradeTargetPage: React.FC<EditTradeTargetPageProps> = ({
             />
             {trade.type === 'BUY' && (
               <Text variant="caption" color="textSecondary" style={styles.hint}>
-                Stop loss should be lower than ₹{trade.price.toFixed(2)}
+                Stop loss should be lower than {trade.price.toFixed(2)}
               </Text>
             )}
             {trade.type === 'SELL' && (
               <Text variant="caption" color="textSecondary" style={styles.hint}>
-                Stop loss should be greater than ₹{trade.price.toFixed(2)}
+                Stop loss should be greater than {trade.price.toFixed(2)}
               </Text>
             )}
           </View>

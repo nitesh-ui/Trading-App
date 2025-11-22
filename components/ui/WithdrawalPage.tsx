@@ -364,7 +364,7 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose }) => 
                 <Text variant="caption" style={{ color: 'white', fontWeight: 'bold' }}>1</Text>
               </View>
               <Text variant="body" color="text" style={styles.instructionText}>
-                Enter the withdrawal amount (minimum ₹100)
+                Enter the withdrawal amount (minimum 100)
               </Text>
             </View>
             <View style={styles.instructionItem}>

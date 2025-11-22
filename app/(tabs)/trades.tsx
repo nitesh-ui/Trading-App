@@ -287,7 +287,7 @@ const MemoizedTradeCard = memo<{
           </View>
           <View style={styles.tradeDetailCenter}>
             <Text variant="caption" color="textSecondary">Price</Text>
-            <Text variant="body" color="text" weight="medium">₹{trade.price.toFixed(2)}</Text>
+            <Text variant="body" color="text" weight="medium">{trade.price.toFixed(2)}</Text>
           </View>
           {trade.pnl !== undefined && (
             <View style={styles.tradeDetailRight}>
@@ -297,7 +297,7 @@ const MemoizedTradeCard = memo<{
                 weight="medium"
                 style={{ color: getPnLColor(trade.pnl) }}
               >
-                {trade.pnl >= 0 ? '+' : ''}₹{trade.pnl.toFixed(2)}
+                {trade.pnl >= 0 ? '+' : ''}{trade.pnl.toFixed(2)}
               </Text>
             </View>
           )}
@@ -309,7 +309,7 @@ const MemoizedTradeCard = memo<{
             <Text variant="caption" color="textSecondary">Target</Text>
             <Text variant="caption" color="text" weight="medium">
               {trade.target && parseFloat(trade.target) > 0 
-                ? `₹${parseFloat(trade.target).toFixed(2)}` 
+                ? `${parseFloat(trade.target).toFixed(2)}` 
                 : 'N/A'}
             </Text>
           </View>
@@ -317,7 +317,7 @@ const MemoizedTradeCard = memo<{
             <Text variant="caption" color="textSecondary">Stop Loss</Text>
             <Text variant="caption" color="text" weight="medium">
               {trade.stopLoss && parseFloat(trade.stopLoss) > 0 
-                ? `₹${parseFloat(trade.stopLoss).toFixed(2)}` 
+                ? `${parseFloat(trade.stopLoss).toFixed(2)}` 
                 : 'N/A'}
             </Text>
           </View>

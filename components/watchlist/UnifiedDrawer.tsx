@@ -213,7 +213,7 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
       
       // Market Cap - only show if provided by API
       if (asset.marketCap !== undefined && asset.marketCap !== null && asset.marketCap > 0) {
-        stats.push({ label: 'Market Cap', value: `₹${(asset.marketCap / 1e7).toFixed(1)}L Cr` });
+        stats.push({ label: 'Market Cap', value: `${(asset.marketCap / 1e7).toFixed(1)}L Cr` });
       }
       
       // Real-time specific data (if available from WebSocket)
@@ -254,12 +254,12 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
     } else if (marketType === 'crypto') {
       // 24h Volume - only show if provided by API
       if (asset.volume !== undefined && asset.volume !== null) {
-        stats.push({ label: '24h Volume', value: `$${(asset.volume / 1e9).toFixed(2)}B` });
+        stats.push({ label: '24h Volume', value: `${(asset.volume / 1e9).toFixed(2)}B` });
       }
       
       // Market Cap - only show if provided by API
       if (asset.marketCap !== undefined && asset.marketCap !== null) {
-        stats.push({ label: 'Market Cap', value: `$${(asset.marketCap / 1e9).toFixed(1)}B` });
+        stats.push({ label: 'Market Cap', value: `${(asset.marketCap / 1e9).toFixed(1)}B` });
       }
       
       // High - only show if available from API
@@ -364,7 +364,7 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                         changePercent={asset.changePercent}
                         size="large"
                         showCurrency={marketType === 'stocks'}
-                        currencySymbol={marketType === 'stocks' ? '₹' : '$'}
+                        currencySymbol=""
                         showSymbol={true}
                         showChange={true}
                         align="left"

@@ -126,7 +126,7 @@ const WalletBalanceCard = memo(({
       </View>
       
       <Text variant="display" weight="bold" style={StyleSheet.flatten([styles.totalBalance, { color: 'white' }])}>
-        ₹{formatCurrency(walletBalance)}
+        {formatCurrency(walletBalance)}
       </Text>
       
       <View style={styles.balanceBreakdown}>
@@ -141,7 +141,7 @@ const WalletBalanceCard = memo(({
               color: totalProfitLoss >= 0 ? '#4ade80' : '#f87171' 
             }}
           >
-            {totalProfitLoss >= 0 ? '+' : ''}₹{formatCurrency(Math.abs(totalProfitLoss))}
+            {totalProfitLoss >= 0 ? '+' : ''}{formatCurrency(Math.abs(totalProfitLoss))}
           </Text>
         </View>
       </View>
@@ -244,7 +244,7 @@ const TransactionItem = memo(({ transaction, onDetailsPress }: {
     const amount = transaction.amount;
     const isPositive = amount.startsWith('+');
     const numericAmount = parseFloat(amount.replace(/[+\-]/g, ''));
-    return `${isPositive ? '+' : '-'}₹${numericAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    return `${isPositive ? '+' : '-'}${numericAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
 
   const formatDate = () => {

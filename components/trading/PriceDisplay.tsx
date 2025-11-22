@@ -22,9 +22,9 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
   change,
   changePercent,
   size = 'medium',
-  showCurrency = true,
-  currencySymbol = '₹',
-  showSymbol = true, // For compatibility
+  showCurrency = false,
+  currencySymbol = '',
+  showSymbol = false, // For compatibility
   showChange = true, // For compatibility
   align = 'right', // Default to right alignment
   style,
@@ -121,7 +121,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
           }}
           weight="bold"
         >
-          {(showCurrency && showSymbol) && currencySymbol}{formatPrice(price)}
+          {formatPrice(price)}
         </Text>
       </View>
       

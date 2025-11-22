@@ -99,7 +99,7 @@ export default function SettingsScreen() {
     accountType: 'Demo Account',
     joinDate: '15 Jan 2024',
     totalTrades: 127,
-    currentBalance: '₹5,00,000',
+    currentBalance: '5,00,000',
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -180,7 +180,7 @@ export default function SettingsScreen() {
         const balance = parseFloat(response.data.amount || '0');
         setUserInfo(prev => ({
           ...prev,
-          currentBalance: `₹${balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          currentBalance: `${balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         }));
       }
     } catch (err: any) {

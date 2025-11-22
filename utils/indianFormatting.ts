@@ -1,12 +1,12 @@
 // Indian currency and number formatting utilities
 
-export const formatIndianCurrency = (amount: number, showSymbol: boolean = true): string => {
+export const formatIndianCurrency = (amount: number, showSymbol: boolean = false): string => {
   // Defensive check for invalid input
   if (typeof amount !== 'number' || isNaN(amount) || !isFinite(amount)) {
-    return showSymbol ? '₹0.00' : '0.00';
+    return '0.00';
   }
 
-  const symbol = showSymbol ? '₹' : '';
+  const symbol = '';
   
   // For very large amounts, use crores and lakhs
   if (amount >= 10000000) { // 1 crore
@@ -40,22 +40,22 @@ export const formatIndianNumber = (num: number): string => {
 
 export const formatMarketCap = (marketCap: number): string => {
   if (marketCap >= 10000000000000) { // 1 lakh crore
-    return `₹${(marketCap / 10000000000000).toFixed(1)} L Cr`;
+    return `${(marketCap / 10000000000000).toFixed(1)} L Cr`;
   }
   
   if (marketCap >= 10000000000) { // 1000 crore
-    return `₹${(marketCap / 10000000000).toFixed(0)} K Cr`;
+    return `${(marketCap / 10000000000).toFixed(0)} K Cr`;
   }
   
   if (marketCap >= 10000000) { // 1 crore
-    return `₹${(marketCap / 10000000).toFixed(0)} Cr`;
+    return `${(marketCap / 10000000).toFixed(0)} Cr`;
   }
   
   if (marketCap >= 100000) { // 1 lakh
-    return `₹${(marketCap / 100000).toFixed(1)} L`;
+    return `${(marketCap / 100000).toFixed(1)} L`;
   }
   
-  return `₹${marketCap.toLocaleString('en-IN')}`;
+  return `${marketCap.toLocaleString('en-IN')}`;
 };
 
 export const formatVolume = (volume: number): string => {
@@ -76,10 +76,10 @@ export const formatVolume = (volume: number): string => {
 
 export const formatPriceChange = (change: number): string => {
   if (typeof change !== 'number' || isNaN(change) || !isFinite(change)) {
-    return '₹0.00';
+    return '0.00';
   }
   const sign = change >= 0 ? '+' : '';
-  return `${sign}₹${Math.abs(change).toFixed(2)}`;
+  return `${sign}${Math.abs(change).toFixed(2)}`;
 };
 
 export const formatPercentage = (percent: number): string => {

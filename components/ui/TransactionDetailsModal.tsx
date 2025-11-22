@@ -33,7 +33,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = memo(({
   const formatPnL = (amount: number) => {
     const isPositive = amount >= 0;
     return {
-      text: `${isPositive ? '+' : ''}₹${formatCurrency(Math.abs(amount))}`,
+      text: `${isPositive ? '+' : ''}${formatCurrency(Math.abs(amount))}`,
       color: isPositive ? '#4ade80' : '#f87171'
     };
   };
@@ -139,7 +139,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = memo(({
                 <View style={styles.detailRow}>
                   <Text variant="body" color="textSecondary">Entry Price</Text>
                   <Text variant="body" weight="medium" color="text">
-                    ₹{formatCurrency(transactionDetails.Entryprice)}
+                    {formatCurrency(transactionDetails.Entryprice)}
                   </Text>
                 </View>
                 
@@ -160,7 +160,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = memo(({
                 <View style={styles.detailRow}>
                   <Text variant="body" color="textSecondary">Exit Price</Text>
                   <Text variant="body" weight="medium" color="text">
-                    ₹{formatCurrency(transactionDetails.Exitprice)}
+                    {formatCurrency(transactionDetails.Exitprice)}
                   </Text>
                 </View>
               </View>
@@ -187,7 +187,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = memo(({
                 <View style={styles.detailRow}>
                   <Text variant="body" color="textSecondary">Brokerage</Text>
                   <Text variant="body" weight="medium" color="text">
-                    ₹{formatCurrency(transactionDetails.Brokerage)}
+                    {formatCurrency(transactionDetails.Brokerage)}
                   </Text>
                 </View>
                 
