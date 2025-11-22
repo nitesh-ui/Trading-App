@@ -103,9 +103,7 @@ interface WatchlistContextType {
   // State
   watchlistState: WatchlistState;
   tradeState: TradeState;
-  stocks: IndianStock[];
-  forexPairs: ForexPair[];
-  cryptoPairs: CryptoPair[];
+  // REMOVED: stocks, forexPairs, cryptoPairs (no longer exposing mock data)
   
   // Computed values
   filteredAssets: AssetItem[];
@@ -135,10 +133,9 @@ const WatchlistContext = createContext<WatchlistContextType | undefined>(undefin
 export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [watchlistState, watchlistDispatch] = useReducer(watchlistReducer, initialWatchlistState);
   const [tradeState, tradeDispatch] = useReducer(tradeReducer, initialTradeState);
-  const [stocks, setStocks] = React.useState<IndianStock[]>([]);
-  const [forexPairs, setForexPairs] = React.useState<ForexPair[]>([]);
-  const [cryptoPairs, setCryptoPairs] = React.useState<CryptoPair[]>([]);
   const [selectedAssetForDetails, setSelectedAssetForDetails] = React.useState<AssetItem | null>(null);
+  
+  // REMOVED: Mock data state (stocks, forexPairs, cryptoPairs) - now using API data only
   
   // API-based data state
   const [apiAssets, setApiAssets] = useState<AssetItem[]>([]);
@@ -165,54 +162,18 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
-  // Subscribe to data services and load API data
+  // Load API data only - no mock services
   useEffect(() => {
     // Load API data on mount
     loadApiData();
 
-    // Stocks (fallback)
-    const stocksUnsubscribe = indianStockService.subscribe((updatedStocks) => {
-      setStocks(updatedStocks);
-    });
-
-    // Forex
-    const forexUnsubscribe = forexService.subscribe((updatedPairs) => {
-      setForexPairs(updatedPairs);
-    });
-
-    // Crypto
-    const cryptoUnsubscribe = binanceService.subscribe((updatedPairs) => {
-      console.log('💰 Crypto pairs updated from binanceService:', updatedPairs.length, 'pairs');
-      if (updatedPairs.length > 0) {
-        console.log('💰 Sample crypto data:', {
-          symbol: updatedPairs[0].symbol,
-          price: updatedPairs[0].price,
-          change24h: updatedPairs[0].change24h,
-          changePercent24h: updatedPairs[0].changePercent24h,
-        });
-      }
-      setCryptoPairs(updatedPairs);
-    });
-
-    // Initial data load with error handling
-    try {
-      setStocks(indianStockService.getStocks());
-      setForexPairs(forexService.getPairs());
-      setCryptoPairs(binanceService.getCryptoPairs());
-    } catch (error) {
-      console.warn('Error loading initial data:', error);
-      // Set fallback data
-      setStocks([]);
-      setForexPairs([]);
-      setCryptoPairs([]);
-    }
-
-    return () => {
-      stocksUnsubscribe();
-      forexUnsubscribe();
-      cryptoUnsubscribe();
-    };
-  }, []);
+    // REMOVED: All mock service subscriptions (indianStockService, forexService, binanceService)
+    // Now we ONLY use data from the watchlist API
+    
+    console.log('✅ Watchlist initialized - using API data only');
+    
+    // No cleanup needed since we're not subscribing to anything
+  }, [loadApiData]);
 
   // Memoized computed values - prioritize API data when available
   const filteredAssets = useMemo((): AssetItem[] => {
@@ -258,190 +219,34 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             stock.exchange === watchlistState.exchangeFilter
           );
         case 'forex':
-          // Combine categorized forex assets from API (includes CDS tickers)
-          // with live forex data from forexService
+          // ONLY use forex assets from watchlist API - no hardcoded data
           const apiForexAssets = categorized.forex || [];
-          const liveForexAssets = forexPairs.map(pair => ({
-            symbol: pair.symbol,
-            name: pair.name,
-            exchange: 'Forex',
-            price: pair.price,
-            change: pair.change,
-            changePercent: pair.changePercent,
-            high: pair.high,
-            low: pair.low,
-            volume: pair.volume,
-            lotSize: pair.lotSize || 1, // Use lotSize from forexService or default to 1
-            scriptCode: pair.scriptCode, // Include scriptCode from forexService
-            wid: pair.wid, // Include wid from forexService
-            intWID: pair.intWID, // Include intWID from forexService
-          }));
           
-          // Merge both sources, prioritizing live price data but preserving API metadata
-          const forexMap = new Map<string, AssetItem>();
-          
-          // Add API forex assets first (includes CDS tickers with correct lotSize)
-          apiForexAssets.forEach(asset => {
-            forexMap.set(asset.symbol, asset);
+          console.log('📊 Forex assets from API:', {
+            count: apiForexAssets.length,
+            symbols: apiForexAssets.map(f => f.symbol)
           });
           
-          // Update with live data where available, but preserve important API fields
-          liveForexAssets.forEach(liveAsset => {
-            const existingAsset = forexMap.get(liveAsset.symbol);
-            if (existingAsset) {
-              // Merge: use live prices but keep API metadata (lotSize, scriptCode, etc.)
-              forexMap.set(liveAsset.symbol, {
-                ...existingAsset, // Keep all API fields (lotSize, scriptCode, intWID, etc.)
-                ...liveAsset, // Override with live price data
-                lotSize: existingAsset.lotSize, // Explicitly preserve lotSize from API
-                scriptCode: existingAsset.scriptCode, // Preserve scriptCode
-                wid: existingAsset.wid, // Preserve wid
-                intWID: existingAsset.intWID, // Preserve intWID
-              });
-              
-              // Debug: Log first forex merge to verify fields are preserved
-              if (forexMap.size === 1) {
-                console.log('🔍 First forex after merge:', {
-                  symbol: liveAsset.symbol,
-                  scriptCode: forexMap.get(liveAsset.symbol)?.scriptCode,
-                  wid: forexMap.get(liveAsset.symbol)?.wid,
-                  lotSize: forexMap.get(liveAsset.symbol)?.lotSize
-                });
-              }
-            } else {
-              // New symbol not in API data, add as-is with IDs from forexService
-              forexMap.set(liveAsset.symbol, liveAsset);
-              
-              // Debug: Log when a forex pair is added without API data
-              console.log('🔍 Forex pair added from forexService (no API data):', {
-                symbol: liveAsset.symbol,
-                scriptCode: liveAsset.scriptCode,
-                wid: liveAsset.wid,
-                intWID: liveAsset.intWID,
-                lotSize: liveAsset.lotSize
-              });
-            }
-          });
-          
-          return Array.from(forexMap.values());
+          return apiForexAssets;
         case 'crypto':
-          // Combine categorized crypto assets from API with live crypto data from Binance
-          // API has scriptCode, wid, lotSize - Binance has real-time prices
+          // ONLY use crypto assets from watchlist API - no hardcoded data
           const apiCryptoAssets = categorized.crypto || [];
-          const liveCryptoAssets = cryptoPairs.map(pair => ({
-            symbol: pair.symbol,
-            name: pair.name,
-            exchange: 'Crypto',
-            price: pair.price,
-            change: pair.change24h || 0,
-            changePercent: pair.changePercent24h || 0,
-            volume: pair.volume24h || 0,
-            marketCap: pair.marketCap || 0,
-            high: pair.price * 1.05,
-            low: pair.price * 0.95,
-          }));
           
-          // Merge both sources, prioritizing live price data but preserving API metadata
-          const cryptoMap = new Map<string, AssetItem>();
-          
-          // Add API crypto assets first (includes scriptCode, wid, lotSize)
-          apiCryptoAssets.forEach(asset => {
-            cryptoMap.set(asset.symbol, asset);
+          console.log('📊 Crypto assets from API:', {
+            count: apiCryptoAssets.length,
+            symbols: apiCryptoAssets.map(c => c.symbol)
           });
           
-          // Update with live data where available, but preserve important API fields
-          liveCryptoAssets.forEach(liveAsset => {
-            const existingAsset = cryptoMap.get(liveAsset.symbol);
-            if (existingAsset) {
-              // Merge: use live prices but keep API metadata (lotSize, scriptCode, wid, etc.)
-              cryptoMap.set(liveAsset.symbol, {
-                ...existingAsset, // Keep all API fields (lotSize, scriptCode, wid, etc.)
-                ...liveAsset, // Override with live price data
-                lotSize: existingAsset.lotSize, // Explicitly preserve lotSize from API
-                scriptCode: existingAsset.scriptCode, // Preserve scriptCode
-                wid: existingAsset.wid, // Preserve wid
-                intWID: existingAsset.intWID, // Preserve intWID
-              });
-              
-              // Debug: Log first crypto merge to verify fields are preserved
-              if (cryptoMap.size === 1) {
-                console.log('🔍 First crypto after merge:', {
-                  symbol: liveAsset.symbol,
-                  scriptCode: cryptoMap.get(liveAsset.symbol)?.scriptCode,
-                  wid: cryptoMap.get(liveAsset.symbol)?.wid,
-                  lotSize: cryptoMap.get(liveAsset.symbol)?.lotSize
-                });
-              }
-            } else {
-              // New symbol not in API data, add as-is (won't have scriptCode/wid)
-              cryptoMap.set(liveAsset.symbol, liveAsset);
-            }
-          });
-          
-          return Array.from(cryptoMap.values());
+          return apiCryptoAssets;
         default:
           return [...categorized.stocks, ...categorized.commodities, ...categorized.indices];
       }
     }
 
-    // Fallback to existing mock data services
-    let assets: AssetItem[] = [];
-
-    switch (watchlistState.marketType) {
-      case 'stocks':
-        assets = stocks
-          .filter(stock => 
-            watchlistState.exchangeFilter === 'All' || 
-            stock.exchange === watchlistState.exchangeFilter
-          )
-          .map(stock => ({
-            symbol: stock.symbol,
-            name: stock.name,
-            exchange: stock.exchange,
-            price: stock.price,
-            change: stock.change,
-            changePercent: stock.changePercent,
-            marketCap: stock.marketCap,
-            volume: stock.volume,
-            high: stock.high,
-            low: stock.low,
-          }));
-        break;
-      case 'forex':
-        assets = forexPairs.map(pair => ({
-          symbol: pair.symbol,
-          name: pair.name,
-          exchange: 'Forex',
-          price: pair.price,
-          change: pair.change,
-          changePercent: pair.changePercent,
-          high: pair.high,
-          low: pair.low,
-          volume: pair.volume,
-          lotSize: pair.lotSize || 1, // Include lotSize from forexService
-          scriptCode: pair.scriptCode, // Include scriptCode from forexService
-          wid: pair.wid, // Include wid from forexService
-          intWID: pair.intWID, // Include intWID from forexService
-        }));
-        break;
-      case 'crypto':
-        assets = cryptoPairs.map(pair => ({
-          symbol: pair.symbol,
-          name: pair.name,
-          exchange: 'Crypto',
-          price: pair.price,
-          change: pair.change24h || 0,
-          changePercent: pair.changePercent24h || 0,
-          volume: pair.volume24h || 0,
-          marketCap: pair.marketCap || 0,
-          high: pair.price * 1.05, // Estimate high
-          low: pair.price * 0.95, // Estimate low
-        }));
-        break;
-    }
-
-    return assets;
-  }, [watchlistState.marketType, watchlistState.exchangeFilter, stocks, forexPairs, cryptoPairs, apiAssets]);
+    // No API data available - return empty array
+    console.warn('⚠️ No API data available for watchlist');
+    return [];
+  }, [watchlistState.marketType, watchlistState.exchangeFilter, apiAssets]);
 
   const searchResults = useMemo((): AssetItem[] => {
     if (!watchlistState.searchQuery.trim()) return [];
@@ -547,9 +352,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // State
     watchlistState,
     tradeState,
-    stocks,
-    forexPairs,
-    cryptoPairs,
+    // REMOVED: stocks, forexPairs, cryptoPairs (no longer using mock data)
     
     // Computed values
     filteredAssets,
@@ -574,9 +377,6 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }), [
     watchlistState,
     tradeState,
-    stocks,
-    forexPairs,
-    cryptoPairs,
     filteredAssets,
     searchResults,
     setMarketType,

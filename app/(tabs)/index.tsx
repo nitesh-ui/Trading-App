@@ -434,9 +434,7 @@ const WatchlistContent = memo(() => {
     updateTradeState,
     resetTradeState,
     refreshData,
-    stocks,
-    forexPairs,
-    cryptoPairs,
+    // REMOVED: stocks, forexPairs, cryptoPairs (no longer available - using API data only)
   } = useWatchlist();
 
   // Real-time price updates state
@@ -690,16 +688,16 @@ const WatchlistContent = memo(() => {
   // Available balance - this could come from a financial context
   const availableBalance = 1269884.76;
 
-  // Exchange filter options for stocks
+  // Exchange filter options for stocks - get from filtered assets
   const availableExchanges: StockExchangeFilter[] = useMemo(() => {
     if (watchlistState.marketType !== 'stocks') return ['All'];
     
     const exchanges = new Set<string>(['All']);
-    stocks.forEach(stock => {
-      if (stock.exchange) exchanges.add(stock.exchange);
+    filteredAssets.forEach(asset => {
+      if (asset.exchange) exchanges.add(asset.exchange);
     });
     return Array.from(exchanges) as StockExchangeFilter[];
-  }, [watchlistState.marketType, stocks]);
+  }, [watchlistState.marketType, filteredAssets]);
 
   // Keep the selected asset updated with real-time data
   const selectedAssetWithRealTimeData = useMemo(() => {
