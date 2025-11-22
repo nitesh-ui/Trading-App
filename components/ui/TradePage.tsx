@@ -312,7 +312,13 @@ const TradePage: React.FC<TradePageProps> = ({
   };
 
   const getAvailableFormatted = () => {
-    // Show full wallet balance amount without formatting
+    // Use available margin from API if available, otherwise use wallet balance
+    if (isMarginFromApi && marginData?.availablemargin !== undefined) {
+      console.log(`[TradePage] Using available margin from API: ₹${marginData.availablemargin.toFixed(2)}`);
+      return `₹${marginData.availablemargin.toFixed(2)}`;
+    }
+    // Fallback to wallet balance if margin data is not available
+    console.log(`[TradePage] Falling back to wallet balance: ₹${walletBalance}`);
     return `₹${walletBalance}`;
   };
 
