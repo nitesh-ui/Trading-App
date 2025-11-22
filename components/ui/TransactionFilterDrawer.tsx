@@ -95,58 +95,168 @@ export const TransactionFilterDrawer: React.FC<TransactionFilterDrawerProps> = (
     onPress: () => void,
     showPicker: boolean,
     onDateChange: (event: any, selectedDate?: Date) => void
-  ) => (
-    <View style={styles.dateContainer}>
-      <Text variant="body" color="textSecondary" style={styles.dateLabel}>
-        {label}
-      </Text>
-      <TouchableOpacity
-        style={[styles.dateButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-        onPress={onPress}
-      >
-        <Text variant="body" color="text" weight="medium">
-          {formatDate(date)}
+  ) => {
+    const [selectedYear, setSelectedYear] = useState(date.getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(date.getMonth());
+    const [selectedDay, setSelectedDay] = useState(date.getDate());
+
+    const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const getDaysInMonth = (year: number, month: number) => {
+      return new Date(year, month + 1, 0).getDate();
+    };
+    
+    const days = Array.from({ length: getDaysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1);
+
+    const handleConfirm = () => {
+      const newDate = new Date(selectedYear, selectedMonth, selectedDay);
+      onDateChange(null, newDate);
+    };
+
+    return (
+      <View style={styles.dateContainer}>
+        <Text variant="body" color="textSecondary" style={styles.dateLabel}>
+          {label}
         </Text>
-        <Ionicons name="calendar" size={20} color={theme.colors.primary} />
-      </TouchableOpacity>
-      
-      {/* Simple Date Selection Modal */}
-      <Modal
-        visible={showPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => onDateChange(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.datePickerModal, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.datePickerHeader}>
-              <Text variant="subtitle" weight="semibold" color="text">
-                Select {label}
-              </Text>
-              <TouchableOpacity onPress={() => onDateChange(null)}>
-                <Ionicons name="close" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </View>
-            
-            <Text variant="body" color="textSecondary" style={styles.datePickerNote}>
-              For now, using default dates. Advanced date picker coming soon!
-            </Text>
-            
-            <View style={styles.datePickerActions}>
-              <TouchableOpacity
-                style={[styles.datePickerButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => onDateChange(null, date)}
-              >
-                <Text variant="body" weight="medium" style={{ color: '#FFFFFF' }}>
-                  Use Current Date
+        <TouchableOpacity
+          style={[styles.dateButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+          onPress={onPress}
+        >
+          <Text variant="body" color="text" weight="medium">
+            {formatDate(date)}
+          </Text>
+          <Ionicons name="calendar" size={20} color={theme.colors.primary} />
+        </TouchableOpacity>
+        
+        {/* Custom Date Picker Modal */}
+        <Modal
+          visible={showPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => onDateChange(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.datePickerModal, { backgroundColor: theme.colors.surface }]}>
+              <View style={styles.datePickerHeader}>
+                <Text variant="subtitle" weight="semibold" color="text">
+                  Select {label}
                 </Text>
-              </TouchableOpacity>
+                <TouchableOpacity onPress={() => onDateChange(null)}>
+                  <Ionicons name="close" size={24} color={theme.colors.text} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.datePickerContent}>
+                {/* Year Selector */}
+                <View style={styles.datePickerSection}>
+                  <Text variant="caption" color="textSecondary" style={styles.pickerLabel}>Year</Text>
+                  <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
+                    {years.map((year) => (
+                      <TouchableOpacity
+                        key={year}
+                        style={[
+                          styles.pickerOption,
+                          {
+                            backgroundColor: selectedYear === year ? theme.colors.primary : 'transparent',
+                          }
+                        ]}
+                        onPress={() => setSelectedYear(year)}
+                      >
+                        <Text
+                          variant="body"
+                          weight={selectedYear === year ? 'semibold' : 'regular'}
+                          style={{ color: selectedYear === year ? '#FFFFFF' : theme.colors.text }}
+                        >
+                          {year}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Month Selector */}
+                <View style={styles.datePickerSection}>
+                  <Text variant="caption" color="textSecondary" style={styles.pickerLabel}>Month</Text>
+                  <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
+                    {months.map((month, index) => (
+                      <TouchableOpacity
+                        key={month}
+                        style={[
+                          styles.pickerOption,
+                          {
+                            backgroundColor: selectedMonth === index ? theme.colors.primary : 'transparent',
+                          }
+                        ]}
+                        onPress={() => setSelectedMonth(index)}
+                      >
+                        <Text
+                          variant="body"
+                          weight={selectedMonth === index ? 'semibold' : 'regular'}
+                          style={{ color: selectedMonth === index ? '#FFFFFF' : theme.colors.text }}
+                        >
+                          {month.slice(0, 3)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Day Selector */}
+                <View style={styles.datePickerSection}>
+                  <Text variant="caption" color="textSecondary" style={styles.pickerLabel}>Day</Text>
+                  <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
+                    {days.map((day) => (
+                      <TouchableOpacity
+                        key={day}
+                        style={[
+                          styles.pickerOption,
+                          {
+                            backgroundColor: selectedDay === day ? theme.colors.primary : 'transparent',
+                          }
+                        ]}
+                        onPress={() => setSelectedDay(day)}
+                      >
+                        <Text
+                          variant="body"
+                          weight={selectedDay === day ? 'semibold' : 'regular'}
+                          style={{ color: selectedDay === day ? '#FFFFFF' : theme.colors.text }}
+                        >
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+              
+              <View style={styles.datePickerActions}>
+                <TouchableOpacity
+                  style={[styles.datePickerCancelButton, { borderColor: theme.colors.border }]}
+                  onPress={() => onDateChange(null)}
+                >
+                  <Text variant="body" weight="medium" color="textSecondary">
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.datePickerConfirmButton, { backgroundColor: theme.colors.primary }]}
+                  onPress={handleConfirm}
+                >
+                  <Text variant="body" weight="medium" style={{ color: '#FFFFFF' }}>
+                    Confirm
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </View>
-  );
+        </Modal>
+      </View>
+    );
+  };
 
   const renderDropdown = <T extends string>(
     options: T[],
@@ -360,24 +470,59 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-    minWidth: 280,
+    minWidth: 320,
+    maxWidth: 360,
   },
   datePickerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  datePickerNote: {
-    textAlign: 'center',
     marginBottom: 20,
   },
-  datePickerActions: {
-    alignItems: 'center',
+  datePickerContent: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+    minHeight: 200,
   },
-  datePickerButton: {
-    paddingHorizontal: 24,
+  datePickerSection: {
+    flex: 1,
+  },
+  pickerLabel: {
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  pickerScroll: {
+    maxHeight: 200,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  pickerOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderRadius: 4,
+    marginVertical: 2,
+    marginHorizontal: 4,
+  },
+  datePickerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  datePickerCancelButton: {
+    flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  datePickerConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
   },
 });
