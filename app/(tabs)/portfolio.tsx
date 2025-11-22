@@ -23,6 +23,9 @@ interface PortfolioSummary {
   todaysPnL: number;
   todaysPnLPercent: number;
   walletBalance: string;
+  usedMargin: number;
+  availableMargin: number;
+  totalMargin: number;
 }
 
 interface Holding {
@@ -46,25 +49,17 @@ interface Holding {
 
 /**
  * Transform API completed trade data to UI holdings format
+ * Uses only real API data - no simulation
  */
 const transformApiTradeToHolding = (apiTrade: ActiveTradeItem): Holding => {
   const investedValue = apiTrade.orderPrice * apiTrade.qty;
   
-  // Calculate current price based on P&L from API if available
-  // Otherwise simulate a small price movement for demo
-  let currentPrice: number;
-  let pnl: number;
+  // Use actual P&L from API
+  const pnl = apiTrade.profitorloss || 0;
   
-  if (apiTrade.profitorloss !== 0) {
-    // Use actual P&L from API
-    pnl = apiTrade.profitorloss;
-    currentPrice = apiTrade.orderPrice + (pnl / apiTrade.qty);
-  } else {
-    // For demo purposes, simulate small price movement
-    const priceMovement = (Math.random() - 0.5) * apiTrade.orderPrice * 0.05; // ±2.5% movement
-    currentPrice = apiTrade.orderPrice + priceMovement;
-    pnl = priceMovement * apiTrade.qty;
-  }
+  // Calculate current price from entry price and P&L
+  // currentPrice = entryPrice + (pnl / quantity)
+  const currentPrice = apiTrade.orderPrice + (pnl / apiTrade.qty);
   
   const currentValue = currentPrice * apiTrade.qty;
   const pnlPercent = investedValue > 0 ? (pnl / investedValue) * 100 : 0;
@@ -241,7 +236,7 @@ export default function PortfolioScreen() {
 
   // Separate wallet balance query for immediate refresh with polling
   const {
-    data: walletBalance,
+    data: walletData,
     isLoading: walletLoading,
     refetch: refetchWallet,
     isRefetching: walletRefetching
@@ -249,7 +244,7 @@ export default function PortfolioScreen() {
     queryKey: ['wallet', 'balance'],
     queryFn: async () => {
       const response = await tradingApiService.getWalletBalance();
-      return response.data?.amount || '0';
+      return response.data;
     },
     staleTime: 0, // Always fetch fresh data
     refetchInterval: (isPollingEnabled && isScreenFocused) ? 2000 : false, // Poll only when enabled AND screen is focused
@@ -272,20 +267,25 @@ export default function PortfolioScreen() {
       const totalPnL = holdings.reduce((sum, holding) => sum + holding.pnl, 0);
       const totalPnLPercent = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
       
+      // Note: API doesn't provide today's P&L separately
+      // For now, showing total P&L until API is enhanced
       return {
         totalInvested,
         totalCurrent,
         totalPnL,
         totalPnLPercent,
-        todaysPnL: totalPnL * 0.1,
-        todaysPnLPercent: totalPnLPercent * 0.1,
-        walletBalance: walletBalance || '0',
+        todaysPnL: totalPnL, // Use total P&L as today's P&L (API limitation)
+        todaysPnLPercent: totalPnLPercent, // Use total P&L% as today's P&L% (API limitation)
+        walletBalance: walletData?.amount || '0',
+        usedMargin: walletData?.usedMargin || 0,
+        availableMargin: walletData?.availableMargin || 0,
+        totalMargin: walletData?.totalmargin || 0,
       };
     },
     staleTime: 0,
     refetchInterval: (isPollingEnabled && isScreenFocused) ? 2000 : false, // Poll only when enabled AND screen is focused
     refetchIntervalInBackground: false,
-    enabled: !!walletBalance, // Only run when wallet balance is available
+    enabled: !!walletData, // Only run when wallet data is available
   });
 
   // Callbacks
@@ -418,12 +418,6 @@ export default function PortfolioScreen() {
                 <View style={styles.summaryDetails}>
                   <View style={styles.summaryRow}>
                     <View style={styles.summaryItem}>
-                      <Text variant="caption" color="textSecondary">Wallet Balance</Text>
-                      <Text variant="body" weight="semibold" color="text">
-                        {walletBalance || '0'}
-                      </Text>
-                    </View>
-                    <View style={styles.summaryItem}>
                       <Text variant="caption" color="textSecondary">Total P&L</Text>
                       <Text 
                         variant="body" 
@@ -439,9 +433,6 @@ export default function PortfolioScreen() {
                         ({portfolioSummary.totalPnLPercent >= 0 ? '+' : ''}{portfolioSummary.totalPnLPercent.toFixed(2)}%)
                       </Text>
                     </View>
-                  </View>
-
-                  <View style={styles.summaryRow}>
                     <View style={styles.summaryItem}>
                       <Text variant="caption" color="textSecondary">Today's P&L</Text>
                       <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
@@ -460,8 +451,20 @@ export default function PortfolioScreen() {
                         </Text>
                       </View>
                     </View>
+                  </View>
+
+                  <View style={styles.summaryRow}>
                     <View style={styles.summaryItem}>
-                      {/* Empty for alignment */}
+                      <Text variant="caption" color="textSecondary">Used Margin</Text>
+                      <Text variant="body" weight="semibold" color="text">
+                        {formatIndianCurrency(portfolioSummary.usedMargin)}
+                      </Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text variant="caption" color="textSecondary">Available Margin</Text>
+                      <Text variant="body" weight="semibold" color="text">
+                        {formatIndianCurrency(portfolioSummary.availableMargin)}
+                      </Text>
                     </View>
                   </View>
                 </View>
