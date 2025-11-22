@@ -414,14 +414,19 @@ class WatchlistApiService {
   /**
    * Add a symbol to watchlist using the real API
    */
-  async addToWatchlist(symbol: string, exchange: string, lotSize: string = "1"): Promise<boolean> {
+  async addToWatchlist(
+    symbol: string, 
+    exchange: string, 
+    lotSize: string = "1", 
+    size: string = ""
+  ): Promise<boolean> {
     try {
       const sessionData = await tradingApiService.getSessionData();
       if (!sessionData?.sessionToken) {
         throw new Error('No valid session token found.');
       }
 
-      console.log('📝 Adding to watchlist:', { symbol, exchange, lotSize });
+      console.log('📝 Adding to watchlist:', { symbol, exchange, lotSize, size });
 
       const requestBody: AddScriptRequest = {
         scriptTradingSymbol: symbol,
@@ -429,7 +434,7 @@ class WatchlistApiService {
         watchlistname: "",
         scriptExchange: exchange,
         lot: lotSize,
-        size: ""
+        size: size // Now includes the actual size value
       };
 
       const response = await fetch(`${this.baseUrl}/WatchListApi/AddScript`, {

@@ -230,21 +230,23 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     try {
       setAddingSymbol(item.symbol); // Set loading state
       
-      // Use the lot size from the API response if available, otherwise default to "1"
+      // Use the lot size and size from the API response if available
       const lotSize = item.lotSize ? item.lotSize.toString() : "1";
+      const size = item.size ? item.size.toString() : "";
       
       console.log('🔄 Adding to watchlist:', { 
         symbol: item.symbol, 
         exchange: item.exchange, 
         lotSize,
-        size: item.size
+        size
       });
 
       // Call the real API to add to watchlist
       const success = await watchlistApiService.addToWatchlist(
         item.symbol, 
         item.exchange || 'NSE', 
-        lotSize
+        lotSize,
+        size // Pass the size parameter
       );
 
       if (success) {
