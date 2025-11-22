@@ -30,6 +30,8 @@ export interface WatchlistApiItem {
   scriptLotSize: number;
   scripttype: string;
   scriptexpiry?: string;
+  instrumentToken?: string | number; // Added to capture if API provides this
+  intWID?: number; // Added to capture if API provides this
 }
 
 export interface WatchlistDataForAdd {
@@ -157,14 +159,17 @@ class WatchlistApiService {
         itemCount: data.data?.objLstWatchList?.length || 0
       });
 
-      // Log first item to see raw API structure
+      // Log first item to see raw API structure including all fields
       if (data.data?.objLstWatchList && data.data.objLstWatchList.length > 0) {
-        console.log('📊 Sample API item (first):', {
+        console.log('📊 Sample API item (first) - FULL OBJECT:', data.data.objLstWatchList[0]);
+        console.log('📊 Sample API item (first) - KEY FIELDS:', {
           symbol: data.data.objLstWatchList[0].scriptTradingSymbol,
           lastprice: data.data.objLstWatchList[0].lastprice,
           close: data.data.objLstWatchList[0].close,
           high: data.data.objLstWatchList[0].high,
           low: data.data.objLstWatchList[0].low,
+          scriptCode: data.data.objLstWatchList[0].scriptCode,
+          wid: data.data.objLstWatchList[0].wid
         });
       }
 
@@ -295,8 +300,9 @@ class WatchlistApiService {
         volume: 0, // Not provided in API
         marketCap: 0, // Not provided in API
         scriptCode: item.scriptCode,
-        intWID: item.wid,
+        intWID: item.intWID || item.wid, // Use intWID if provided, otherwise wid
         wid: item.wid, // Watchlist ID for delete operations
+        instrumentToken: item.instrumentToken || item.scriptCode, // Use instrumentToken if provided, fallback to scriptCode
         lotSize: item.scriptLotSize, // Include lot size from API
       };
     });

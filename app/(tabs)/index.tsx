@@ -37,7 +37,7 @@ import TradePage from '../../components/ui/TradePage';
 import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useSignalR } from '../../hooks/useSignalR';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -406,16 +406,17 @@ const WatchlistContent = memo(() => {
   const [tradeAsset, setTradeAsset] = useState<AssetItem | null>(null);
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell'>('buy');
   
-  // WebSocket integration for real-time data
+  // SignalR integration for real-time data
   const { 
     isConnected: wsConnected, 
     connectionStatus, 
     lastMessage,
     subscribe: wsSubscribe,
-    unsubscribe: wsUnsubscribe 
-  } = useWebSocket({
-    autoConnect: true,
-    subscribeToAll: true
+    unsubscribe: wsUnsubscribe,
+    subscribeToInstruments,
+    unsubscribeFromInstruments
+  } = useSignalR({
+    autoConnect: true
   });
   const {
     watchlistState,
@@ -445,13 +446,13 @@ const WatchlistContent = memo(() => {
   const MAX_PRICE_ENTRIES = 1000; // Limit Map size to prevent memory leaks
   const PRICE_ENTRY_TTL = 5 * 60 * 1000; // 5 minutes time-to-live for price entries
 
-  // WebSocket data processing with performance optimization
+  // SignalR data processing with performance optimization
   React.useEffect(() => {
     if (lastMessage && lastMessage.data) {
       const { data } = lastMessage;
       
       
-      // Process the WebSocket data structure: { Table: [...], Table1: [...] }
+      // Process the SignalR data structure: { Table: [...], Table1: [...] }
       if (data.Table && Array.isArray(data.Table)) {
         
         // Batch update prices to avoid too many re-renders
@@ -483,18 +484,22 @@ const WatchlistContent = memo(() => {
 
         data.Table.forEach((item: any) => {
           if (item.InstrumentToken && item.Lastprice !== undefined) {
+            // CRITICAL: InstrumentToken from SignalR corresponds to scriptCode in assets
+            // Store with scriptCode as the key for direct matching
+            const scriptCode = String(item.InstrumentToken);
+            
             const priceData: any = {
-              instrumentToken: item.InstrumentToken,
+              scriptCode: scriptCode, // Store scriptCode for reference
               lastPrice: parseFloat(item.Lastprice),
               open: parseFloat(item.Open),
               close: parseFloat(item.Close),
-              high: parseFloat(item.high),
-              low: parseFloat(item.low),
-              change: parseFloat(item.Change),
-              bid: parseFloat(item.Bid),
-              ask: parseFloat(item.Ask),
-              bidQty: parseInt(item.BidQty),
-              askQty: parseInt(item.AskQty),
+              high: parseFloat(item.High || item.high || 0),
+              low: parseFloat(item.Low || item.low || 0),
+              change: parseFloat(item.Change || 0),
+              bid: parseFloat(item.Bid || 0),
+              ask: parseFloat(item.Ask || 0),
+              bidQty: parseInt(item.BidQty || 0),
+              askQty: parseInt(item.AskQty || 0),
               timestamp: now // Use consistent timestamp
             };
 
@@ -505,8 +510,18 @@ const WatchlistContent = memo(() => {
               priceData.changePercent = 0;
             }
 
-            newPrices.set(item.InstrumentToken, priceData);
+            // Store with scriptCode as STRING key for direct matching
+            newPrices.set(scriptCode, priceData);
             updateCount++;
+            
+            // Debug log for first few items
+            if (updateCount <= 3) {
+              console.log(`💹 Price update #${updateCount}:`, {
+                scriptCode: scriptCode,
+                price: priceData.lastPrice,
+                change: priceData.changePercent.toFixed(2) + '%'
+              });
+            }
           }
         });
 
@@ -514,20 +529,32 @@ const WatchlistContent = memo(() => {
         if (data.Table1 && Array.isArray(data.Table1)) {
           
           data.Table1.forEach((item: any) => {
-            if (item.InstrumentToken && item.Lastprice !== undefined) {
+            if (item.ScriptCode && item.Status) {
+              // Table1 contains trade data (ActiveTradeID, Status, etc.)
+              // We don't need to process this for price updates
+              // This is trade execution data, not market data
+              console.log('📋 Trade data in Table1:', {
+                tradeId: item.ActiveTradeID,
+                scriptCode: item.ScriptCode,
+                status: item.Status
+              });
+            } else if (item.InstrumentToken && item.Lastprice !== undefined) {
+              // If Table1 has market data (rare), process it
+              const instrumentTokenStr = String(item.InstrumentToken);
+              
               const priceData: any = {
-                instrumentToken: item.InstrumentToken,
+                instrumentToken: instrumentTokenStr,
                 lastPrice: parseFloat(item.Lastprice),
                 open: parseFloat(item.Open),
                 close: parseFloat(item.Close),
-                high: parseFloat(item.high),
-                low: parseFloat(item.low),
-                change: parseFloat(item.Change),
-                bid: parseFloat(item.Bid),
-                ask: parseFloat(item.Ask),
-                bidQty: parseInt(item.BidQty),
-                askQty: parseInt(item.AskQty),
-                timestamp: Date.now()
+                high: parseFloat(item.High || item.high || 0),
+                low: parseFloat(item.Low || item.low || 0),
+                change: parseFloat(item.Change || 0),
+                bid: parseFloat(item.Bid || 0),
+                ask: parseFloat(item.Ask || 0),
+                bidQty: parseInt(item.BidQty || 0),
+                askQty: parseInt(item.AskQty || 0),
+                timestamp: now
               };
 
               if (item.Close && item.Close !== 0) {
@@ -536,7 +563,7 @@ const WatchlistContent = memo(() => {
                 priceData.changePercent = 0;
               }
 
-              newPrices.set(item.InstrumentToken, priceData);
+              newPrices.set(instrumentTokenStr, priceData);
               updateCount++;
             }
           });
@@ -544,15 +571,16 @@ const WatchlistContent = memo(() => {
 
         // Update prices immediately - React will batch updates automatically
         if (updateCount > 0) {
+          console.log(`💹 Applying ${updateCount} price updates to watchlist, Map size: ${newPrices.size}`);
           setRealtimePrices(newPrices);
         } else {
           console.log('⚠️ No price updates to apply');
         }
       } else {
-        console.log('⚠️ WebSocket message does not have Table array');
+        console.log('⚠️ SignalR message does not have Table array');
       }
     } else {
-      console.log('⚠️ WebSocket lastMessage is empty or has no data');
+      console.log('⚠️ SignalR lastMessage is empty or has no data');
     }
   }, [lastMessage]);
 
@@ -592,36 +620,59 @@ const WatchlistContent = memo(() => {
       return filteredAssets;
     }
 
-    return filteredAssets.map(asset => {
-      // Skip real-time updates for crypto and forex as they use different data sources
-      // Crypto uses Binance API with 24h change data
-      // Forex uses forex service with its own update mechanism
-      if (asset.exchange === 'CRYPTO' || asset.exchange === 'Crypto' || 
-          asset.exchange === 'Forex' || asset.exchange === 'FOREX') {
-        // Debug log crypto/forex data
-        if (asset.exchange === 'CRYPTO' || asset.exchange === 'Crypto') {
-          console.log(`💰 Crypto asset preserved: ${asset.symbol}`, {
-            price: asset.price,
-            change: asset.change,
-            changePercent: asset.changePercent,
-          });
-        }
-        // Return asset as-is with its original change data from API
-        return asset;
-      }
+    // Log all assets for debugging matching logic
+    console.log('🔍 MATCHING DEBUG: Assets to match:', filteredAssets.map(a => ({
+      symbol: a.symbol,
+      exchange: a.exchange,
+      scriptCode: a.scriptCode,
+      intWID: a.intWID,
+      wid: a.wid,
+      instrumentToken: a.instrumentToken
+    })));
+    console.log('🔍 MATCHING DEBUG: Available price tokens:', Array.from(realtimePrices.keys()));
 
-      // For stocks: Try to find real-time data by matching with InstrumentToken
+    return filteredAssets.map(asset => {
+      // Try to find real-time data by matching with InstrumentToken for ALL asset types (stocks, forex, crypto)
       let realtimeData = null;
       
-      // Try to match by scriptCode, intWID, or other identifiers
-      for (const [instrumentToken, priceData] of realtimePrices) {
-        // Match by various possible identifiers
-        if (asset.scriptCode?.toString() === instrumentToken || 
-            asset.intWID?.toString() === instrumentToken ||
-            asset.instrumentToken?.toString() === instrumentToken) {
-          realtimeData = priceData;
-          break;
-        }
+      // Convert asset identifiers to strings for consistent matching
+      const assetScriptCode = asset.scriptCode?.toString();
+      const assetIntWID = asset.intWID?.toString();
+      const assetWID = asset.wid?.toString();
+      const assetInstrumentToken = asset.instrumentToken?.toString();
+      
+      console.log(`🔎 Trying to match ${asset.symbol}:`, {
+        scriptCode: assetScriptCode,
+        intWID: assetIntWID,
+        wid: assetWID,
+        instrumentToken: assetInstrumentToken
+      });
+      
+      // Try to match by scriptCode, intWID, wid, or instrumentToken
+      // CRITICAL: All tokens in the Map are strings now
+      if (assetScriptCode && realtimePrices.has(assetScriptCode)) {
+        realtimeData = realtimePrices.get(assetScriptCode);
+        console.log(`✅ Matched asset ${asset.symbol} by scriptCode:`, assetScriptCode);
+      } else if (assetIntWID && realtimePrices.has(assetIntWID)) {
+        realtimeData = realtimePrices.get(assetIntWID);
+        console.log(`✅ Matched asset ${asset.symbol} by intWID:`, assetIntWID);
+      } else if (assetWID && realtimePrices.has(assetWID)) {
+        realtimeData = realtimePrices.get(assetWID);
+        console.log(`✅ Matched asset ${asset.symbol} by wid:`, assetWID);
+      } else if (assetInstrumentToken && realtimePrices.has(assetInstrumentToken)) {
+        realtimeData = realtimePrices.get(assetInstrumentToken);
+        console.log(`✅ Matched asset ${asset.symbol} by instrumentToken:`, assetInstrumentToken);
+      } else {
+        // No match found - log for debugging
+        console.log(`❌ No match for ${asset.symbol} (${asset.exchange})`, {
+          assetIds: {
+            scriptCode: assetScriptCode,
+            intWID: assetIntWID,
+            wid: assetWID,
+            instrumentToken: assetInstrumentToken
+          },
+          availableTokens: Array.from(realtimePrices.keys())
+        });
       }
 
       if (realtimeData) {
@@ -667,23 +718,91 @@ const WatchlistContent = memo(() => {
     });
   }, [filteredAssets, realtimePrices]);
 
-  // WebSocket connection status logging
+  // SignalR connection status logging
   React.useEffect(() => {
-    console.log('🔌 WebSocket connection status:', {
+    console.log('🔌 SignalR connection status:', {
       connected: wsConnected,
       status: connectionStatus
     });
 
     if (wsConnected) {
+      console.log('✅ SignalR connected in index.tsx');
       // showNotification({
       //   type: 'success',
       //   title: 'Real-time data connected'
       // });
     } else if (connectionStatus === 'disconnected') {
       // Only show notification if we were previously connected
-      console.log('⚠️ WebSocket disconnected, showing notification');
+      console.log('⚠️ SignalR disconnected, showing notification');
     }
   }, [wsConnected, connectionStatus, showNotification]);
+
+  // Subscribe to instruments when connected and assets are available
+  React.useEffect(() => {
+    if (!wsConnected || !subscribeToInstruments) {
+      console.log('⏸️ Skipping instrument subscription:', {
+        wsConnected,
+        hasSubscribeFn: !!subscribeToInstruments,
+        assetsCount: filteredAssets.length
+      });
+      return;
+    }
+
+    if (filteredAssets.length === 0) {
+      console.log('⏸️ No assets to subscribe to yet');
+      return;
+    }
+
+    // Extract instrument tokens from assets
+    // For stocks: use scriptCode (matches what web does)
+    // For forex/crypto: may need different approach
+    const instrumentTokens: string[] = [];
+    
+    filteredAssets.forEach(asset => {
+      // Priority order for instrument token selection:
+      // 1. instrumentToken if explicitly provided
+      // 2. scriptCode (this is what web uses and what SignalR sends)
+      // 3. intWID as fallback
+      const token = asset.instrumentToken || asset.scriptCode || asset.intWID;
+      
+      if (token) {
+        instrumentTokens.push(String(token));
+      } else {
+        console.warn('⚠️ Asset has no identifiable token:', asset.symbol);
+      }
+    });
+
+    if (instrumentTokens.length === 0) {
+      console.log('⏸️ No valid instrument tokens found in assets');
+      return;
+    }
+
+    console.log('📤 Subscribing to instruments:', {
+      totalAssets: filteredAssets.length,
+      tokensToSubscribe: instrumentTokens.length,
+      sampleTokens: instrumentTokens.slice(0, 5),
+      marketType: watchlistState.marketType
+    });
+
+    // Subscribe to instruments
+    subscribeToInstruments(instrumentTokens)
+      .then(() => {
+        console.log('✅ Successfully subscribed to', instrumentTokens.length, 'instruments');
+      })
+      .catch((error) => {
+        console.error('❌ Failed to subscribe to instruments:', error);
+      });
+
+    // Cleanup: unsubscribe when component unmounts or assets change
+    return () => {
+      if (unsubscribeFromInstruments && instrumentTokens.length > 0) {
+        console.log('🗑️ Unsubscribing from instruments on cleanup');
+        unsubscribeFromInstruments(instrumentTokens).catch((error) => {
+          console.error('❌ Failed to unsubscribe:', error);
+        });
+      }
+    };
+  }, [wsConnected, filteredAssets, subscribeToInstruments, unsubscribeFromInstruments, watchlistState.marketType]);
 
   // Available balance - this could come from a financial context
   const availableBalance = 1269884.76;
