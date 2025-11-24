@@ -6,6 +6,7 @@ import {
     Modal,
     Platform,
     SafeAreaView,
+    ScrollView,
     StyleSheet,
     TouchableOpacity,
     TouchableWithoutFeedback,
@@ -25,7 +26,7 @@ interface FilterDrawerProps {
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.4;
+const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.6; // Increased to 60% for better content visibility
 
 const FilterDrawer = memo<FilterDrawerProps>(({
   visible,
@@ -117,103 +118,83 @@ const FilterDrawer = memo<FilterDrawerProps>(({
                   </TouchableOpacity>
                 </View>
 
-                {/* Exchange Filter (only for stocks) */}
-                {marketType === 'stocks' && (
-                  <Card padding="medium" style={styles.filterCard}>
-                    <Text variant="subtitle" weight="medium" color="text" style={styles.filterTitle}>
-                      Exchange
-                    </Text>
-                    <Text variant="caption" color="textSecondary" style={styles.filterDescription}>
-                      Filter stocks by exchange
-                    </Text>
-                    
-                    <View style={styles.exchangeGrid}>
-                      {availableExchanges.map((exchange) => (
-                        <TouchableOpacity
-                          key={exchange}
-                          onPress={() => onExchangeChange(exchange)}
-                          style={[
-                            styles.exchangeButton,
-                            {
-                              backgroundColor: selectedExchange === exchange 
-                                ? theme.colors.primary 
-                                : 'transparent',
-                              borderColor: selectedExchange === exchange
-                                ? theme.colors.primary
-                                : theme.colors.border,
-                            },
-                          ]}
-                          activeOpacity={0.7}
-                        >
-                          <Text
-                            variant="body"
-                            weight="medium"
-                            style={{
-                              color: selectedExchange === exchange 
-                                ? 'white' 
-                                : theme.colors.text,
-                            }}
+                {/* Scrollable Content */}
+                <ScrollView 
+                  style={styles.scrollView}
+                  contentContainerStyle={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
+                  bounces={true}
+                >
+                  {/* Exchange Filter (only for stocks) */}
+                  {marketType === 'stocks' && (
+                    <Card padding="medium" style={styles.filterCard}>
+                      <Text variant="subtitle" weight="medium" color="text" style={styles.filterTitle}>
+                        Exchange
+                      </Text>
+                      <Text variant="caption" color="textSecondary" style={styles.filterDescription}>
+                        Filter stocks by exchange
+                      </Text>
+                      
+                      <View style={styles.exchangeGrid}>
+                        {availableExchanges.map((exchange) => (
+                          <TouchableOpacity
+                            key={exchange}
+                            onPress={() => onExchangeChange(exchange)}
+                            style={[
+                              styles.exchangeButton,
+                              {
+                                backgroundColor: selectedExchange === exchange 
+                                  ? theme.colors.primary 
+                                  : 'transparent',
+                                borderColor: selectedExchange === exchange
+                                  ? theme.colors.primary
+                                  : theme.colors.border,
+                              },
+                            ]}
+                            activeOpacity={0.7}
                           >
-                            {exchange}
-                          </Text>
-                          {exchange !== 'All' && (
                             <Text
-                              variant="caption"
+                              variant="body"
+                              weight="medium"
                               style={{
                                 color: selectedExchange === exchange 
                                   ? 'white' 
-                                  : theme.colors.textSecondary,
-                                opacity: 0.8,
+                                  : theme.colors.text,
                               }}
                             >
-                              Exchange
+                              {exchange}
                             </Text>
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </Card>
-                )}
+                            {exchange !== 'All' && (
+                              <Text
+                                variant="caption"
+                                style={{
+                                  color: selectedExchange === exchange 
+                                    ? 'white' 
+                                    : theme.colors.textSecondary,
+                                  opacity: 0.8,
+                                }}
+                              >
+                                Exchange
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </Card>
+                  )}
 
-                {/* Additional Filters placeholder */}
-                <Card padding="medium" style={styles.filterCard}>
-                  <Text variant="subtitle" weight="medium" color="text" style={styles.filterTitle}>
-                    Sort By
-                  </Text>
-                  <Text variant="caption" color="textSecondary" style={styles.filterDescription}>
-                    Sort your watchlist
-                  </Text>
-                  
-                  <View style={styles.sortOptions}>
-                    {['Price', 'Change %', 'Volume', 'Name'].map((sortOption) => (
-                      <TouchableOpacity
-                        key={sortOption}
-                        style={[
-                          styles.sortButton,
-                          { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        <Text variant="body" color="text">
-                          {sortOption}
-                        </Text>
-                        <Ionicons name="chevron-down" size={16} color={theme.colors.textSecondary} />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </Card>
-
-                {/* Reset Filters */}
-                <TouchableOpacity
-                  onPress={() => onExchangeChange('All')}
-                  style={[styles.resetButton, { borderColor: theme.colors.border }]}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="refresh" size={18} color={theme.colors.textSecondary} />
-                  <Text variant="body" weight="medium" style={{ color: theme.colors.textSecondary, marginLeft: 8 }}>
-                    Reset Filters
-                  </Text>
-                </TouchableOpacity>
+                  {/* Reset Filters */}
+                  <TouchableOpacity
+                    onPress={() => onExchangeChange('All')}
+                    style={[styles.resetButton, { borderColor: theme.colors.border }]}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="refresh" size={18} color={theme.colors.textSecondary} />
+                    <Text variant="body" weight="medium" style={{ color: theme.colors.textSecondary, marginLeft: 8 }}>
+                      Reset Filters
+                    </Text>
+                  </TouchableOpacity>
+                </ScrollView>
               </SafeAreaView>
             </Animated.View>
           </TouchableWithoutFeedback>
@@ -246,7 +227,13 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 16,
   },
   handle: {
     width: 40,
@@ -261,7 +248,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
   },
   closeButton: {
     width: 32,
@@ -283,28 +270,20 @@ const styles = StyleSheet.create({
   exchangeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
+    marginBottom: 8,
   },
   exchangeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    minWidth: 60,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sortOptions: {
-    gap: 8,
-  },
-  sortButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+    flexBasis: '30%', // Ensures 3 columns max on smaller screens
+    flexGrow: 0,
+    flexShrink: 0,
   },
   resetButton: {
     flexDirection: 'row',
