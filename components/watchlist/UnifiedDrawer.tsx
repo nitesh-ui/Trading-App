@@ -18,6 +18,7 @@ import { Text, Card } from '../atomic';
 import { CandlestickChart, PriceDisplay } from '../trading';
 import { AssetItem, MarketType, TradeState } from './types';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
+import { formatPrice } from '../../utils/priceFormatting';
 import TradingDrawer from './TradingDrawer';
 
 interface UnifiedDrawerProps {
@@ -165,14 +166,18 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
   // Asset details drawer
   if (!asset || !marketType) return null;
 
-  const formatPrice = (price: number) => {
+  const formatPriceLocal = (price: number) => {
     if (marketType === 'stocks') {
       return formatIndianCurrency(price);
+    } else if (marketType === 'crypto') {
+      // For crypto, show up to 5 decimal places, no currency symbol
+      return price.toFixed(5);
+    } else if (marketType === 'forex') {
+      // For forex, show up to 5 decimal places, no currency symbol
+      return price.toFixed(5);
     }
-    if (marketType === 'crypto' && price > 1000) {
-      return `$${price.toLocaleString()}`;
-    }
-    return `$${price.toFixed(4)}`;
+    // Default: 2 decimal places, no currency symbol
+    return price.toFixed(2);
   };
 
   const changeColor = asset.change >= 0 ? theme.colors.success : theme.colors.error;
@@ -190,21 +195,21 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
       // Open - from real-time data or calculate estimate
       const openPrice = asset.open || (asset.high && asset.low ? (asset.high + asset.low) / 2 : null);
       if (openPrice !== undefined && openPrice !== null) {
-        stats.push({ label: 'Open', value: formatPrice(openPrice) });
+        stats.push({ label: 'Open', value: formatPriceLocal(openPrice) });
       }
       
       // High - only show if available from API or real-time
       if (asset.high !== undefined && asset.high !== null) {
-        stats.push({ label: 'High', value: formatPrice(asset.high) });
+        stats.push({ label: 'High', value: formatPriceLocal(asset.high) });
       }
       
       // Low - only show if available from API or real-time
       if (asset.low !== undefined && asset.low !== null) {
-        stats.push({ label: 'Low', value: formatPrice(asset.low) });
+        stats.push({ label: 'Low', value: formatPriceLocal(asset.low) });
       }
       
       // Previous Close - always show
-      stats.push({ label: 'Prev Close', value: formatPrice(prevClose) });
+      stats.push({ label: 'Prev Close', value: formatPriceLocal(prevClose) });
       
       // Volume - only show if provided by API or real-time
       if (asset.volume !== undefined && asset.volume !== null && asset.volume > 0) {
@@ -218,10 +223,10 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
       
       // Real-time specific data (if available from WebSocket)
       if (asset.bid !== undefined && asset.bid !== null && asset.bid > 0) {
-        stats.push({ label: 'Bid', value: formatPrice(asset.bid) });
+        stats.push({ label: 'Bid', value: formatPriceLocal(asset.bid) });
       }
       if (asset.ask !== undefined && asset.ask !== null && asset.ask > 0) {
-        stats.push({ label: 'Ask', value: formatPrice(asset.ask) });
+        stats.push({ label: 'Ask', value: formatPriceLocal(asset.ask) });
       }
       
       // Last updated timestamp (for real-time data)
@@ -232,18 +237,18 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
       
     } else if (marketType === 'forex') {
       // Forex specific fields
-      stats.push({ label: 'Bid', value: formatPrice(asset.price - 0.0002) });
-      stats.push({ label: 'Ask', value: formatPrice(asset.price + 0.0002) });
-      stats.push({ label: 'Spread', value: '0.0004' });
+      stats.push({ label: 'Bid', value: formatPriceLocal(asset.price - 0.0002) });
+      stats.push({ label: 'Ask', value: formatPriceLocal(asset.price + 0.0002) });
+      stats.push({ label: 'Spread', value: '0.00040' });
       
       // High - only show if available from API
       if (asset.high !== undefined && asset.high !== null) {
-        stats.push({ label: 'High', value: formatPrice(asset.high) });
+        stats.push({ label: 'High', value: formatPriceLocal(asset.high) });
       }
       
       // Low - only show if available from API
       if (asset.low !== undefined && asset.low !== null) {
-        stats.push({ label: 'Low', value: formatPrice(asset.low) });
+        stats.push({ label: 'Low', value: formatPriceLocal(asset.low) });
       }
       
       // Volume - only show if provided by API
@@ -264,12 +269,12 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
       
       // High - only show if available from API
       if (asset.high !== undefined && asset.high !== null) {
-        stats.push({ label: 'High', value: formatPrice(asset.high) });
+        stats.push({ label: 'High', value: formatPriceLocal(asset.high) });
       }
       
       // Low - only show if available from API
       if (asset.low !== undefined && asset.low !== null) {
-        stats.push({ label: 'Low', value: formatPrice(asset.low) });
+        stats.push({ label: 'Low', value: formatPriceLocal(asset.low) });
       }
       
       // Last Updated - always show for crypto
