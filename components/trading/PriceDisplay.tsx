@@ -13,6 +13,7 @@ interface PriceDisplayProps {
   showSymbol?: boolean; // For compatibility
   showChange?: boolean; // For compatibility
   align?: 'left' | 'center' | 'right'; // New prop for alignment
+  decimalPlaces?: number; // Number of decimal places for price display
   style?: any;
   theme?: any; // Optional theme prop
 }
@@ -27,6 +28,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
   showSymbol = false, // For compatibility
   showChange = true, // For compatibility
   align = 'right', // Default to right alignment
+  decimalPlaces = 2, // Default to 2 decimal places
   style,
   theme: providedTheme,
 }) => {
@@ -50,19 +52,19 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
   const isPositive = changePercent >= 0;
   const changeColor = isPositive ? theme.colors.success : theme.colors.error;
   
-  // Format price with consistent decimal places to prevent layout shifts
+  // Format price with configurable decimal places to prevent layout shifts
   const formatPrice = (value: number): string => {
-    return value.toFixed(2);
+    return value.toFixed(decimalPlaces);
   };
   
   // Format change with consistent formatting - preserves sign
   const formatChange = (value: number): string => {
     const absValue = Math.abs(value);
-    const formatted = absValue.toFixed(2);
+    const formatted = absValue.toFixed(decimalPlaces);
     
-    // If both change and percent are essentially 0, show 0.00
-    if (absValue < 0.01 && Math.abs(changePercent) < 0.01) {
-      return '0.00';
+    // If both change and percent are essentially 0, show zeros with appropriate decimal places
+    if (absValue < Math.pow(10, -decimalPlaces) && Math.abs(changePercent) < 0.01) {
+      return '0.' + '0'.repeat(decimalPlaces);
     }
     
     return value >= 0 ? `+${formatted}` : `-${formatted}`;

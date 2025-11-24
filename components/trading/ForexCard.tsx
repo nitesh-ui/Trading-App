@@ -100,6 +100,7 @@ export const ForexCard: React.FC<ForexCardProps> = React.memo(({
               size="medium"
               showSymbol={false}
               showChange={true}
+              decimalPlaces={5}
             />
           </View>
         </View>

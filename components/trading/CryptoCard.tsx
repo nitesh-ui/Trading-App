@@ -121,6 +121,7 @@ export const CryptoCard: React.FC<CryptoCardProps> = React.memo(({
               showCurrency={false}
               showSymbol={false}
               showChange={true}
+              decimalPlaces={5}
             />
           </View>
         </View>

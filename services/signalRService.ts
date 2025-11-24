@@ -307,35 +307,31 @@ class SignalRService {
       // Try multiple possible locations for user ID in the session data
       // CRITICAL: We need to find the CORRECT user ID field
       // Based on the actual session data structure:
-      // loggedInUser has: username, email, tenantId, fullname, mobileno, sponsorid
-      // ✅ WEB VERSION USES: tenantId (confirmed from network trace)
+      // loggedInUser has: userID, username, email, tenantId, fullname, mobileno, sponsorid
+      // ✅ CONFIRMED: userID is the correct field (value: 407)
       // Web sends: {"target":"SubscribeUser","arguments":["407"],"invocationId":"0","type":1}
-      // So we need to use tenantId and convert to string!
-      const userId = sessionData?.loggedInUser?.tenantId ||   // ✅ CORRECT - what web uses!
-                     sessionData?.loggedInUser?.sponsorid ||  // Fallback to sponsorid
-                     sessionData?.loggedInUser?.id ||
+      const userId = sessionData?.loggedInUser?.userID ||     // ✅ CORRECT - Primary user ID field
+                     sessionData?.loggedInUser?.tenantId ||   // Fallback
+                     sessionData?.loggedInUser?.sponsorid ||  // Fallback
                      sessionData?.userId || 
                      sessionData?.customerId || 
-                     sessionData?.userID ||
-                     sessionData?.loggedInUser?.userId ||
-                     sessionData?.loggedInUser?.userID;
+                     sessionData?.userID;
       
       console.log('👤 Selected User ID:', userId ? `***USER_ID: ${userId}***` : 'NOT FOUND');
       console.log('📋 Using field:', 
+        sessionData?.loggedInUser?.userID ? `loggedInUser.userID (${sessionData.loggedInUser.userID}) - ✅ PRIMARY FIELD` :
+        sessionData?.loggedInUser?.tenantId ? `loggedInUser.tenantId (${sessionData.loggedInUser.tenantId})` :
         sessionData?.loggedInUser?.sponsorid ? `loggedInUser.sponsorid (${sessionData.loggedInUser.sponsorid})` :
-        sessionData?.loggedInUser?.tenantId ? `loggedInUser.tenantId (${sessionData.loggedInUser.tenantId}) - WEB USES THIS` :
-        sessionData?.loggedInUser?.id ? 'loggedInUser.id' :
         sessionData?.userId ? 'sessionData.userId' :
         sessionData?.customerId ? 'sessionData.customerId' :
         sessionData?.userID ? 'sessionData.userID' :
-        sessionData?.loggedInUser?.userId ? 'loggedInUser.userId' :
-        sessionData?.loggedInUser?.userID ? 'loggedInUser.userID' :
         'NONE'
       );
       
       console.log('📊 Available user fields in session:');
-      console.log('  - sponsorid:', sessionData?.loggedInUser?.sponsorid);
+      console.log('  - userID:', sessionData?.loggedInUser?.userID, '✅ PRIMARY');
       console.log('  - tenantId:', sessionData?.loggedInUser?.tenantId);
+      console.log('  - sponsorid:', sessionData?.loggedInUser?.sponsorid);
       console.log('  - username:', sessionData?.loggedInUser?.username);
 
       if (!userId) {
@@ -349,21 +345,17 @@ class SignalRService {
         // THIS IS THE CORRECT METHOD FROM THE SERVER CODE: SubscribeUser
         // The server expects the user ID as a STRING (from jQuery .val() which returns string)
         
-        // 🔥🔥🔥 HARDCODED FOR TESTING - MATCHES WEB VERSION 🔥🔥🔥
-        const HARDCODED_USER_ID = "407"; // This is what web sends: {"target":"SubscribeUser","arguments":["407"],...}
-        
-        const userIdString = HARDCODED_USER_ID; // Using hardcoded value for testing
-        // const userIdString = String(userId); // Original dynamic version (commented out for testing)
+        // Convert userId to string - server expects string format
+        const userIdString = String(userId);
         
         console.log('');
         console.log('='.repeat(60));
         console.log('📤📤📤 INVOKING SubscribeUser METHOD 📤📤📤');
-        console.log('🔥 USING HARDCODED USER ID FOR TESTING: "407"');
-        console.log('Original userId from session:', userId);
-        console.log('User ID (hardcoded):', userIdString);
+        console.log('✅ Using actual userID from session');
+        console.log('User ID from session:', userId);
+        console.log('User ID (as string):', userIdString);
         console.log('User ID type:', typeof userIdString);
         console.log('Expected format: {"target":"SubscribeUser","arguments":["407"],"invocationId":"0","type":1}');
-        console.log('Web sends: ["407"]');
         console.log('We send:', `["${userIdString}"]`);
         console.log('Hub URL:', this.connection.baseUrl);
         console.log('Connection ID:', this.connection.connectionId);
@@ -377,7 +369,7 @@ class SignalRService {
         console.log('  - Is Connected:', this.connection?.state === SignalR.HubConnectionState.Connected);
         console.log('  - Method name:', 'SubscribeUser');
         console.log('  - Argument:', userIdString);
-        console.log('  - Argument (hardcoded):', HARDCODED_USER_ID);
+        console.log('  - Argument type:', typeof userIdString);
         
         const invokeResult = await this.connection.invoke('SubscribeUser', userIdString);
         
