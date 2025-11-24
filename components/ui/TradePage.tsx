@@ -64,7 +64,7 @@ const TradePage: React.FC<TradePageProps> = ({
   const [triggerPrice, setTriggerPrice] = useState('0');
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const [requiredMargin, setRequiredMargin] = useState<number>(0);
-  const [isLoadingMargin, setIsLoadingMargin] = useState(false);
+  const [isLoadingMargin, setIsLoadingMargin] = useState(true); // Start as true, will be set to false after API call
   const [marginData, setMarginData] = useState<RequiredMarginData | null>(null);
   const [isMarginFromApi, setIsMarginFromApi] = useState<boolean>(false); // Track if margin is from API
   const [walletBalance, setWalletBalance] = useState<string>('0');
@@ -300,6 +300,10 @@ const TradePage: React.FC<TradePageProps> = ({
   ];
 
   const calculateRequiredAmount = () => {
+    // Show loading if still fetching margin data (initial load only)
+    if (isLoadingMargin) {
+      return 0; // Return 0, will be displayed as "Loading..." in UI
+    }
     // Use API margin data if available (already calculated for the current quantity)
     if (isMarginFromApi && requiredMargin > 0) {
       return requiredMargin;
@@ -312,7 +316,11 @@ const TradePage: React.FC<TradePageProps> = ({
   };
 
   const getAvailableFormatted = () => {
-    // Use available margin from API if available, otherwise use wallet balance
+    // Show loading if still fetching margin data
+    if (isLoadingMargin) {
+      return 'Loading...';
+    }
+    // Use available margin from API if available
     if (isMarginFromApi && marginData?.availablemargin !== undefined) {
       console.log(`[TradePage] Using available margin from API: ${marginData.availablemargin.toFixed(2)}`);
       return `${marginData.availablemargin.toFixed(2)}`;
@@ -331,6 +339,7 @@ const TradePage: React.FC<TradePageProps> = ({
     setQuantity(newQuantity);
     
     // Trigger margin recalculation with new quantity
+    // Don't show loading state for subsequent updates, only for initial load
     if (visible) {
       setTimeout(() => fetchRequiredMargin(), 300); // Small delay to avoid too many API calls
     }
@@ -526,7 +535,11 @@ const TradePage: React.FC<TradePageProps> = ({
 
   const fetchRequiredMargin = useCallback(async () => {
     try {
-      setIsLoadingMargin(true);
+      // Only show loading state if we don't have data yet (initial load)
+      // For subsequent updates (quantity changes), just update the values without showing loading
+      if (!isMarginFromApi) {
+        setIsLoadingMargin(true);
+      }
       
       // Use fetched scriptCode with fallback
       const finalScriptCode = fetchedWatchlistAsset?.scriptCode || asset.scriptCode || 0;
@@ -579,9 +592,12 @@ const TradePage: React.FC<TradePageProps> = ({
       //   message: 'Using estimated margin calculation'
       // });
     } finally {
-      setIsLoadingMargin(false);
+      // Only set loading to false if it was true (initial load)
+      if (isLoadingMargin) {
+        setIsLoadingMargin(false);
+      }
     }
-  }, [quantity, productType, asset.price, asset.exchange, asset.scriptCode, fetchedWatchlistAsset, asset.lotSize, action, walletData, walletBalance, orderType, showNotification]);
+  }, [quantity, productType, asset.price, asset.exchange, asset.scriptCode, fetchedWatchlistAsset, asset.lotSize, action, walletData, walletBalance, orderType, showNotification, isMarginFromApi, isLoadingMargin]);
 
   const fetchWalletBalance = useCallback(async () => {
     try {
@@ -1076,13 +1092,12 @@ const TradePage: React.FC<TradePageProps> = ({
               Required
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {isLoadingMargin && (
-                <Text variant="caption" color="textSecondary" style={{ marginRight: 8 }}>
-                  Loading...
-                </Text>
-              )}
-              <Text variant="body" weight="bold" color="error">
-                {formatPrice(calculateRequiredAmount(), marketType)}
+              <Text 
+                variant="body" 
+                weight="bold" 
+                color={isLoadingMargin ? "textSecondary" : "error"}
+              >
+                {isLoadingMargin ? 'Loading...' : formatPrice(calculateRequiredAmount(), marketType)}
               </Text>
             </View>
           </View>
@@ -1091,12 +1106,11 @@ const TradePage: React.FC<TradePageProps> = ({
               Available
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {isLoadingWallet && (
-                <Text variant="caption" color="textSecondary" style={{ marginRight: 8 }}>
-                  Loading...
-                </Text>
-              )}
-              <Text variant="body" weight="bold" color="success">
+              <Text 
+                variant="body" 
+                weight="bold" 
+                color={isLoadingMargin ? "textSecondary" : "success"}
+              >
                 {getAvailableFormatted()}
               </Text>
             </View>
