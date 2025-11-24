@@ -360,9 +360,13 @@ const TransactionHistory = memo(() => {
         const totalPagesFromAPI = newTransactions[0]?.total_Pages || 1;
         setTotalPages(totalPagesFromAPI);
         setCurrentPage(page);
+        setError(null);
       } else {
+        // No transactions found - reset pagination
         setTransactions([]);
-        setError(response.message || 'No transactions found');
+        setTotalPages(1);
+        setCurrentPage(1);
+        setError(null); // Don't set error for empty results
       }
     } catch (err: any) {
       console.error('Error fetching transaction history:', err);
@@ -625,40 +629,60 @@ const TransactionHistory = memo(() => {
     return null;
   }, [loading, currentPage, totalPages, transactions.length, theme, goToPreviousPage, goToNextPage]);
 
-  const ListEmpty = useCallback(() => (
-    <View style={styles.emptyTransactions}>
-      {loading ? (
-        <>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text variant="body" color="textSecondary" style={styles.emptyText}>
-            Loading transactions...
-          </Text>
-        </>
-      ) : error ? (
-        <>
-          <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
-          <Text variant="body" color="error" style={styles.emptyText}>
-            {error}
-          </Text>
-          <TouchableOpacity 
-            style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
-            onPress={() => fetchTransactionHistory(1)}
-          >
-            <Text variant="caption" style={{ color: 'white', fontWeight: '600' }}>
-              Retry
+  const ListEmpty = useCallback(() => {
+    const hasActiveFilters = filters.startDate || filters.endDate || filters.payinPayout;
+    
+    return (
+      <View style={styles.emptyTransactions}>
+        {loading ? (
+          <>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text variant="body" color="textSecondary" style={styles.emptyText}>
+              Loading transactions...
             </Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <>
-          <Ionicons name="receipt-outline" size={48} color={theme.colors.textSecondary} />
-          <Text variant="body" color="textSecondary" style={styles.emptyText}>
-            No transactions found
-          </Text>
-        </>
-      )}
-    </View>
-  ), [loading, error, theme, fetchTransactionHistory]);
+          </>
+        ) : error ? (
+          <>
+            <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
+            <Text variant="body" color="error" style={styles.emptyText}>
+              {error}
+            </Text>
+            <TouchableOpacity 
+              style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+              onPress={() => fetchTransactionHistory(1)}
+            >
+              <Text variant="caption" style={{ color: 'white', fontWeight: '600' }}>
+                Retry
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Ionicons 
+              name={hasActiveFilters ? "information-circle" : "receipt-outline"} 
+              size={48} 
+              color={theme.colors.textSecondary} 
+            />
+            <Text variant="body" color="textSecondary" style={styles.emptyText}>
+              {hasActiveFilters 
+                ? 'No transactions found for the selected filters'
+                : 'No transactions found'}
+            </Text>
+            {hasActiveFilters && (
+              <TouchableOpacity 
+                style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+                onPress={handleResetFilters}
+              >
+                <Text variant="caption" style={{ color: 'white', fontWeight: '600' }}>
+                  Clear Filters
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </View>
+    );
+  }, [loading, error, theme, filters, fetchTransactionHistory, handleResetFilters]);
 
   return (
     <>
