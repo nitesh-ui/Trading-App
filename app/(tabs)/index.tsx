@@ -99,7 +99,18 @@ const StocksTabContent = memo(({
   onFilterPress: () => void;
 }) => {
   const { theme } = useTheme();
-  const { watchlistState } = useWatchlist();
+  const { watchlistState, refreshData } = useWatchlist();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Handle pull to refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshData]);
 
   // Render header with assets info
   const renderListHeader = useCallback(() => (
@@ -181,6 +192,14 @@ const StocksTabContent = memo(({
         maxToRenderPerBatch={5}
         windowSize={10}
         removeClippedSubviews={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       />
     </View>
   );
@@ -200,7 +219,18 @@ const ForexTabContent = memo(({
   onRemovePress: (symbol: string, scriptCode?: number, wid?: number) => void;
 }) => {
   const { theme } = useTheme();
-  const { watchlistState } = useWatchlist();
+  const { watchlistState, refreshData } = useWatchlist();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Handle pull to refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshData]);
 
   // Render header with assets info
   const renderListHeader = useCallback(() => (
@@ -275,6 +305,14 @@ const ForexTabContent = memo(({
         maxToRenderPerBatch={5}
         windowSize={10}
         removeClippedSubviews={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       />
     </View>
   );
@@ -294,7 +332,18 @@ const CryptoTabContent = memo(({
   onRemovePress: (symbol: string, scriptCode?: number, wid?: number) => void;
 }) => {
   const { theme } = useTheme();
-  const { watchlistState } = useWatchlist();
+  const { watchlistState, refreshData } = useWatchlist();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Handle pull to refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshData]);
 
   // Render header with assets info
   const renderListHeader = useCallback(() => (
@@ -382,6 +431,14 @@ const CryptoTabContent = memo(({
         maxToRenderPerBatch={5}
         windowSize={10}
         removeClippedSubviews={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       />
     </View>
   );
