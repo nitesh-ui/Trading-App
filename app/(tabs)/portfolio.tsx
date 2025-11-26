@@ -134,6 +134,11 @@ const MemoizedHoldingCard = memo<{
               <Text variant="body" weight="semibold" color="text">
                 {holding.symbol}
               </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <Text variant="caption" color="textSecondary">
+                {holding.exchange} • {holding.priceType}
+              </Text>
               <View style={[styles.typeIndicator, { 
                 backgroundColor: holding.type === 'BUY' ? theme.colors.success : theme.colors.error 
               }]}>
@@ -142,9 +147,6 @@ const MemoizedHoldingCard = memo<{
                 </Text>
               </View>
             </View>
-            <Text variant="caption" color="textSecondary" style={styles.stockName}>
-              {holding.exchange} • {holding.priceType}
-            </Text>
           </View>
           <View style={styles.pnlInfo}>
             <Text 
@@ -152,7 +154,7 @@ const MemoizedHoldingCard = memo<{
               weight="semibold"
               style={{ color: getPnLColor(holding.pnl) }}
             >
-              {holding.pnl >= 0 ? '+' : ''}{formatIndianCurrency(holding.pnl)}
+              {holding.pnl >= 0 ? '+' : ''}{holding.pnl.toFixed(4)}
             </Text>
             <Text 
               variant="caption"

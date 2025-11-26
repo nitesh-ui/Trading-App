@@ -17,10 +17,10 @@ export const formatIndianCurrency = (amount: number, showSymbol: boolean = false
     return `${symbol}${crores.toFixed(1)} Cr`;
   }
   
-  if (amount >= 100000) { // 1 lakh
-    const lakhs = amount / 100000;
-    return `${symbol}${lakhs.toFixed(1)} L`;
-  }
+  // if (amount >= 100000) { // 1 lakh
+  //   const lakhs = amount / 100000;
+  //   return `${symbol}${lakhs.toFixed(1)} L`;
+  // }
   
   // For smaller amounts, use Indian comma formatting
   try {
