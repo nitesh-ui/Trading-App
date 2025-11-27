@@ -139,7 +139,8 @@ class WatchlistApiService {
           if (this.unauthorizedHandler) {
             try {
               await this.unauthorizedHandler();
-              return this.getMockWatchlistData(); // Return mock data after handling
+              // return this.getMockWatchlistData(); // Return mock data after handling
+              return "No Data Found. Add Some Data" as any;
             } catch (handlerError) {
               console.error('❌ Error in unauthorized handler:', handlerError);
             }
@@ -147,7 +148,8 @@ class WatchlistApiService {
           
           // Fallback to mock data if no handler is set
           console.log('⚠️ Falling back to mock data');
-          return this.getMockWatchlistData();
+          // return this.getMockWatchlistData();
+          return "No Data Found. Add Some Data" as any;
         }
         
         throw new Error(`Watchlist API request failed with status: ${response.status}`);
@@ -180,14 +182,16 @@ class WatchlistApiService {
         return transformedAssets;
       } else {
         console.log('⚠️ No watchlist data received, returning mock data');
-        return this.getMockWatchlistData();
+        // return this.getMockWatchlistData();
+        return "No Data Found. Add Some Data" as any;
       }
 
     } catch (error) {
       console.error('❌ Error fetching watchlist data:', error);
       // Fallback to mock data if API fails
       console.log('⚠️ Falling back to mock watchlist data');
-      return this.getMockWatchlistData();
+      // return this.getMockWatchlistData();
+      return "No Data Found. Add Some Data" as any;
     }
   }
 

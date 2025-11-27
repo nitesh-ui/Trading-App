@@ -758,14 +758,13 @@ const TradePage: React.FC<TradePageProps> = ({
     }
   }, [visible, fetchWalletBalance]);
 
-  // Initialize quantity with lot size when page opens or asset changes
+  // Initialize quantity to 1 when page opens or asset changes
   useEffect(() => {
     if (visible && asset) {
-      const lotSize = asset.lotSize || 1;
-      setQuantity(lotSize);
-      console.log('📊 Initialized quantity with lot size:', lotSize, 'for asset:', asset.symbol);
+      setQuantity(1);
+      console.log('📊 Initialized quantity to 1 for asset:', asset.symbol);
     }
-  }, [visible, asset.lotSize, asset.symbol]);
+  }, [visible, asset.symbol]);
 
   // Fetch required margin when wallet balance is available and parameters change
   useEffect(() => {
