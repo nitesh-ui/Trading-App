@@ -118,7 +118,7 @@ const WalletBalanceCard = memo(({
     <Card padding="large" style={StyleSheet.flatten([styles.balanceCard, { backgroundColor: theme.colors.primary }])}>
       <View style={styles.balanceHeader}>
         <Text variant="body" style={StyleSheet.flatten([styles.balanceLabel, { color: 'white' }])}>
-          Wallet Balance
+          Balance
         </Text>
         {/* <TouchableOpacity>
           <Ionicons name="eye" size={20} color="white" />
@@ -282,11 +282,11 @@ const TransactionItem = memo(({ transaction, onDetailsPress }: {
           <Text variant="caption" color="textSecondary">
             {formatDate()} • {getStatusText()}
           </Text>
-          {transaction.recievedform && (
+          {/* {transaction.recievedform && (
             <Text variant="caption" color="textSecondary" numberOfLines={1}>
               From: {transaction.recievedform}
             </Text>
-          )}
+          )} */}
         </View>
       </View>
       <View style={styles.transactionRight}>

@@ -477,7 +477,7 @@ export default function PortfolioScreen() {
           {/* Holdings List */}
           <View style={{ marginTop: 16 }}>
             <Text variant="subtitle" weight="semibold" color="text" style={{ marginHorizontal: 20, marginBottom: 12 }}>
-              Your Holdings ({(holdings as Holding[]).length})
+              Positions ({(holdings as Holding[]).length})
             </Text>
             
             {holdingsLoading ? (

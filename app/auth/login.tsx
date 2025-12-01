@@ -448,12 +448,12 @@ export default function LoginScreen() {
         </Animated.View>
 
         {/* Disclaimer */}
-        <Animated.View style={[styles.disclaimerContainer, fadeAnimation]}>
+        {/* '<Animated.View style={[styles.disclaimerContainer, fadeAnimation]}>
           <Text variant="caption" color="textSecondary" style={styles.disclaimer}>
             Note: No Real Money Is Involved. This Is A Virtual Trading Platform 
             Which Includes All The Features. This Is Only For Education Purpose.
           </Text>
-        </Animated.View>
+        </Animated.View>' */}
       </ScrollView>
     </KeyboardAvoidingView>
   );

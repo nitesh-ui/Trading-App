@@ -658,12 +658,12 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <View style={styles.footer}>
+      {/* <View style={styles.footer}>
         <Text variant="caption" color="textSecondary" style={styles.footerText}>
           Virtual Trading App v1.0.0{'\n'}
           For educational purposes only
         </Text>
-      </View>
+      </View> */}
       </ScrollView>
       </View>
       {/* Wallet Page */}

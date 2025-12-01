@@ -266,7 +266,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
 
           <View style={styles.fullWidth}>
             <Text variant="body" color="text" style={styles.label}>
-              Description(optional)
+              Account Information
             </Text>
             <View style={[styles.textAreaContainer, { 
               backgroundColor: theme.colors.surface, 
