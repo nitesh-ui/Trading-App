@@ -19,9 +19,10 @@ import { sessionManager } from '../../services/sessionManager';
 interface WithdrawalPageProps {
   visible: boolean;
   onClose: () => void;
+  availableBalance?: number;
 }
 
-const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose }) => {
+const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose, availableBalance = 0 }) => {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
   
@@ -120,6 +121,16 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose }) => 
         type: 'error',
         title: 'Validation Error',
         message: 'Please enter a valid amount'
+      });
+      return;
+    }
+
+    // Validate amount against available balance
+    if (numericAmount > availableBalance) {
+      showNotification({
+        type: 'error',
+        title: 'Insufficient Balance',
+        message: `Withdrawal amount cannot exceed your available balance of ₹${availableBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
       });
       return;
     }
@@ -226,8 +237,14 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose }) => 
       return parts[0] + '.' + parts.slice(1).join('');
     }
     
+    // Check against available balance
+    const numericAmount = parseFloat(numericValue);
+    if (numericAmount > availableBalance) {
+      return availableBalance.toString();
+    }
+    
     return numericValue;
-  }, []);
+  }, [availableBalance]);
 
   const formatPhoneNumber = useCallback((value: string) => {
     // Remove all non-numeric characters
@@ -252,13 +269,25 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose }) => 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Available Balance Display */}
+        <View style={[styles.balanceContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Text variant="body" color="textSecondary" style={styles.balanceLabel}>
+            Available Balance
+          </Text>
+          <Text variant="headline" color="text" style={styles.balanceAmount}>
+            ₹{availableBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+        </View>
+
         {/* Withdrawal Form */}
         <Card padding="large" style={styles.card}>
           <View style={styles.row}>
             <View style={styles.halfWidth}>
-              <Text variant="body" color="text" style={styles.label}>
-                Amount
-              </Text>
+              <View style={styles.labelRow}>
+                <Text variant="body" color="text" style={styles.label}>
+                  Amount
+                </Text>
+              </View>
               <Input
                 value={amount}
                 onChangeText={(value) => setAmount(formatAmount(value))}
@@ -285,7 +314,7 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose }) => 
 
           <View style={styles.fullWidth}>
             <Text variant="body" color="text" style={styles.label}>
-              Account Info
+              Account Information
             </Text>
             <View style={[styles.textAreaContainer, { 
               backgroundColor: theme.colors.surface, 
@@ -476,6 +505,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '600',
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  maxButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  maxButtonText: {
+    fontWeight: '600',
+  },
   input: {
     minHeight: 48,
   },
@@ -600,6 +643,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+  },
+
+  // Balance Display Styles
+  balanceContainer: {
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  balanceLabel: {
+    marginBottom: 8,
+  },
+  balanceAmount: {
+    fontWeight: '600',
   },
 });
 

@@ -33,6 +33,7 @@ interface UnifiedDrawerProps {
   onBuyPress?: () => void;
   onSellPress?: () => void;
   onRemoveFromWatchlist?: () => void;
+  onAddToWatchlist?: () => void;
   onViewChart?: () => void; // Add this new prop
   
   // Trading drawer props
@@ -57,6 +58,7 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
   onBuyPress,
   onSellPress,
   onRemoveFromWatchlist,
+  onAddToWatchlist,
   onViewChart,
   tradeState,
   availableBalance,
@@ -446,6 +448,17 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                     </TouchableOpacity>
 
                     <TouchableOpacity
+                      onPress={onAddToWatchlist}
+                      style={[styles.addToWatchlistButton, { backgroundColor: theme.colors.primary }]}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="bookmark" size={16} color={theme.colors.surface} />
+                      <Text variant="body" weight="semibold" style={{ color: theme.colors.surface, marginLeft: 4 }}>
+                        Add
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                       onPress={() => {
                         console.log('🗑️ Delete button pressed in UnifiedDrawer');
                         if (onRemoveFromWatchlist) {
@@ -619,6 +632,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   sellButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  addToWatchlistButton: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',

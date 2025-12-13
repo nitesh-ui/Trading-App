@@ -19,6 +19,7 @@ type WatchlistAction =
   | { type: 'UPDATE_CRYPTO'; payload: CryptoPair[] }
   | { type: 'ADD_TO_WATCHLIST'; payload: string }
   | { type: 'REMOVE_FROM_WATCHLIST'; payload: string }
+  | { type: 'UPDATE_WATCHLIST_ITEMS'; payload: string[] }
   | { type: 'UPDATE_TRADE_STATE'; payload: Partial<TradeState> }
   | { type: 'RESET_TRADE_STATE' }
   | { type: 'SET_FILTER_VISIBLE'; payload: boolean };
@@ -82,6 +83,11 @@ function watchlistReducer(state: WatchlistState, action: WatchlistAction): Watch
         ...state,
         watchlistItems: state.watchlistItems.filter(item => item !== action.payload),
       };
+    case 'UPDATE_WATCHLIST_ITEMS':
+      return {
+        ...state,
+        watchlistItems: action.payload,
+      };
     default:
       return state;
   }
@@ -121,6 +127,7 @@ interface WatchlistContextType {
   updateTradeState: (updates: Partial<TradeState>) => void;
   resetTradeState: () => void;
   refreshData: () => Promise<void>;
+  updateWatchlistItems: (items: string[]) => void;
   
   // Asset drawer state
   selectedAssetForDetails: AssetItem | null;
@@ -348,6 +355,11 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [loadApiData]);
 
+  const updateWatchlistItems = useCallback((items: string[]) => {
+    console.log('📝 Updating watchlist items:', items);
+    watchlistDispatch({ type: 'UPDATE_WATCHLIST_ITEMS', payload: items });
+  }, []);
+
   const contextValue = useMemo<WatchlistContextType>(() => ({
     // State
     watchlistState,
@@ -370,6 +382,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     updateTradeState,
     resetTradeState,
     refreshData,
+    updateWatchlistItems,
     
     // Asset drawer state
     selectedAssetForDetails,
@@ -389,6 +402,7 @@ export const WatchlistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     updateTradeState,
     resetTradeState,
     refreshData,
+    updateWatchlistItems,
     selectedAssetForDetails,
   ]);
 

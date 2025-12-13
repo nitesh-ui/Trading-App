@@ -9,6 +9,8 @@ export { default as OptimizedSearch } from './OptimizedSearch';
 export { default as SkeletonLoader } from './SkeletonLoader';
 export { default as TradingDrawer } from './TradingDrawer';
 export { default as UnifiedDrawer } from './UnifiedDrawer';
+export { WatchlistManager } from './WatchlistManager';
+export { AddToWatchlistModal } from './AddToWatchlistModal';
 export * from './types';
 export { WatchlistProvider, useWatchlist } from './WatchlistContext';
 

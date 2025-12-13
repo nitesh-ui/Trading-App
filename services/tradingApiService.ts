@@ -504,13 +504,32 @@ class TradingApiService {
 
       if (!response.ok) {
         // Handle HTTP errors
-        const errorText = await response.text();
-        console.error('❌ API Error Response:', errorText);
+        let errorMessage = `Login failed: ${response.status} ${response.statusText}`;
+        
+        try {
+          // Try to parse JSON error response first
+          const errorData = await response.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch {
+          // If JSON parsing fails, try to get text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch {
+            // Keep the default error message
+          }
+        }
+        
+        console.error('❌ API Error Response:', errorMessage);
         
         return {
           success: false,
-          message: `Login failed: ${response.status} ${response.statusText}`,
-          error: errorText || 'Network error occurred',
+          message: errorMessage,
+          error: errorMessage,
         };
       }
 

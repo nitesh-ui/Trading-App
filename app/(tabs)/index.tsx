@@ -28,6 +28,8 @@ import {
     UnifiedDrawer,
     WatchlistProvider,
     useWatchlist,
+    WatchlistManager,
+    AddToWatchlistModal,
 } from '../../components/watchlist';
 import SearchPage from '../../components/watchlist/SearchPage';
 import NotificationsPage from '../../components/ui/NotificationsPage';
@@ -89,7 +91,8 @@ const StocksTabContent = memo(({
   onBuyPress, 
   onSellPress, 
   onRemovePress,
-  onFilterPress
+  onFilterPress,
+  onSearchPress
 }: {
   assets: AssetItem[];
   onAssetPress: (asset: AssetItem) => void;
@@ -97,6 +100,7 @@ const StocksTabContent = memo(({
   onSellPress: (asset: AssetItem) => void;
   onRemovePress: (symbol: string, scriptCode?: number, wid?: number) => void;
   onFilterPress: () => void;
+  onSearchPress: () => void;
 }) => {
   const { theme } = useTheme();
   const { watchlistState, refreshData } = useWatchlist();
@@ -126,12 +130,20 @@ const StocksTabContent = memo(({
             {assets.length} {assets.length === 1 ? 'asset' : 'assets'}
           </Text>
         </View>
-        <TouchableOpacity
-          style={[styles.filterIconButton, { backgroundColor: theme.colors.surface }]}
-          onPress={onFilterPress}
-        >
-          <Ionicons name="filter" size={16} color={theme.colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerIconsContainer}>
+          <TouchableOpacity
+            style={[styles.filterIconButton, { backgroundColor: theme.colors.surface }]}
+            onPress={onSearchPress}
+          >
+            <Ionicons name="search" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterIconButton, { backgroundColor: theme.colors.surface }]}
+            onPress={onFilterPress}
+          >
+            <Ionicons name="filter" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   ), [theme, watchlistState.isLoadingIndices, watchlistState.exchangeFilter, assets.length]);
@@ -462,6 +474,10 @@ const WatchlistContent = memo(() => {
   const [isTradePageVisible, setIsTradePageVisible] = useState(false);
   const [tradeAsset, setTradeAsset] = useState<AssetItem | null>(null);
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell'>('buy');
+  const [isWatchlistManagerVisible, setIsWatchlistManagerVisible] = useState(false);
+  const [currentWatchlist, setCurrentWatchlist] = useState<any>(null);
+  const [isAddToWatchlistModalVisible, setIsAddToWatchlistModalVisible] = useState(false);
+  const [assetToAddToWatchlist, setAssetToAddToWatchlist] = useState<AssetItem | null>(null);
   
   // SignalR integration for real-time data
   const { 
@@ -1044,6 +1060,24 @@ const WatchlistContent = memo(() => {
     setIsWalletPageVisible(false);
   }, []);
 
+  const handleOpenWatchlistManager = useCallback(() => {
+    setIsWatchlistManagerVisible(true);
+  }, []);
+
+  const handleCloseWatchlistManager = useCallback(() => {
+    setIsWatchlistManagerVisible(false);
+  }, []);
+
+  const handleOpenAddToWatchlistModal = useCallback((asset: AssetItem) => {
+    setAssetToAddToWatchlist(asset);
+    setIsAddToWatchlistModalVisible(true);
+  }, []);
+
+  const handleCloseAddToWatchlistModal = useCallback(() => {
+    setIsAddToWatchlistModalVisible(false);
+    setAssetToAddToWatchlist(null);
+  }, []);
+
   const handleOpenChartPage = useCallback((asset: AssetItem) => {
     setChartAsset(asset);
     setIsChartPageVisible(true);
@@ -1105,6 +1139,13 @@ const WatchlistContent = memo(() => {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}
+              onPress={handleOpenWatchlistManager}
+            >
+              <Ionicons name="bookmark" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}
               onPress={handleOpenWalletPage}
             >
               <Ionicons name="wallet" size={20} color={theme.colors.primary} />
@@ -1116,13 +1157,6 @@ const WatchlistContent = memo(() => {
               backgroundColor={theme.colors.surface}
               borderColor={theme.colors.border}
             />
-
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}
-              onPress={handleOpenSearchPage}
-            >
-              <Ionicons name="search" size={20} color={theme.colors.primary} />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -1146,6 +1180,7 @@ const WatchlistContent = memo(() => {
             onSellPress={handleSellPress}
             onRemovePress={handleRemoveFromWatchlist}
             onFilterPress={() => setFilterVisible(true)}
+            onSearchPress={handleOpenSearchPage}
           />
           <ForexTabContent 
             assets={enhancedAssets}
@@ -1191,6 +1226,12 @@ const WatchlistContent = memo(() => {
             handleRemoveFromWatchlist(selectedAssetForDetails.symbol, selectedAssetForDetails.scriptCode, selectedAssetForDetails.wid);
           }
         }}
+        onAddToWatchlist={() => {
+          if (selectedAssetForDetails) {
+            handleOpenAddToWatchlistModal(selectedAssetForDetails);
+            setSelectedAssetForDetails(null);
+          }
+        }}
         onViewChart={() => {
           if (selectedAssetForDetails) {
             handleOpenChartPage(selectedAssetForDetails);
@@ -1205,6 +1246,26 @@ const WatchlistContent = memo(() => {
         visible={isSearchPageVisible}
         onClose={handleCloseSearchPage}
       />
+
+      {/* Watchlist Manager */}
+      <WatchlistManager
+        visible={isWatchlistManagerVisible}
+        onClose={handleCloseWatchlistManager}
+        onSelectWatchlist={(watchlist: any) => {
+          setCurrentWatchlist(watchlist);
+        }}
+        currentWatchlist={currentWatchlist}
+      />
+
+      {/* Add to Watchlist Modal */}
+      {assetToAddToWatchlist && (
+        <AddToWatchlistModal
+          visible={isAddToWatchlistModalVisible}
+          onClose={handleCloseAddToWatchlistModal}
+          assetSymbol={assetToAddToWatchlist.symbol}
+          assetName={assetToAddToWatchlist.name}
+        />
+      )}
 
       {/* Notifications Page */}
       <NotificationsPage
@@ -1409,6 +1470,11 @@ const styles = StyleSheet.create({
   },
   sectionTitleContainer: {
     flex: 1,
+  },
+  headerIconsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
   },
   filterIconButton: {
     width: 36,

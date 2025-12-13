@@ -44,7 +44,6 @@ const WalletBalanceCard = memo(({
   loading, 
   error, 
   onRefresh,
-  onAccountInfoPress,
   onDepositPress,
   onWithdrawPress
 }: { 
@@ -52,7 +51,6 @@ const WalletBalanceCard = memo(({
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
-  onAccountInfoPress: () => void;
   onDepositPress: () => void;
   onWithdrawPress: () => void;
 }) => {
@@ -66,10 +64,6 @@ const WalletBalanceCard = memo(({
   const handleWithdraw = useCallback(() => {
     onWithdrawPress();
   }, [onWithdrawPress]);
-
-  const handleAccountInfo = useCallback(() => {
-    onAccountInfoPress();
-  }, [onAccountInfoPress]);
 
   const formatCurrency = useCallback((amount: string | number) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -157,13 +151,6 @@ const WalletBalanceCard = memo(({
         <Button
           title="Withdraw"
           onPress={handleWithdraw}
-          variant="secondary"
-          style={StyleSheet.flatten([styles.actionButton, { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.3)' }])}
-          textStyle={{ color: 'white' }}
-        />
-        <Button
-          title="Account"
-          onPress={handleAccountInfo}
           variant="secondary"
           style={StyleSheet.flatten([styles.actionButton, { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.3)' }])}
           textStyle={{ color: 'white' }}
@@ -827,7 +814,6 @@ const WalletPage: React.FC<WalletPageProps> = ({ visible, onClose }) => {
             loading={loading}
             error={error}
             onRefresh={fetchWalletBalance}
-            onAccountInfoPress={handleAccountInfoPress}
             onDepositPress={handleDepositPress}
             onWithdrawPress={handleWithdrawPress}
           />
@@ -848,6 +834,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ visible, onClose }) => {
       <WithdrawalPage 
         visible={showWithdrawal}
         onClose={handleWithdrawClose}
+        availableBalance={walletData?.amount ? parseFloat(walletData.amount.toString()) : 0}
       />
     </>
   );

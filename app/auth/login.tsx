@@ -3,8 +3,10 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Animated,
+    ActivityIndicator,
     KeyboardAvoidingView,
     Linking,
+    Modal,
     Platform,
     ScrollView,
     StyleSheet,
@@ -216,9 +218,17 @@ export default function LoginScreen() {
         const errorMessage = response.message || 'Login failed. Please check your credentials.';
         setErrors({ general: errorMessage });
         
+        // Determine error title based on message content
+        let errorTitle = 'Login Failed';
+        if (errorMessage.toLowerCase().includes('subscription') || errorMessage.toLowerCase().includes('expired')) {
+          errorTitle = 'Subscription Expired';
+        } else if (errorMessage.toLowerCase().includes('credentials') || errorMessage.toLowerCase().includes('invalid')) {
+          errorTitle = 'Invalid Credentials';
+        }
+        
         showNotification({
           type: 'error',
-          title: 'Login Failed',
+          title: errorTitle,
           message: errorMessage
         });
       }
@@ -306,6 +316,21 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      {/* Loading Spinner Overlay */}
+      {isLoading && (
+        <View style={[styles.loadingOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.spinnerContainer, { backgroundColor: theme.colors.surface }]}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text variant="body" color="text" weight="medium" style={styles.loadingText}>
+              Logging in...
+            </Text>
+            <Text variant="caption" color="textSecondary" style={styles.loadingSubtext}>
+              Please wait while we verify your credentials
+            </Text>
+          </View>
+        </View>
+      )}
+
       <ScrollView 
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -585,6 +610,35 @@ const styles = StyleSheet.create({
   },
   demoHintText: {
     marginLeft: 8,
+    textAlign: 'center',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  spinnerContainer: {
+    paddingHorizontal: 32,
+    paddingVertical: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  loadingText: {
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    marginTop: 8,
     textAlign: 'center',
   },
 });
