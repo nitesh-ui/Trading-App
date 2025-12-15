@@ -923,6 +923,7 @@ export default function TradesScreen() {
               type: selectedTradeForEdit.type,
               quantity: selectedTradeForEdit.quantity,
               price: selectedTradeForEdit.price,
+              timestamp: selectedTradeForEdit.timestamp,
               activeTradeID: selectedTradeForEdit.activeTradeID,
               currentTarget: selectedTradeForEdit.target,
               currentStopLoss: selectedTradeForEdit.stopLoss,

@@ -39,6 +39,7 @@ import TradePage from '../../components/ui/TradePage';
 import { NotificationIcon } from '../../components/ui/NotificationIcon';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useSegment } from '../../contexts/SegmentContext';
 import { useSignalR } from '../../hooks/useSignalR';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -48,18 +49,18 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Optimized Sliding Tab Container - Tab switches instantly, content slides smoothly
 const SlidingTabContainer = memo(({ 
   currentTab, 
+  visibleSegments,
   children 
 }: { 
   currentTab: MarketType; 
+  visibleSegments: MarketType[];
   children: React.ReactNode;
 }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
   
-  const tabOrder: MarketType[] = ['stocks', 'forex', 'crypto'];
-  
   React.useEffect(() => {
-    const currentIndex = tabOrder.indexOf(currentTab);
-    const targetX = -currentIndex * SCREEN_WIDTH;
+    const currentIndex = visibleSegments.indexOf(currentTab);
+    const targetX = currentIndex >= 0 ? -currentIndex * SCREEN_WIDTH : 0;
     
     // Smooth slide animation that doesn't block tab switching
     Animated.timing(slideAnim, {
@@ -68,7 +69,7 @@ const SlidingTabContainer = memo(({
       useNativeDriver: true,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1), // Material Design easing
     }).start();
-  }, [currentTab, slideAnim]);
+  }, [currentTab, visibleSegments, slideAnim]);
 
   return (
     <Animated.View
@@ -466,6 +467,7 @@ CryptoTabContent.displayName = 'CryptoTabContent';
 const WatchlistContent = memo(() => {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
+  const { selectedSegment } = useSegment();
   const [isSearchPageVisible, setIsSearchPageVisible] = useState(false);
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
@@ -510,6 +512,13 @@ const WatchlistContent = memo(() => {
     refreshData,
     // REMOVED: stocks, forexPairs, cryptoPairs (no longer available - using API data only)
   } = useWatchlist();
+
+  // Sync market type with selected segment
+  React.useEffect(() => {
+    if (selectedSegment && selectedSegment !== watchlistState.marketType) {
+      setMarketType(selectedSegment as MarketType);
+    }
+  }, [selectedSegment, watchlistState.marketType, setMarketType]);
 
   // Real-time price updates state
   const [realtimePrices, setRealtimePrices] = React.useState<Map<string, any>>(new Map());
@@ -1166,36 +1175,57 @@ const WatchlistContent = memo(() => {
             marketType={watchlistState.marketType}
             onMarketTypeChange={setMarketType}
             theme={theme}
+            visibleSegments={[selectedSegment as any]}
           />
         </View>
       </View>
 
       {/* Sliding Tab Container - Like Kite App */}
       <View style={styles.tabsContainer}>
-        <SlidingTabContainer currentTab={watchlistState.marketType}>
-          <StocksTabContent 
-            assets={enhancedAssets}
-            onAssetPress={handleAssetPress}
-            onBuyPress={handleBuyPress}
-            onSellPress={handleSellPress}
-            onRemovePress={handleRemoveFromWatchlist}
-            onFilterPress={() => setFilterVisible(true)}
-            onSearchPress={handleOpenSearchPage}
-          />
-          <ForexTabContent 
-            assets={enhancedAssets}
-            onAssetPress={handleAssetPress}
-            onBuyPress={handleBuyPress}
-            onSellPress={handleSellPress}
-            onRemovePress={handleRemoveFromWatchlist}
-          />
-          <CryptoTabContent 
-            assets={enhancedAssets}
-            onAssetPress={handleAssetPress}
-            onBuyPress={handleBuyPress}
-            onSellPress={handleSellPress}
-            onRemovePress={handleRemoveFromWatchlist}
-          />
+        <SlidingTabContainer 
+          currentTab={watchlistState.marketType}
+          visibleSegments={[selectedSegment as any]}
+        >
+          {selectedSegment === 'stocks' && (
+            <StocksTabContent 
+              assets={enhancedAssets}
+              onAssetPress={handleAssetPress}
+              onBuyPress={handleBuyPress}
+              onSellPress={handleSellPress}
+              onRemovePress={handleRemoveFromWatchlist}
+              onFilterPress={() => setFilterVisible(true)}
+              onSearchPress={handleOpenSearchPage}
+            />
+          )}
+          {selectedSegment === 'forex' && (
+            <ForexTabContent 
+              assets={enhancedAssets}
+              onAssetPress={handleAssetPress}
+              onBuyPress={handleBuyPress}
+              onSellPress={handleSellPress}
+              onRemovePress={handleRemoveFromWatchlist}
+            />
+          )}
+          {selectedSegment === 'crypto' && (
+            <CryptoTabContent 
+              assets={enhancedAssets}
+              onAssetPress={handleAssetPress}
+              onBuyPress={handleBuyPress}
+              onSellPress={handleSellPress}
+              onRemovePress={handleRemoveFromWatchlist}
+            />
+          )}
+          {selectedSegment === 'fo' && (
+            <StocksTabContent 
+              assets={enhancedAssets}
+              onAssetPress={handleAssetPress}
+              onBuyPress={handleBuyPress}
+              onSellPress={handleSellPress}
+              onRemovePress={handleRemoveFromWatchlist}
+              onFilterPress={() => setFilterVisible(true)}
+              onSearchPress={handleOpenSearchPage}
+            />
+          )}
         </SlidingTabContainer>
       </View>
 

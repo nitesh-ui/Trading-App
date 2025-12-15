@@ -34,10 +34,15 @@ export const Toggle: React.FC<ToggleProps> = ({
   const scaleAnimation = useRef(new Animated.Value(1)).current;
   const screenWidth = Dimensions.get('window').width;
 
+  // Early return if no options
+  if (!options || options.length === 0) {
+    return null;
+  }
+
   useEffect(() => {
     const selectedIndex = options.findIndex(option => option.value === selectedValue);
     Animated.timing(slideAnimation, {
-      toValue: selectedIndex,
+      toValue: selectedIndex >= 0 ? selectedIndex : 0,
       duration: 250,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
@@ -65,6 +70,10 @@ export const Toggle: React.FC<ToggleProps> = ({
 
   const toggleWidth = Math.min(screenWidth - 40, 320); // Responsive width
   const optionWidth = toggleWidth / options.length;
+  
+  // Calculate interpolation range safely
+  const inputRangeEnd = Math.max(1, options.length - 1);
+  const outputRangeEnd = Math.max(1, options.length - 1) * optionWidth + 3;
 
   return (
     <View style={[styles.wrapper, style]}>
@@ -89,8 +98,8 @@ export const Toggle: React.FC<ToggleProps> = ({
               transform: [
                 {
                   translateX: slideAnimation.interpolate({
-                    inputRange: [0, options.length - 1],
-                    outputRange: [3, (options.length - 1) * optionWidth + 3],
+                    inputRange: [0, inputRangeEnd],
+                    outputRange: [3, outputRangeEnd],
                     extrapolate: 'clamp',
                   }),
                 },

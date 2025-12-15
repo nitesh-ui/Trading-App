@@ -26,6 +26,7 @@ interface EditTradeTargetPageProps {
     type: 'BUY' | 'SELL';
     quantity: number;
     price: number;
+    timestamp?: string;
     activeTradeID: number;
     currentTarget?: string;
     currentStopLoss?: string;
@@ -254,9 +255,15 @@ const EditTradeTargetPage: React.FC<EditTradeTargetPageProps> = ({
             <Text variant="body" weight="semibold" color="text">{trade.quantity}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text variant="body" color="textSecondary">Entry Price</Text>
+            <Text variant="body" color="textSecondary">Order Price</Text>
             <Text variant="body" weight="semibold" color="text">{trade.price.toFixed(2)}</Text>
           </View>
+          {trade.timestamp && (
+            <View style={styles.infoRow}>
+              <Text variant="body" color="textSecondary">Order Time</Text>
+              <Text variant="body" weight="semibold" color="text">{trade.timestamp}</Text>
+            </View>
+          )}
         </Card>
 
         {/* Target and Stop Loss Inputs */}

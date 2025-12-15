@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { ThemeProvider } from '../contexts/ThemeContext';
+import { SegmentProvider } from '../contexts/SegmentContext';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { cleanupNetworkListener, prefetchCriticalData, queryClient, setupNetworkListener } from '../services/queryClient';
 import { sessionManager } from '../services/sessionManager';
@@ -71,21 +72,23 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <NotificationProvider>
-            <ErrorBoundary>
-              <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-                <Stack>
-                  <Stack.Screen name="index" options={{ headerShown: false }} />
-                  <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-                  <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-                  <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen name="+not-found" />
-                </Stack>
-                <StatusBar style="auto" />
-              </NavigationThemeProvider>
-            </ErrorBoundary>
-          </NotificationProvider>
+          <SegmentProvider>
+            <NotificationProvider>
+              <ErrorBoundary>
+                <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                  <Stack>
+                    <Stack.Screen name="index" options={{ headerShown: false }} />
+                    <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+                    <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+                    <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    <Stack.Screen name="+not-found" />
+                  </Stack>
+                  <StatusBar style="auto" />
+                </NavigationThemeProvider>
+              </ErrorBoundary>
+            </NotificationProvider>
+          </SegmentProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </SafeAreaProvider>

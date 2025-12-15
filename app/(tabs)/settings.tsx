@@ -8,9 +8,11 @@ import DepositPage from '../../components/ui/DepositPage';
 import WithdrawalPage from '../../components/ui/WithdrawalPage';
 import NotificationsPage from '../../components/ui/NotificationsPage';
 import ChangePasswordPage from '../../components/ui/ChangePasswordPage';
+import TermsPrivacyPage from '../../components/ui/TermsPrivacyPage';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useSegment } from '../../contexts/SegmentContext';
 import { useRenderPerformance } from '../../hooks/usePerformance';
 import AuthUtils from '../../services/authUtils';
 import { sessionManager } from '../../services/sessionManager';
@@ -81,6 +83,7 @@ export default function SettingsScreen() {
   const { theme, themeType, setTheme } = useTheme();
   const { showNotification } = useNotification();
   const { handle401 } = useAuthErrorHandler();
+  const { selectedSegment, setSelectedSegment } = useSegment();
   
   // Performance monitoring
   useRenderPerformance('SettingsScreen');
@@ -108,6 +111,7 @@ export default function SettingsScreen() {
   const [isWithdrawalPageVisible, setIsWithdrawalPageVisible] = useState(false);
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
   const [isChangePasswordPageVisible, setIsChangePasswordPageVisible] = useState(false);
+  const [isTermsPrivacyPageVisible, setIsTermsPrivacyPageVisible] = useState(false);
   const [walletData, setWalletData] = useState<WalletBalanceData | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
@@ -117,6 +121,14 @@ export default function SettingsScreen() {
   
   const handleCloseChangePasswordPage = () => {
     setIsChangePasswordPageVisible(false);
+  };
+
+  const handleTermsPrivacyPress = () => {
+    setIsTermsPrivacyPageVisible(true);
+  };
+
+  const handleCloseTermsPrivacyPage = () => {
+    setIsTermsPrivacyPageVisible(false);
   };
   
   const [isReportsPageVisible, setIsReportsPageVisible] = useState(false);
@@ -197,6 +209,36 @@ export default function SettingsScreen() {
     }
   }, [handle401]);
 
+  // Fetch total number of completed trades
+  const fetchCompletedTradesCount = useCallback(async () => {
+    try {
+      // Get today's date range to fetch all completed trades
+      const today = new Date();
+      const startDate = new Date(2020, 0, 1); // Start from a very old date to get all trades
+      const endDateStr = today.toISOString().split('T')[0];
+      const startDateStr = startDate.toISOString().split('T')[0];
+
+      const response = await tradingApiService.getTransactionHistoryForReports({
+        pageNo: 1,
+        startDate: startDateStr,
+        endDate: endDateStr,
+        scriptExchange: 'All',
+        currentPosition: 'All',
+      });
+
+      if (response.data && response.data.length > 0) {
+        // Count the total number of completed trades
+        const totalTrades = response.data.length;
+        setUserInfo(prev => ({
+          ...prev,
+          totalTrades,
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching completed trades count:', err);
+    }
+  }, []);
+
   // Load user data from session
   useEffect(() => {
     const loadUserData = async () => {
@@ -210,16 +252,16 @@ export default function SettingsScreen() {
           username: currentUser.username || currentUser.id,
           accountType: 'Live Account',
           joinDate: '15 Jan 2024', // This would come from API
-          totalTrades: 127, // This would come from API
         }));
       }
       
-      // Fetch wallet balance
+      // Fetch wallet balance and completed trades count
       await fetchWalletBalance();
+      await fetchCompletedTradesCount();
     };
 
     loadUserData();
-  }, [fetchWalletBalance]);
+  }, [fetchWalletBalance, fetchCompletedTradesCount]);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -408,6 +450,17 @@ export default function SettingsScreen() {
               Current Balance
             </Text>
           </View>
+          
+          <View style={styles.statDivider} />
+          
+          <View style={styles.statItem}>
+            <Text variant="body" weight="semibold" color="text">
+              {userInfo.totalTrades}
+            </Text>
+            <Text variant="caption" color="textSecondary">
+              Total Trades
+            </Text>
+          </View>
         </View>
       </Card>
 
@@ -461,7 +514,51 @@ export default function SettingsScreen() {
           subtitle="Update your account password"
           onPress={handleResetPasswordPress}
         />
-      
+      </Card>
+
+      {/* Request Segment Section */}
+      <Card padding="none" style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text variant="subtitle" weight="semibold" color="text">
+            Request Segment
+          </Text>
+        </View>
+        
+        {/* Segment Selector */}
+        <View style={styles.segmentSelectorContainer}>
+          {[
+            { key: 'stocks', label: 'Stocks' },
+            { key: 'forex', label: 'Forex' },
+            { key: 'crypto', label: 'Crypto' }
+          ].map((segment) => (
+            <TouchableOpacity
+              key={segment.key}
+              style={styles.segmentRow}
+              onPress={() => setSelectedSegment(segment.key as any)}
+              activeOpacity={0.7}
+            >
+              <Text variant="body" color="text">
+                {segment.label}
+              </Text>
+              <View 
+                style={[
+                  styles.toggleSwitch,
+                  { backgroundColor: selectedSegment === segment.key ? theme.colors.primary : theme.colors.border }
+                ]}
+              >
+                <View 
+                  style={[
+                    styles.toggleCircle,
+                    { 
+                      alignSelf: selectedSegment === segment.key ? 'flex-end' : 'flex-start',
+                      backgroundColor: theme.colors.surface
+                    }
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
       </Card>
 
       {/* Wallets Section */}
@@ -635,11 +732,7 @@ export default function SettingsScreen() {
           icon="document-text-outline"
           title="Terms & Privacy"
           subtitle="Legal information"
-          onPress={() => showNotification({
-            type: 'info',
-            title: 'Legal Documents',
-            message: 'Terms and privacy policy coming soon'
-          })}
+          onPress={handleTermsPrivacyPress}
         />
       </Card>
 
@@ -686,6 +779,10 @@ export default function SettingsScreen() {
       <ChangePasswordPage
         visible={isChangePasswordPageVisible}
         onClose={handleCloseChangePasswordPage}
+      />
+      <TermsPrivacyPage
+        visible={isTermsPrivacyPageVisible}
+        onClose={handleCloseTermsPrivacyPage}
       />
     </ScreenErrorBoundary>
   );
@@ -762,6 +859,11 @@ const styles = StyleSheet.create({
   },
   statItem: {
     alignItems: 'center',
+    flex: 1,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
   },
   section: {
     marginHorizontal: 16,
@@ -825,6 +927,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minWidth: 70,
     alignItems: 'center',
+  },
+  segmentSelectorContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  toggleSwitch: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    paddingHorizontal: 2,
+    justifyContent: 'center',
+  },
+  toggleCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  segmentSelector: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  segmentToggle: {
+    marginBottom: 0,
   },
   expandedSection: {
     backgroundColor: 'rgba(0,0,0,0.02)',
