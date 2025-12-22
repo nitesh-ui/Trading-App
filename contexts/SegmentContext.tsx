@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, AppStateStatus } from 'react-native';
 
 export type SegmentType = 'stocks' | 'forex' | 'crypto' | 'fo';
 
@@ -8,6 +9,7 @@ interface SegmentContextType {
   setSelectedSegments: (segments: SegmentType[]) => void;
   toggleSegment: (segment: SegmentType) => void;
   isLoading: boolean;
+  reloadSegments: () => Promise<void>;
 }
 
 const SegmentContext = createContext<SegmentContextType | undefined>(undefined);
@@ -18,6 +20,7 @@ const DEFAULT_SEGMENTS: SegmentType[] = ['stocks'];
 export const SegmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [selectedSegments, setSelectedSegmentsState] = useState<SegmentType[]>(DEFAULT_SEGMENTS);
   const [isLoading, setIsLoading] = useState(true);
+  const appState = useRef(AppState.currentState);
 
   // Load segments from AsyncStorage on mount
   useEffect(() => {
@@ -37,6 +40,36 @@ export const SegmentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     loadSegments();
   }, []);
+
+  const reloadSegments = useCallback(async () => {
+    try {
+      const saved = await AsyncStorage.getItem(SEGMENT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setSelectedSegmentsState(Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_SEGMENTS);
+      }
+    } catch (error) {
+      console.error('Error reloading segments preference:', error);
+    }
+  }, []);
+
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      // App has come to foreground - reload segments from storage
+      reloadSegments();
+    }
+
+    appState.current = nextAppState;
+  };
+
+  // Listen for app state changes to reload segments when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [handleAppStateChange]);
 
   const setSelectedSegments = useCallback(async (segments: SegmentType[]) => {
     try {
@@ -72,7 +105,7 @@ export const SegmentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   return (
-    <SegmentContext.Provider value={{ selectedSegments, setSelectedSegments, toggleSegment, isLoading }}>
+    <SegmentContext.Provider value={{ selectedSegments, setSelectedSegments, toggleSegment, isLoading, reloadSegments }}>
       {children}
     </SegmentContext.Provider>
   );
