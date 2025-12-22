@@ -83,7 +83,7 @@ export default function SettingsScreen() {
   const { theme, themeType, setTheme } = useTheme();
   const { showNotification } = useNotification();
   const { handle401 } = useAuthErrorHandler();
-  const { selectedSegment, setSelectedSegment } = useSegment();
+  const { selectedSegments, toggleSegment } = useSegment();
   
   // Performance monitoring
   useRenderPerformance('SettingsScreen');
@@ -534,7 +534,7 @@ export default function SettingsScreen() {
             <TouchableOpacity
               key={segment.key}
               style={styles.segmentRow}
-              onPress={() => setSelectedSegment(segment.key as any)}
+              onPress={() => toggleSegment(segment.key as any)}
               activeOpacity={0.7}
             >
               <Text variant="body" color="text">
@@ -543,14 +543,14 @@ export default function SettingsScreen() {
               <View 
                 style={[
                   styles.toggleSwitch,
-                  { backgroundColor: selectedSegment === segment.key ? theme.colors.primary : theme.colors.border }
+                  { backgroundColor: selectedSegments.includes(segment.key as any) ? theme.colors.primary : theme.colors.border }
                 ]}
               >
                 <View 
                   style={[
                     styles.toggleCircle,
                     { 
-                      alignSelf: selectedSegment === segment.key ? 'flex-end' : 'flex-start',
+                      alignSelf: selectedSegments.includes(segment.key as any) ? 'flex-end' : 'flex-start',
                       backgroundColor: theme.colors.surface
                     }
                   ]}

@@ -467,7 +467,7 @@ CryptoTabContent.displayName = 'CryptoTabContent';
 const WatchlistContent = memo(() => {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
-  const { selectedSegment } = useSegment();
+  const { selectedSegments } = useSegment();
   const [isSearchPageVisible, setIsSearchPageVisible] = useState(false);
   const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
@@ -513,12 +513,16 @@ const WatchlistContent = memo(() => {
     // REMOVED: stocks, forexPairs, cryptoPairs (no longer available - using API data only)
   } = useWatchlist();
 
-  // Sync market type with selected segment
+  // Sync market type with selected segments
   React.useEffect(() => {
-    if (selectedSegment && selectedSegment !== watchlistState.marketType) {
-      setMarketType(selectedSegment as MarketType);
+    // If current market type is not in selected segments, switch to first selected segment
+    if (!selectedSegments.includes(watchlistState.marketType)) {
+      const firstSegment = selectedSegments[0] as MarketType;
+      if (firstSegment) {
+        setMarketType(firstSegment);
+      }
     }
-  }, [selectedSegment, watchlistState.marketType, setMarketType]);
+  }, [selectedSegments, watchlistState.marketType, setMarketType]);
 
   // Real-time price updates state
   const [realtimePrices, setRealtimePrices] = React.useState<Map<string, any>>(new Map());
@@ -799,6 +803,13 @@ const WatchlistContent = memo(() => {
       return asset;
     });
   }, [filteredAssets, realtimePrices]);
+
+  // Filter enhanced assets by current market type
+  const currentMarketAssets = React.useMemo(() => {
+    // enhancedAssets is already filtered by watchlistState.marketType
+    // through the filteredAssets computation in useWatchlist
+    return enhancedAssets;
+  }, [enhancedAssets]);
 
   // SignalR connection status logging
   React.useEffect(() => {
@@ -1175,58 +1186,42 @@ const WatchlistContent = memo(() => {
             marketType={watchlistState.marketType}
             onMarketTypeChange={setMarketType}
             theme={theme}
-            visibleSegments={[selectedSegment as any]}
+            visibleSegments={selectedSegments as any}
           />
         </View>
       </View>
 
-      {/* Sliding Tab Container - Like Kite App */}
+      {/* Tab Container - Only render current tab */}
       <View style={styles.tabsContainer}>
-        <SlidingTabContainer 
-          currentTab={watchlistState.marketType}
-          visibleSegments={[selectedSegment as any]}
-        >
-          {selectedSegment === 'stocks' && (
-            <StocksTabContent 
-              assets={enhancedAssets}
-              onAssetPress={handleAssetPress}
-              onBuyPress={handleBuyPress}
-              onSellPress={handleSellPress}
-              onRemovePress={handleRemoveFromWatchlist}
-              onFilterPress={() => setFilterVisible(true)}
-              onSearchPress={handleOpenSearchPage}
-            />
-          )}
-          {selectedSegment === 'forex' && (
-            <ForexTabContent 
-              assets={enhancedAssets}
-              onAssetPress={handleAssetPress}
-              onBuyPress={handleBuyPress}
-              onSellPress={handleSellPress}
-              onRemovePress={handleRemoveFromWatchlist}
-            />
-          )}
-          {selectedSegment === 'crypto' && (
-            <CryptoTabContent 
-              assets={enhancedAssets}
-              onAssetPress={handleAssetPress}
-              onBuyPress={handleBuyPress}
-              onSellPress={handleSellPress}
-              onRemovePress={handleRemoveFromWatchlist}
-            />
-          )}
-          {selectedSegment === 'fo' && (
-            <StocksTabContent 
-              assets={enhancedAssets}
-              onAssetPress={handleAssetPress}
-              onBuyPress={handleBuyPress}
-              onSellPress={handleSellPress}
-              onRemovePress={handleRemoveFromWatchlist}
-              onFilterPress={() => setFilterVisible(true)}
-              onSearchPress={handleOpenSearchPage}
-            />
-          )}
-        </SlidingTabContainer>
+        {watchlistState.marketType === 'stocks' && selectedSegments.includes('stocks') && (
+          <StocksTabContent 
+            assets={currentMarketAssets}
+            onAssetPress={handleAssetPress}
+            onBuyPress={handleBuyPress}
+            onSellPress={handleSellPress}
+            onRemovePress={handleRemoveFromWatchlist}
+            onFilterPress={() => setFilterVisible(true)}
+            onSearchPress={handleOpenSearchPage}
+          />
+        )}
+        {watchlistState.marketType === 'forex' && selectedSegments.includes('forex') && (
+          <ForexTabContent 
+            assets={currentMarketAssets}
+            onAssetPress={handleAssetPress}
+            onBuyPress={handleBuyPress}
+            onSellPress={handleSellPress}
+            onRemovePress={handleRemoveFromWatchlist}
+          />
+        )}
+        {watchlistState.marketType === 'crypto' && selectedSegments.includes('crypto') && (
+          <CryptoTabContent 
+            assets={currentMarketAssets}
+            onAssetPress={handleAssetPress}
+            onBuyPress={handleBuyPress}
+            onSellPress={handleSellPress}
+            onRemovePress={handleRemoveFromWatchlist}
+          />
+        )}
       </View>
 
       {/* Unified Drawer - handles asset details only, trading moved to TradePage */}
@@ -1527,11 +1522,10 @@ const styles = StyleSheet.create({
   },
   slidingContainer: {
     flexDirection: 'row',
-    width: SCREEN_WIDTH * 3, // Width for all 3 tabs
+    width: SCREEN_WIDTH, // Width for all 3 tabs
     height: '100%',
   },
   tabContent: {
-    width: SCREEN_WIDTH,
     flex: 1,
     paddingTop: Platform.OS === 'ios' ? 200 : 220, // Space for fixed header
   },

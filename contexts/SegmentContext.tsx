@@ -4,48 +4,75 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type SegmentType = 'stocks' | 'forex' | 'crypto' | 'fo';
 
 interface SegmentContextType {
-  selectedSegment: SegmentType;
-  setSelectedSegment: (segment: SegmentType) => void;
+  selectedSegments: SegmentType[];
+  setSelectedSegments: (segments: SegmentType[]) => void;
+  toggleSegment: (segment: SegmentType) => void;
   isLoading: boolean;
 }
 
 const SegmentContext = createContext<SegmentContextType | undefined>(undefined);
 
-const SEGMENT_STORAGE_KEY = 'user_selected_segment';
+const SEGMENT_STORAGE_KEY = 'user_selected_segments';
+const DEFAULT_SEGMENTS: SegmentType[] = ['stocks'];
 
 export const SegmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [selectedSegment, setSelectedSegmentState] = useState<SegmentType>('stocks');
+  const [selectedSegments, setSelectedSegmentsState] = useState<SegmentType[]>(DEFAULT_SEGMENTS);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load segment from AsyncStorage on mount
+  // Load segments from AsyncStorage on mount
   useEffect(() => {
-    const loadSegment = async () => {
+    const loadSegments = async () => {
       try {
         const saved = await AsyncStorage.getItem(SEGMENT_STORAGE_KEY);
         if (saved) {
-          setSelectedSegmentState(saved as SegmentType);
+          const parsed = JSON.parse(saved);
+          setSelectedSegmentsState(Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_SEGMENTS);
         }
       } catch (error) {
-        console.error('Error loading segment preference:', error);
+        console.error('Error loading segments preference:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadSegment();
+    loadSegments();
   }, []);
 
-  const setSelectedSegment = useCallback(async (segment: SegmentType) => {
+  const setSelectedSegments = useCallback(async (segments: SegmentType[]) => {
     try {
-      await AsyncStorage.setItem(SEGMENT_STORAGE_KEY, segment);
-      setSelectedSegmentState(segment);
+      const validSegments = segments.length > 0 ? segments : DEFAULT_SEGMENTS;
+      await AsyncStorage.setItem(SEGMENT_STORAGE_KEY, JSON.stringify(validSegments));
+      setSelectedSegmentsState(validSegments);
     } catch (error) {
-      console.error('Error saving segment preference:', error);
+      console.error('Error saving segments preference:', error);
     }
   }, []);
 
+  const toggleSegment = useCallback(async (segment: SegmentType) => {
+    setSelectedSegmentsState(prevSegments => {
+      const isSelected = prevSegments.includes(segment);
+      let newSegments: SegmentType[];
+      
+      if (isSelected) {
+        // Don't allow removing all segments - keep at least one
+        newSegments = prevSegments.filter((s: SegmentType) => s !== segment);
+        if (newSegments.length === 0) {
+          return prevSegments;
+        }
+      } else {
+        newSegments = [...prevSegments, segment];
+      }
+      
+      // Persist to AsyncStorage
+      AsyncStorage.setItem(SEGMENT_STORAGE_KEY, JSON.stringify(newSegments))
+        .catch(error => console.error('Error saving segments preference:', error));
+      
+      return newSegments;
+    });
+  }, []);
+
   return (
-    <SegmentContext.Provider value={{ selectedSegment, setSelectedSegment, isLoading }}>
+    <SegmentContext.Provider value={{ selectedSegments, setSelectedSegments, toggleSegment, isLoading }}>
       {children}
     </SegmentContext.Provider>
   );
