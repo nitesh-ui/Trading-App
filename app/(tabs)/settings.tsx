@@ -872,12 +872,21 @@ export default function SettingsScreen() {
         onClose={() => {
           setKycModalVisible(false);
           setSelectedKycType(null);
+          // Trigger KYC Status Overview to refresh when wizard closes
+          if (kycStatusModalVisible) {
+            // Add a small delay to let the wizard close first
+            setTimeout(() => {
+              setKycStatusModalVisible(false);
+              setTimeout(() => {
+                setKycStatusModalVisible(true);
+              }, 100);
+            }, 300);
+          }
         }}
       />
       <KYCStatusOverviewModal
         visible={kycStatusModalVisible}
         onClose={() => setKycStatusModalVisible(false)}
-        documentStatuses={kycDocumentStatuses}
       />
     </ScreenErrorBoundary>
   );

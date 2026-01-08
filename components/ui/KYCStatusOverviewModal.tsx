@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -7,36 +7,128 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Button, Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
+import { tradingApiService, KYCStep } from '../../services/tradingApiService';
 
-type KYCDocumentStatus = 'Not Sent' | 'Pending' | 'Under Review' | 'Approved' | 'Rejected';
+type KYCDocumentStatus = 'Sent' | 'Pending' | 'Under Review' | 'Approved' | 'Rejected' | 'Not Sent';
 
 interface KYCStatusOverviewModalProps {
   visible: boolean;
   onClose: () => void;
-  documentStatuses?: {
-    aadharCard: KYCDocumentStatus;
-    panCard: KYCDocumentStatus;
-    profilePicture: KYCDocumentStatus;
-    digitalSignature: KYCDocumentStatus;
-    bankDetails: KYCDocumentStatus;
-  };
 }
 
 export default function KYCStatusOverviewModal({ 
   visible, 
   onClose,
-  documentStatuses = {
-    aadharCard: 'Not Sent',
-    panCard: 'Not Sent',
-    profilePicture: 'Not Sent',
-    digitalSignature: 'Not Sent',
-    bankDetails: 'Not Sent',
-  }
 }: KYCStatusOverviewModalProps) {
   const { theme } = useTheme();
+  const [isLoading, setIsLoading] = useState(false);
+  const [approvedCount, setApprovedCount] = useState(0);
+  const [rejectedCount, setRejectedCount] = useState(0);
+  const [underReviewCount, setUnderReviewCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [steps, setSteps] = useState<KYCStep[]>([]);
+  const [documentStatuses, setDocumentStatuses] = useState({
+    aadharCard: 'Not Sent' as KYCDocumentStatus,
+    panCard: 'Not Sent' as KYCDocumentStatus,
+    profilePicture: 'Not Sent' as KYCDocumentStatus,
+    digitalSignature: 'Not Sent' as KYCDocumentStatus,
+    bankDetails: 'Not Sent' as KYCDocumentStatus,
+  });
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Fetch KYC Wizard data from API
+  useEffect(() => {
+    if (visible) {
+      // Add a small delay to ensure previous operations are complete
+      const timer = setTimeout(() => {
+        fetchKYCData();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, refreshTrigger]);
+
+  const determineDocumentStatus = (step: KYCStep): KYCDocumentStatus => {
+    // Check if document is approved
+    if (step.data && step.data.isApproved === true) {
+      return 'Approved';
+    }
+    
+    // Check if document is rejected
+    if (step.data && step.data.isRejected === true) {
+      return 'Rejected';
+    }
+    
+    // If data is not null, the document has been submitted - mark as "Sent"
+    if (step.data !== null) {
+      return 'Sent';
+    }
+    // If data is null, document hasn't been sent yet
+    return 'Not Sent';
+  };
+
+  const fetchKYCData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await tradingApiService.getKYCWizard();
+      
+      if (response.summary) {
+        setApprovedCount(response.summary.approved);
+        setRejectedCount(response.summary.rejected);
+        setUnderReviewCount(response.summary.underReview);
+        setPendingCount(response.summary.pending);
+      }
+
+      // Process steps and determine document statuses
+      if (response.steps && response.steps.length > 0) {
+        setSteps(response.steps);
+
+        // Build document statuses based on step data
+        const newStatuses = {
+          aadharCard: 'Not Sent' as KYCDocumentStatus,
+          panCard: 'Not Sent' as KYCDocumentStatus,
+          profilePicture: 'Not Sent' as KYCDocumentStatus,
+          digitalSignature: 'Not Sent' as KYCDocumentStatus,
+          bankDetails: 'Not Sent' as KYCDocumentStatus,
+        };
+
+        response.steps.forEach((step) => {
+          const status = determineDocumentStatus(step);
+          
+          switch (step.kycType) {
+            case 1: // Aadhaar Card
+              newStatuses.aadharCard = status;
+              break;
+            case 2: // PAN Card
+              newStatuses.panCard = status;
+              break;
+            case 4: // Profile Picture
+              newStatuses.profilePicture = status;
+              break;
+            case 5: // Digital Signature
+              newStatuses.digitalSignature = status;
+              break;
+            case 6: // Bank Details
+              newStatuses.bankDetails = status;
+              break;
+          }
+        });
+
+        setDocumentStatuses(newStatuses);
+        console.log('📋 Document Statuses:', newStatuses);
+      }
+    } catch (err) {
+      console.error('Error fetching KYC data:', err);
+      setError('Failed to load KYC status. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getStatusColor = (status: KYCDocumentStatus) => {
     switch (status) {
@@ -48,6 +140,8 @@ export default function KYCStatusOverviewModal({
         return '#F59E0B'; // Amber
       case 'Pending':
         return '#6B7280'; // Gray
+      case 'Sent':
+        return '#3B82F6'; // Blue
       case 'Not Sent':
       default:
         return '#9CA3AF'; // Light Gray
@@ -64,23 +158,13 @@ export default function KYCStatusOverviewModal({
         return 'rgba(245, 158, 11, 0.1)';
       case 'Pending':
         return 'rgba(107, 114, 128, 0.1)';
+      case 'Sent':
+        return 'rgba(59, 130, 246, 0.1)'; // Blue background
       case 'Not Sent':
       default:
         return 'rgba(156, 163, 175, 0.1)';
     }
   };
-
-  const calculateProgress = () => {
-    const statuses = Object.values(documentStatuses);
-    const approved = statuses.filter(s => s === 'Approved').length;
-    const rejected = statuses.filter(s => s === 'Rejected').length;
-    const underReview = statuses.filter(s => s === 'Under Review').length;
-    const pending = statuses.filter(s => s === 'Pending').length;
-
-    return { approved, rejected, underReview, pending };
-  };
-
-  const progress = calculateProgress();
 
   const StatusBadge = ({ status }: { status: KYCDocumentStatus }) => (
     <View
@@ -141,9 +225,14 @@ export default function KYCStatusOverviewModal({
                 KYC Status Overview
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={28} color={theme.colors.text} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => setRefreshTrigger(prev => prev + 1)}>
+                <Ionicons name="refresh" size={24} color={theme.colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose}>
+                <Ionicons name="close" size={28} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView 
@@ -151,103 +240,130 @@ export default function KYCStatusOverviewModal({
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Document Status Section */}
-            <View style={styles.section}>
-              <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
-                Document Status
-              </Text>
-
-              <DocumentStatusItem 
-                icon="id-card-outline" 
-                label="Aadhar Card" 
-                status={documentStatuses.aadharCard}
-              />
-              <DocumentStatusItem 
-                icon="card-outline" 
-                label="PAN Card" 
-                status={documentStatuses.panCard}
-              />
-              <DocumentStatusItem 
-                icon="person-circle-outline" 
-                label="Profile Picture" 
-                status={documentStatuses.profilePicture}
-              />
-              <DocumentStatusItem 
-                icon="checkmark-done-outline" 
-                label="Digital Signature" 
-                status={documentStatuses.digitalSignature}
-              />
-              <DocumentStatusItem 
-                icon="home" 
-                label="Bank Details" 
-                status={documentStatuses.bankDetails}
-              />
-            </View>
-
-            {/* Progress Section */}
-            <View style={styles.section}>
-              <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
-                Progress
-              </Text>
-
-              <View style={styles.progressGrid}>
-                <View style={styles.progressItem}>
-                  <Text 
-                    variant="headline" 
-                    weight="bold" 
-                    color="text"
-                    style={{ color: '#10B981' }}
-                  >
-                    {progress.approved}
-                  </Text>
-                  <Text variant="caption" color="textSecondary">
-                    Approved
-                  </Text>
-                </View>
-
-                <View style={styles.progressItem}>
-                  <Text 
-                    variant="headline" 
-                    weight="bold" 
-                    color="text"
-                    style={{ color: '#EF4444' }}
-                  >
-                    {progress.rejected}
-                  </Text>
-                  <Text variant="caption" color="textSecondary">
-                    Rejected
-                  </Text>
-                </View>
-
-                <View style={styles.progressItem}>
-                  <Text 
-                    variant="headline" 
-                    weight="bold" 
-                    color="text"
-                    style={{ color: '#F59E0B' }}
-                  >
-                    {progress.underReview}
-                  </Text>
-                  <Text variant="caption" color="textSecondary">
-                    Under Review
-                  </Text>
-                </View>
-
-                <View style={styles.progressItem}>
-                  <Text 
-                    variant="headline" 
-                    weight="bold" 
-                    color="text"
-                    style={{ color: '#6B7280' }}
-                  >
-                    {progress.pending}
-                  </Text>
-                  <Text variant="caption" color="textSecondary">
-                    Pending
-                  </Text>
-                </View>
+            {/* Loading State */}
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text variant="body" color="textSecondary" style={styles.loadingText}>
+                  Loading KYC Status...
+                </Text>
               </View>
-            </View>
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle-outline" size={48} color={theme.colors.error} />
+                <Text variant="body" color="error" style={styles.errorText}>
+                  {error}
+                </Text>
+                <TouchableOpacity 
+                  style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+                  onPress={fetchKYCData}
+                >
+                  <Text variant="body" weight="semibold" style={{ color: 'white' }}>
+                    Retry
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {/* Document Status Section */}
+                <View style={styles.section}>
+                  <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+                    Document Status
+                  </Text>
+
+                  <DocumentStatusItem 
+                    icon="id-card-outline" 
+                    label="Aadhar Card" 
+                    status={documentStatuses.aadharCard}
+                  />
+                  <DocumentStatusItem 
+                    icon="card-outline" 
+                    label="PAN Card" 
+                    status={documentStatuses.panCard}
+                  />
+                  <DocumentStatusItem 
+                    icon="person-circle-outline" 
+                    label="Profile Picture" 
+                    status={documentStatuses.profilePicture}
+                  />
+                  <DocumentStatusItem 
+                    icon="checkmark-done-outline" 
+                    label="Digital Signature" 
+                    status={documentStatuses.digitalSignature}
+                  />
+                  <DocumentStatusItem 
+                    icon="home" 
+                    label="Bank Details" 
+                    status={documentStatuses.bankDetails}
+                  />
+                </View>
+
+                {/* Progress Section */}
+                <View style={styles.section}>
+                  <Text variant="subtitle" weight="semibold" color="text" style={styles.sectionTitle}>
+                    Progress
+                  </Text>
+
+                  <View style={styles.progressGrid}>
+                    <View style={styles.progressItem}>
+                      <Text 
+                        variant="headline" 
+                        weight="bold" 
+                        color="text"
+                        style={{ color: '#10B981' }}
+                      >
+                        {approvedCount}
+                      </Text>
+                      <Text variant="caption" color="textSecondary">
+                        Approved
+                      </Text>
+                    </View>
+
+                    <View style={styles.progressItem}>
+                      <Text 
+                        variant="headline" 
+                        weight="bold" 
+                        color="text"
+                        style={{ color: '#EF4444' }}
+                      >
+                        {rejectedCount}
+                      </Text>
+                      <Text variant="caption" color="textSecondary">
+                        Rejected
+                      </Text>
+                    </View>
+
+                    <View style={styles.progressItem}>
+                      <Text 
+                        variant="headline" 
+                        weight="bold" 
+                        color="text"
+                        style={{ color: '#F59E0B' }}
+                      >
+                        {underReviewCount}
+                      </Text>
+                      <Text variant="caption" color="textSecondary">
+                        Under Review
+                      </Text>
+                    </View>
+
+                    <View style={styles.progressItem}>
+                      <Text 
+                        variant="headline" 
+                        weight="bold" 
+                        color="text"
+                        style={{ color: '#6B7280' }}
+                      >
+                        {pendingCount}
+                      </Text>
+                      <Text variant="caption" color="textSecondary">
+                        Pending
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
           </ScrollView>
 
           {/* Close Button */}
@@ -363,9 +479,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    marginTop: 12,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
   footer: {
     paddingHorizontal: 20,
     paddingBottom: 20,
     paddingTop: 10,
   },
 });
+

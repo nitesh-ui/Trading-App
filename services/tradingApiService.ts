@@ -252,6 +252,74 @@ export interface TransactionHistoryReportsResponse {
   success?: boolean;
 }
 
+// KYC Wizard Interfaces
+export interface KYCStep {
+  kycType: number;
+  title: string;
+  isBankStep: boolean;
+  requireName: boolean;
+  requireDocumentNumber: boolean;
+  requireFrontImage: boolean;
+  requireBackImage: boolean;
+  data: any;
+}
+
+export interface KYCSummary {
+  total: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  underReview: number;
+}
+
+export interface GetKYCWizardResponse {
+  summary: KYCSummary;
+  steps: KYCStep[];
+}
+
+// Bank Details Submission Interfaces
+export interface SubmitBankDetailsRequest {
+  Id: number;
+  Name: string;
+  BankName: string;
+  IFSC: string;
+  AccountNumber: string;
+  FrontImage: {
+    uri: string;
+    type: string;
+    name: string;
+  };
+  UserName: string;
+}
+
+export interface SubmitBankDetailsResponse {
+  message: string;
+  data: any;
+}
+
+// KYC Submission Interfaces (Aadhar, PAN, Profile Picture, Digital Signature)
+export interface SubmitKycRequest {
+  Type: 1 | 2 | 3 | 4; // 1: Aadhar, 2: PAN, 3: Profile Picture, 4: Digital Signature
+  Id: number;
+  Name: string;
+  DocumentNumber: string;
+  FrontImageFile?: {
+    uri: string;
+    type: string;
+    name: string;
+  };
+  BackImageFile?: {
+    uri: string;
+    type: string;
+    name: string;
+  };
+}
+
+export interface SubmitKycResponse {
+  message: string;
+  data: any;
+}
+
 export interface WalletBalanceData {
   amount: string;
   totalprofitloss: number;
@@ -1828,6 +1896,210 @@ class TradingApiService {
           dailyTotalprofitloss: 0,
         },
       };
+    }
+  }
+
+  // Get KYC Wizard data with summary and steps
+  async getKYCWizard(): Promise<GetKYCWizardResponse> {
+    console.log('📋 Getting KYC Wizard Data');
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        console.error('❌ Session token not available for KYC Wizard');
+        throw new Error('Session token not available. Please log in again.');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/KycApi/GetWizard`, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+        },
+      });
+
+      console.log('📋 KYC Wizard API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ KYC Wizard API Error Response:', errorText);
+        throw new Error(`Failed to fetch KYC Wizard: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ KYC Wizard API Success Response:', {
+        summary: data.summary,
+        stepsCount: data.steps?.length
+      });
+
+      // Ensure the response structure matches GetKYCWizardResponse
+      return {
+        summary: {
+          total: data.summary?.total || 0,
+          approved: data.summary?.approved || 0,
+          rejected: data.summary?.rejected || 0,
+          pending: data.summary?.pending || 0,
+          underReview: data.summary?.underReview || 0,
+        },
+        steps: data.steps || [],
+      };
+
+    } catch (error) {
+      console.error('🔥 Get KYC Wizard API Error:', error);
+      throw error;
+    }
+  }
+
+  // Submit Bank Details
+  async submitBankDetails(request: SubmitBankDetailsRequest): Promise<SubmitBankDetailsResponse> {
+    console.log('🏦 Submitting Bank Details');
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        throw new Error('Session token not available. Please log in again.');
+      }
+
+      // Create FormData for multipart/form-data
+      const formData = new FormData();
+      formData.append('Id', request.Id.toString());
+      formData.append('Name', request.Name);
+      formData.append('BankName', request.BankName);
+      formData.append('IFSC', request.IFSC);
+      formData.append('AccountNumber', request.AccountNumber);
+      formData.append('UserName', request.UserName);
+
+      console.log('📝 FormData prepared with fields:', {
+        Id: request.Id,
+        Name: request.Name,
+        BankName: request.BankName,
+        IFSC: request.IFSC,
+        AccountNumber: request.AccountNumber,
+        UserName: request.UserName,
+        HasFrontImage: !!request.FrontImage && !!request.FrontImage.uri,
+      });
+
+      // Handle file upload
+      if (request.FrontImage && request.FrontImage.uri) {
+        console.log('📸 Processing file upload from URI:', request.FrontImage.uri);
+        // Create file blob from URI
+        const response = await fetch(request.FrontImage.uri);
+        const blob = await response.blob();
+        console.log('📦 File blob created, size:', blob.size, 'bytes');
+        formData.append('FrontImage', blob, request.FrontImage.name || 'bank_document.jpg');
+      }
+
+      const endpoint = `${API_BASE_URL}/KycApi/SubmitBank`;
+      console.log('🌐 Making API request to:', endpoint);
+      console.log('🔑 Session Token available:', sessionToken.substring(0, 10) + '...');
+
+      const submitResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+        },
+        body: formData,
+      });
+
+      console.log('🏦 Submit Bank Details API Response Status:', submitResponse.status);
+
+      if (!submitResponse.ok) {
+        const errorText = await submitResponse.text();
+        console.error('❌ Submit Bank Details API Error Response:', errorText);
+        throw new Error(`Failed to submit bank details: ${submitResponse.status} ${submitResponse.statusText}`);
+      }
+
+      const data = await submitResponse.json();
+      console.log('✅ Submit Bank Details API Success Response:', data);
+
+      return {
+        message: data.message || 'Bank details submitted successfully',
+        data: data.data,
+      };
+
+    } catch (error) {
+      console.error('🔥 Submit Bank Details API Error:', error);
+      throw error;
+    }
+  }
+
+  // Submit KYC Documents (Aadhar, PAN, Profile Picture, Digital Signature)
+  async submitKyc(request: SubmitKycRequest): Promise<SubmitKycResponse> {
+    console.log('📋 Submitting KYC Document - Type:', request.Type);
+
+    try {
+      const sessionToken = sessionManager.getToken();
+      if (!sessionToken) {
+        throw new Error('Session token not available. Please log in again.');
+      }
+
+      // Create FormData for multipart/form-data
+      const formData = new FormData();
+      formData.append('Type', request.Type.toString());
+      formData.append('Id', request.Id.toString());
+      formData.append('Name', request.Name);
+      formData.append('DocumentNumber', request.DocumentNumber);
+
+      console.log('📝 FormData prepared with fields:', {
+        Type: request.Type,
+        Id: request.Id,
+        Name: request.Name,
+        DocumentNumber: request.DocumentNumber || '(omitted)',
+        HasFrontImage: !!request.FrontImageFile && !!request.FrontImageFile.uri,
+        HasBackImage: !!request.BackImageFile && !!request.BackImageFile.uri,
+      });
+
+      // Handle front image upload
+      if (request.FrontImageFile && request.FrontImageFile.uri) {
+        console.log('📸 Processing front image upload from URI:', request.FrontImageFile.uri);
+        const response = await fetch(request.FrontImageFile.uri);
+        const blob = await response.blob();
+        console.log('📦 Front image blob created, size:', blob.size, 'bytes');
+        formData.append('FrontImageFile', blob, request.FrontImageFile.name || 'front_image.jpg');
+      }
+
+      // Handle back image upload
+      if (request.BackImageFile && request.BackImageFile.uri) {
+        console.log('📸 Processing back image upload from URI:', request.BackImageFile.uri);
+        const response = await fetch(request.BackImageFile.uri);
+        const blob = await response.blob();
+        console.log('📦 Back image blob created, size:', blob.size, 'bytes');
+        formData.append('BackImageFile', blob, request.BackImageFile.name || 'back_image.jpg');
+      }
+
+      const endpoint = `${API_BASE_URL}/KycApi/SubmitKyc`;
+      console.log('🌐 Making KYC API request to:', endpoint);
+      console.log('🔑 Session Token available:', sessionToken.substring(0, 10) + '...');
+
+      const submitResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionToken,
+        },
+        body: formData,
+      });
+
+      console.log('📋 Submit KYC API Response Status:', submitResponse.status);
+
+      if (!submitResponse.ok) {
+        const errorText = await submitResponse.text();
+        console.error('❌ Submit KYC API Error Response:', errorText);
+        throw new Error(`Failed to submit KYC document: ${submitResponse.status} ${submitResponse.statusText}`);
+      }
+
+      const data = await submitResponse.json();
+      console.log('✅ Submit KYC API Success Response:', data);
+
+      return {
+        message: data.message || 'KYC document submitted successfully',
+        data: data.data,
+      };
+
+    } catch (error) {
+      console.error('🔥 Submit KYC API Error:', error);
+      throw error;
     }
   }
 

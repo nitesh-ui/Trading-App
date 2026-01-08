@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +18,8 @@ import {
 import { Button, Input, Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
+import { tradingApiService } from '../../services/tradingApiService';
+import { sessionManager } from '../../services/sessionManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -115,12 +118,443 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
     onClose();
   };
 
-  const handleFileUpload = (type: string) => {
-    showNotification({
-      type: 'info',
-      title: 'File Upload',
-      message: 'File picker will open here',
-    });
+  const handleFileUpload = async (type: string) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        console.log('File selection canceled');
+        return;
+      }
+
+      if (result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        
+        // Validate file type
+        if (!['image/jpeg', 'image/png'].includes(asset.mimeType || '')) {
+          showNotification({
+            type: 'error',
+            title: 'Invalid File Type',
+            message: 'Please select a JPG or PNG image',
+          });
+          return;
+        }
+
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+        if (asset.size && asset.size > maxSize) {
+          showNotification({
+            type: 'error',
+            title: 'File Too Large',
+            message: 'Please select an image smaller than 5MB',
+          });
+          return;
+        }
+
+        // Set the file URI based on type
+        switch (type) {
+          case 'aadharFront':
+            setAadharFront(asset.uri);
+            showNotification({
+              type: 'success',
+              title: 'Success',
+              message: 'Aadhar front image selected',
+            });
+            break;
+          case 'aadharBack':
+            setAadharBack(asset.uri);
+            showNotification({
+              type: 'success',
+              title: 'Success',
+              message: 'Aadhar back image selected',
+            });
+            break;
+          case 'panImage':
+            setPanImage(asset.uri);
+            showNotification({
+              type: 'success',
+              title: 'Success',
+              message: 'PAN image selected',
+            });
+            break;
+          case 'profilePicture':
+            setProfilePicture(asset.uri);
+            showNotification({
+              type: 'success',
+              title: 'Success',
+              message: 'Profile picture selected',
+            });
+            break;
+          case 'digitalSignature':
+            setDigitalSignature(asset.uri);
+            showNotification({
+              type: 'success',
+              title: 'Success',
+              message: 'Digital signature selected',
+            });
+            break;
+          case 'bankDocument':
+            setBankDocument(asset.uri);
+            showNotification({
+              type: 'success',
+              title: 'Success',
+              message: 'Bank document selected',
+            });
+            break;
+        }
+
+        console.log(`✅ File selected for ${type}:`, asset.uri, `(Size: ${asset.size} bytes)`);
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      showNotification({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to select file. Please try again.',
+      });
+    }
+  };
+
+  const handleBankDetailsSubmit = async () => {
+    // Validate all fields
+    if (!accountHolderName.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter account holder name',
+      });
+      return;
+    }
+    if (!bankName.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter bank name',
+      });
+      return;
+    }
+    if (!ifscCode.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter IFSC code',
+      });
+      return;
+    }
+    if (!accountNumber.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter account number',
+      });
+      return;
+    }
+    if (!bankDocument) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please upload a document (passport/cheque)',
+      });
+      return;
+    }
+
+    // Submit bank details
+    setLoading(true);
+    try {
+      console.log('🏦 Starting bank details submission...');
+      const currentUser = sessionManager.getCurrentUser();
+      const userName = currentUser?.username || 'User';
+
+      console.log('📋 Bank Details:', {
+        Name: accountHolderName,
+        BankName: bankName,
+        IFSC: ifscCode,
+        AccountNumber: accountNumber,
+        UserName: userName,
+      });
+
+      const response = await tradingApiService.submitBankDetails({
+        Id: 1,
+        Name: accountHolderName,
+        BankName: bankName,
+        IFSC: ifscCode,
+        AccountNumber: accountNumber,
+        FrontImage: {
+          uri: bankDocument,
+          type: 'image/jpeg',
+          name: 'bank_document.jpg',
+        },
+        UserName: userName,
+      });
+
+      console.log('✅ Bank details submitted successfully:', response);
+      showNotification({
+        type: 'success',
+        title: 'Success',
+        message: response.message || 'Bank details submitted successfully',
+      });
+      handleClose();
+    } catch (error) {
+      console.error('❌ Error submitting bank details:', error);
+      showNotification({
+        type: 'error',
+        title: 'Submission Failed',
+        message: error instanceof Error ? error.message : 'Failed to submit bank details. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAadharSubmit = async () => {
+    // Validate all fields
+    if (!aadharName.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter your name',
+      });
+      return;
+    }
+    if (!aadharNumber.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter Aadhar number',
+      });
+      return;
+    }
+    if (!aadharFront) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please upload front image',
+      });
+      return;
+    }
+    if (!aadharBack) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please upload back image',
+      });
+      return;
+    }
+
+    // Submit Aadhar details
+    setLoading(true);
+    try {
+      console.log('🎫 Starting Aadhar submission...');
+      const currentUser = sessionManager.getCurrentUser();
+      const userId = parseInt(currentUser?.id || '1');
+
+      const response = await tradingApiService.submitKyc({
+        Type: 1, // Aadhar
+        Id: userId,
+        Name: aadharName,
+        DocumentNumber: aadharNumber,
+        FrontImageFile: {
+          uri: aadharFront,
+          type: 'image/jpeg',
+          name: 'aadhar_front.jpg',
+        },
+        BackImageFile: {
+          uri: aadharBack,
+          type: 'image/jpeg',
+          name: 'aadhar_back.jpg',
+        },
+      });
+
+      console.log('✅ Aadhar submitted successfully:', response);
+      showNotification({
+        type: 'success',
+        title: 'Success',
+        message: response.message || 'Aadhar card submitted successfully',
+      });
+      handleClose();
+    } catch (error) {
+      console.error('❌ Error submitting Aadhar:', error);
+      showNotification({
+        type: 'error',
+        title: 'Submission Failed',
+        message: error instanceof Error ? error.message : 'Failed to submit Aadhar. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePanSubmit = async () => {
+    // Validate all fields
+    if (!panName.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter your name',
+      });
+      return;
+    }
+    if (!panNumber.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter PAN number',
+      });
+      return;
+    }
+    if (!panImage) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please upload PAN image',
+      });
+      return;
+    }
+
+    // Submit PAN details
+    setLoading(true);
+    try {
+      console.log('💳 Starting PAN submission...');
+      const currentUser = sessionManager.getCurrentUser();
+      const userId = parseInt(currentUser?.id || '1');
+
+      const response = await tradingApiService.submitKyc({
+        Type: 2, // PAN
+        Id: userId,
+        Name: panName,
+        DocumentNumber: panNumber,
+        FrontImageFile: {
+          uri: panImage,
+          type: 'image/jpeg',
+          name: 'pan_image.jpg',
+        },
+      });
+
+      console.log('✅ PAN submitted successfully:', response);
+      showNotification({
+        type: 'success',
+        title: 'Success',
+        message: response.message || 'PAN card submitted successfully',
+      });
+      handleClose();
+    } catch (error) {
+      console.error('❌ Error submitting PAN:', error);
+      showNotification({
+        type: 'error',
+        title: 'Submission Failed',
+        message: error instanceof Error ? error.message : 'Failed to submit PAN. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProfilePictureSubmit = async () => {
+    if (!profilePicture) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please upload profile picture',
+      });
+      return;
+    }
+
+    // Submit Profile Picture
+    setLoading(true);
+    try {
+      console.log('📷 Starting Profile Picture submission...');
+      const currentUser = sessionManager.getCurrentUser();
+      const userId = parseInt(currentUser?.id || '1');
+      const userName = currentUser?.username || 'User';
+
+      const response = await tradingApiService.submitKyc({
+        Type: 3, // Profile Picture
+        Id: userId,
+        Name: userName,
+        DocumentNumber: '',
+        FrontImageFile: {
+          uri: profilePicture,
+          type: 'image/jpeg',
+          name: 'profile_picture.jpg',
+        },
+      });
+
+      console.log('✅ Profile Picture submitted successfully:', response);
+      showNotification({
+        type: 'success',
+        title: 'Success',
+        message: response.message || 'Profile picture submitted successfully',
+      });
+      handleClose();
+    } catch (error) {
+      console.error('❌ Error submitting Profile Picture:', error);
+      showNotification({
+        type: 'error',
+        title: 'Submission Failed',
+        message: error instanceof Error ? error.message : 'Failed to submit Profile Picture. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDigitalSignatureSubmit = async () => {
+    if (!digitalSignatureName.trim()) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter your name',
+      });
+      return;
+    }
+    if (!digitalSignature) {
+      showNotification({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please upload digital signature',
+      });
+      return;
+    }
+
+    // Submit Digital Signature
+    setLoading(true);
+    try {
+      console.log('✍️ Starting Digital Signature submission...');
+      const currentUser = sessionManager.getCurrentUser();
+      const userId = parseInt(currentUser?.id || '1');
+
+      const response = await tradingApiService.submitKyc({
+        Type: 4, // Digital Signature
+        Id: userId,
+        Name: digitalSignatureName,
+        DocumentNumber: '',
+        FrontImageFile: {
+          uri: digitalSignature,
+          type: 'image/jpeg',
+          name: 'digital_signature.jpg',
+        },
+      });
+
+      console.log('✅ Digital Signature submitted successfully:', response);
+      showNotification({
+        type: 'success',
+        title: 'Success',
+        message: response.message || 'Digital signature submitted successfully',
+      });
+      handleClose();
+    } catch (error) {
+      console.error('❌ Error submitting Digital Signature:', error);
+      showNotification({
+        type: 'error',
+        title: 'Submission Failed',
+        message: error instanceof Error ? error.message : 'Failed to submit Digital Signature. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderAadharForm = () => (
@@ -185,26 +619,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       <View style={styles.submitButtonContainer}>
         <Button
           title={loading ? 'Submitting...' : 'Submit'}
-          onPress={async () => {
-            if (!aadharName.trim() || !aadharNumber.trim() || !aadharFront || !aadharBack) {
-              showNotification({
-                type: 'error',
-                title: 'Validation Error',
-                message: 'Please fill all fields and upload required documents',
-              });
-              return;
-            }
-            setLoading(true);
-            setTimeout(() => {
-              setLoading(false);
-              showNotification({
-                type: 'success',
-                title: 'Success',
-                message: 'Aadhar card details submitted successfully',
-              });
-              handleClose();
-            }, 1500);
-          }}
+          onPress={handleAadharSubmit}
           disabled={loading}
           fullWidth={true}
         />
@@ -260,26 +675,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       <View style={styles.submitButtonContainer}>
         <Button
           title={loading ? 'Submitting...' : 'Submit'}
-          onPress={async () => {
-            if (!panName.trim() || !panNumber.trim() || !panImage) {
-              showNotification({
-                type: 'error',
-                title: 'Validation Error',
-                message: 'Please fill all fields and upload required documents',
-              });
-              return;
-            }
-            setLoading(true);
-            setTimeout(() => {
-              setLoading(false);
-              showNotification({
-                type: 'success',
-                title: 'Success',
-                message: 'PAN card details submitted successfully',
-              });
-              handleClose();
-            }, 1500);
-          }}
+          onPress={handlePanSubmit}
           disabled={loading}
           fullWidth={true}
         />
@@ -310,26 +706,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       <View style={styles.submitButtonContainer}>
         <Button
           title={loading ? 'Submitting...' : 'Submit'}
-          onPress={async () => {
-            if (!profilePicture) {
-              showNotification({
-                type: 'error',
-                title: 'Validation Error',
-                message: 'Please upload a profile picture',
-              });
-              return;
-            }
-            setLoading(true);
-            setTimeout(() => {
-              setLoading(false);
-              showNotification({
-                type: 'success',
-                title: 'Success',
-                message: 'Profile picture uploaded successfully',
-              });
-              handleClose();
-            }, 1500);
-          }}
+          onPress={handleProfilePictureSubmit}
           disabled={loading}
           fullWidth={true}
         />
@@ -372,26 +749,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       <View style={styles.submitButtonContainer}>
         <Button
           title={loading ? 'Submitting...' : 'Submit'}
-          onPress={async () => {
-            if (!digitalSignatureName.trim() || !digitalSignature) {
-              showNotification({
-                type: 'error',
-                title: 'Validation Error',
-                message: 'Please enter your name and upload a digital signature',
-              });
-              return;
-            }
-            setLoading(true);
-            setTimeout(() => {
-              setLoading(false);
-              showNotification({
-                type: 'success',
-                title: 'Success',
-                message: 'Digital signature uploaded successfully',
-              });
-              handleClose();
-            }, 1500);
-          }}
+          onPress={handleDigitalSignatureSubmit}
           disabled={loading}
           fullWidth={true}
         />
@@ -472,26 +830,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       <View style={styles.submitButtonContainer}>
         <Button
           title={loading ? 'Submitting...' : 'Submit'}
-          onPress={async () => {
-            if (!accountHolderName.trim() || !bankName.trim() || !accountNumber.trim() || !ifscCode.trim()) {
-              showNotification({
-                type: 'error',
-                title: 'Validation Error',
-                message: 'Please fill all bank details',
-              });
-              return;
-            }
-            setLoading(true);
-            setTimeout(() => {
-              setLoading(false);
-              showNotification({
-                type: 'success',
-                title: 'Success',
-                message: 'Bank details submitted successfully',
-              });
-              handleClose();
-            }, 1500);
-          }}
+          onPress={handleBankDetailsSubmit}
           disabled={loading}
           fullWidth={true}
         />
