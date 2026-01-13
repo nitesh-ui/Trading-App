@@ -9,6 +9,8 @@ import WithdrawalPage from '../../components/ui/WithdrawalPage';
 import NotificationsPage from '../../components/ui/NotificationsPage';
 import ChangePasswordPage from '../../components/ui/ChangePasswordPage';
 import TermsPrivacyPage from '../../components/ui/TermsPrivacyPage';
+import KYCWizardPage from '../../components/ui/KYCWizardPage';
+import KYCStatusOverviewModal from '../../components/ui/KYCStatusOverviewModal';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -93,6 +95,20 @@ export default function SettingsScreen() {
   const [themeExpanded, setThemeExpanded] = useState(false);
   const [helpSupportExpanded, setHelpSupportExpanded] = useState(false);
   const [paymentMethodsExpanded, setPaymentMethodsExpanded] = useState(false);
+  
+  // KYC Wizard states
+  const [kycExpanded, setKycExpanded] = useState(false);
+  const [expandedKycItem, setExpandedKycItem] = useState<string | null>(null);
+  const [kycModalVisible, setKycModalVisible] = useState(false);
+  const [selectedKycType, setSelectedKycType] = useState<'aadhar' | 'pan' | 'profile-picture' | 'digital-signature' | 'bank-details' | null>(null);
+  const [kycStatusModalVisible, setKycStatusModalVisible] = useState(false);
+  const [kycDocumentStatuses, setKycDocumentStatuses] = useState({
+    aadharCard: 'Not Sent' as const,
+    panCard: 'Not Sent' as const,
+    profilePicture: 'Not Sent' as const,
+    digitalSignature: 'Not Sent' as const,
+    bankDetails: 'Not Sent' as const,
+  });
   
   const [userInfo, setUserInfo] = useState({
     name: 'Demo User',
@@ -516,7 +532,73 @@ export default function SettingsScreen() {
         />
       </Card>
 
-      {/* Request Segment Section */}
+      {/* KYC Wizard Section */}
+      <Card padding="none" style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text variant="subtitle" weight="semibold" color="text">
+            KYC Wizard
+          </Text>
+        </View>
+        
+        <SettingItem
+          icon="document-outline"
+          title="Aadhar Card"
+          subtitle="Upload the Aadhar document"
+          onPress={() => {
+            setSelectedKycType('aadhar');
+            setKycModalVisible(true);
+          }}
+        />
+        
+        <SettingItem
+          icon="card-outline"
+          title="PAN Card"
+          subtitle="Upload PAN Document"
+          onPress={() => {
+            setSelectedKycType('pan');
+            setKycModalVisible(true);
+          }}
+        />
+        
+        <SettingItem
+          icon="person-circle-outline"
+          title="Profile Picture"
+          subtitle="Upload your profile picture"
+          onPress={() => {
+            setSelectedKycType('profile-picture');
+            setKycModalVisible(true);
+          }}
+        />
+        
+        <SettingItem
+          icon="checkmark-done-outline"
+          title="Digital Signature"
+          subtitle="Upload your digital signature"
+          onPress={() => {
+            setSelectedKycType('digital-signature');
+            setKycModalVisible(true);
+          }}
+        />
+        
+        <SettingItem
+          icon="home"
+          title="Bank Details"
+          subtitle="Add your bank account information"
+          onPress={() => {
+            setSelectedKycType('bank-details');
+            setKycModalVisible(true);
+          }}
+        />
+        
+        <SettingItem
+          icon="document-text-outline"
+          title="KYC Status Overview"
+          subtitle="View your KYC submission status"
+          onPress={() => {
+            setKycStatusModalVisible(true);
+          }}
+        />
+      </Card>
       <Card padding="none" style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text variant="subtitle" weight="semibold" color="text">
@@ -783,6 +865,28 @@ export default function SettingsScreen() {
       <TermsPrivacyPage
         visible={isTermsPrivacyPageVisible}
         onClose={handleCloseTermsPrivacyPage}
+      />
+      <KYCWizardPage
+        visible={kycModalVisible}
+        selectedType={selectedKycType}
+        onClose={() => {
+          setKycModalVisible(false);
+          setSelectedKycType(null);
+          // Trigger KYC Status Overview to refresh when wizard closes
+          if (kycStatusModalVisible) {
+            // Add a small delay to let the wizard close first
+            setTimeout(() => {
+              setKycStatusModalVisible(false);
+              setTimeout(() => {
+                setKycStatusModalVisible(true);
+              }, 100);
+            }, 300);
+          }
+        }}
+      />
+      <KYCStatusOverviewModal
+        visible={kycStatusModalVisible}
+        onClose={() => setKycStatusModalVisible(false)}
       />
     </ScreenErrorBoundary>
   );

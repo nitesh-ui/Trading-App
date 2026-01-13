@@ -331,11 +331,8 @@ const TradePage: React.FC<TradePageProps> = ({
   };
 
   const handleQuantityChange = (change: number) => {
-    // Get lot size from asset, default to 1
-    const lotSize = asset.lotSize || 1;
-    
-    // Increment/decrement by lot size
-    const newQuantity = Math.max(lotSize, quantity + (change * lotSize));
+    // Increment/decrement by 1
+    const newQuantity = Math.max(1, quantity + change);
     setQuantity(newQuantity);
     
     // Trigger margin recalculation with new quantity
