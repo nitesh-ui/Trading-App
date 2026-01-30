@@ -119,43 +119,32 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
     try {
       setIsSubmitting(true);
       
-      // Generate a unique boundary
-      const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
-      
-      const formParts = [];
+      // Use FormData API which works on both web and React Native
+      const formData = new FormData();
       
       // Add text fields
-      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="AccountInfo"\r\n\r\n${accountInfo.trim() || 'No description provided'}`);
-      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="RequestType"\r\n\r\n1`);
-      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="Amount"\r\n\r\n${amount}`);
-      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="PhoneNumber"\r\n\r\n${phoneNumber.replace(/\s+/g, '')}`);
+      formData.append('AccountInfo', accountInfo.trim() || 'No description provided');
+      formData.append('RequestType', '1');
+      formData.append('Amount', amount);
+      formData.append('PhoneNumber', phoneNumber.replace(/\s+/g, ''));
       
-      // If there's a screenshot, convert it to blob and add it
+      // If there's a screenshot, add it as a file
       if (screenshot) {
-        // Convert the image URI to a blob
+        // For React Native, fetch the image and create a blob
         const response = await fetch(screenshot.uri);
         const blob = await response.blob();
         
-        formParts.push(
-          `--${boundary}\r\nContent-Disposition: form-data; name="_RequestImage"; filename="${screenshot.name || 'transaction_screenshot.jpg'}"\r\nContent-Type: ${screenshot.mimeType || 'image/jpeg'}\r\n\r\n`
-        );
-        formParts.push(await blob.text());
+        // TypeScript requires casting for React Native compatibility
+        formData.append('_RequestImage', blob as any, screenshot.name || 'transaction_screenshot.jpg');
       }
-      
-      // Add the final boundary
-      formParts.push(`--${boundary}--\r\n`);
-      
-      // Join all parts with CRLF
-      const formBody = formParts.join('\r\n');
 
       const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/FundRequestApi/AddFundInformationHistory', {
         method: 'POST',
         headers: {
           'accept': '*/*',
           'X-Session-Key': sessionManager.getToken() || '',
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
         },
-        body: formBody
+        body: formData
       });
 
       const result = await response.json();

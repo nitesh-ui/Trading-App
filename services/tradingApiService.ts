@@ -47,6 +47,9 @@ export interface LoginResponse {
       fullname: string;
       mobileno: string;
       sponsorid: string;
+      joinDate?: string;
+      registrationDate?: string;
+      createdDate?: string;
     };
     loggedInWatchlistAccess?: Array<{
       scriptExchange: string;
@@ -656,14 +659,27 @@ class TradingApiService {
   private async saveSessionData(sessionData: any): Promise<void> {
     try {
       const now = new Date();
-      const originalValidity = new Date(sessionData.sessionValidity);
+      
+      // If sessionValidity is missing, set default (24 hours from now)
+      let originalValidity = now;
+      if (sessionData.sessionValidity) {
+        originalValidity = new Date(sessionData.sessionValidity);
+        // Check if the parsed date is valid
+        if (isNaN(originalValidity.getTime())) {
+          console.log('⚠️ Invalid sessionValidity received from API, using default 24-hour validity');
+          originalValidity = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        }
+      } else {
+        console.log('⚠️ No sessionValidity from API, using default 24-hour validity');
+        originalValidity = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      }
       
       // Initialize extended validity to 19 minutes from now (first extension on login)
       const initialExtendedValidity = new Date(now.getTime() + 19 * 60 * 1000);
       
       const sessionInfo = {
         sessionToken: sessionData.sessionToken,
-        sessionValidity: sessionData.sessionValidity,
+        sessionValidity: originalValidity.toISOString(),
         loggedInUser: sessionData.loggedInUser,
         loggedInWatchlistAccess: sessionData.loggedInWatchlistAccess,
         loginTime: now.toISOString(),
@@ -673,7 +689,7 @@ class TradingApiService {
 
       await AsyncStorage.multiSet([
         ['trading_session_token', sessionData.sessionToken || ''],
-        ['trading_session_validity', sessionData.sessionValidity || ''],
+        ['trading_session_validity', originalValidity.toISOString() || ''],
         ['trading_user_data', JSON.stringify(sessionData.loggedInUser || {})],
         ['trading_watchlist_access', JSON.stringify(sessionData.loggedInWatchlistAccess || [])],
         ['trading_session_info', JSON.stringify(sessionInfo)],
@@ -704,11 +720,21 @@ class TradingApiService {
       const parsed = JSON.parse(sessionInfo);
       const now = new Date();
       
-      // Check original session validity
-      const originalValidity = new Date(parsed.sessionValidity);
+      // Check original session validity - if missing or invalid, set default (24 hours from login)
+      let originalValidity = new Date(parsed.sessionValidity);
+      if (isNaN(originalValidity.getTime())) {
+        // If sessionValidity is missing or invalid, use 24 hours from login time
+        const loginTime = parsed.loginTime ? new Date(parsed.loginTime) : now;
+        originalValidity = new Date(loginTime.getTime() + 24 * 60 * 60 * 1000);
+        console.log('⚠️ Session validity was missing/invalid, using default 24-hour validity from login');
+      }
       
       // Check extended validity (original + extensions from API calls)
-      const extendedValidity = new Date(parsed.extendedValidityTime || parsed.sessionValidity);
+      let extendedValidity = new Date(parsed.extendedValidityTime || originalValidity);
+      if (isNaN(extendedValidity.getTime())) {
+        // Fallback to calculated original validity
+        extendedValidity = originalValidity;
+      }
       
       const isOriginalValid = originalValidity > now;
       const isExtendedValid = extendedValidity > now;
@@ -1559,8 +1585,19 @@ class TradingApiService {
 
       const parsed = JSON.parse(sessionInfo);
       const now = new Date();
-      const originalValidity = new Date(parsed.sessionValidity);
-      const extendedValidity = new Date(parsed.extendedValidityTime || parsed.sessionValidity);
+      
+      // Handle potentially missing or invalid sessionValidity
+      let originalValidity = new Date(parsed.sessionValidity);
+      if (isNaN(originalValidity.getTime())) {
+        const loginTime = parsed.loginTime ? new Date(parsed.loginTime) : now;
+        originalValidity = new Date(loginTime.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      let extendedValidity = new Date(parsed.extendedValidityTime || originalValidity);
+      if (isNaN(extendedValidity.getTime())) {
+        extendedValidity = originalValidity;
+      }
+      
       const loginTime = new Date(parsed.loginTime);
       const lastApiCall = new Date(parsed.lastApiCall);
 

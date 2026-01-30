@@ -56,7 +56,8 @@ const TradePage: React.FC<TradePageProps> = ({
   const insets = useSafeAreaInsets();
   const [quantity, setQuantity] = useState(1);
   const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT' | 'SL' | 'SL-M'>('MARKET');
-  const [unitType, setUnitType] = useState<'Lot' | 'Share'>('Lot');
+  const [unitType, setUnitType] = useState<'Lot' | 'Quantity'>('Lot');
+  const [showUnitMenu, setShowUnitMenu] = useState(false);
   const [productType, setProductType] = useState<'MIS' | 'NRML'>('NRML');
   const [targetPrice, setTargetPrice] = useState('0');
   const [stopLossPrice, setStopLossPrice] = useState('0');
@@ -921,15 +922,69 @@ const TradePage: React.FC<TradePageProps> = ({
           {/* Unit Header */}
           <View style={styles.quantityHeader}>
             <Text variant="body" color="text">Unit</Text>
-            <Text variant="body" color="text">Lot (Lot Size: {asset.lotSize || 1})</Text>
+            <Text variant="body" color="text">
+              {unitType === 'Lot' ? `Lot (Lot Size: ${asset.lotSize || 1})` : 'Quantity'}
+            </Text>
           </View>
           
           {/* Unit Dropdown and Quantity Controls - Side by Side */}
-          <View style={styles.unitQuantityRow}>
-            {/* Unit Dropdown */}
-            <View style={[styles.unitDropdown, { borderColor: theme.colors.border }]}>
-              <Text variant="body" color="text">Lot</Text>
-              <Ionicons name="chevron-down" size={16} color={theme.colors.text} />
+          <View style={[styles.unitQuantityRow, { gap: 12 }]}>
+            {/* Unit Dropdown with Menu */}
+            <View style={styles.unitDropdownWrapper}>
+              <TouchableOpacity 
+                onPress={() => setShowUnitMenu(!showUnitMenu)}
+                style={[styles.unitDropdown, { borderColor: theme.colors.border }]}
+              >
+                <Text variant="body" color="text">{unitType}</Text>
+                <Ionicons 
+                  name={showUnitMenu ? "chevron-up" : "chevron-down"} 
+                  size={16} 
+                  color={theme.colors.text} 
+                />
+              </TouchableOpacity>
+
+              {/* Unit Menu - Dropdown options */}
+              {showUnitMenu && (
+                <View style={[styles.unitMenuPopup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setUnitType('Lot');
+                      setShowUnitMenu(false);
+                    }}
+                    style={[
+                      styles.unitMenuOption,
+                      unitType === 'Lot' && { backgroundColor: theme.colors.primary + '20' }
+                    ]}
+                  >
+                    <Text 
+                      variant="body" 
+                      color={unitType === 'Lot' ? 'primary' : 'text'}
+                      weight={unitType === 'Lot' ? 'bold' : 'regular'}
+                    >
+                      Lot
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 1, backgroundColor: theme.colors.border }} />
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setUnitType('Quantity');
+                      setShowUnitMenu(false);
+                    }}
+                    style={[
+                      styles.unitMenuOption,
+                      unitType === 'Quantity' && { backgroundColor: theme.colors.primary + '20' }
+                    ]}
+                  >
+                    <Text 
+                      variant="body" 
+                      color={unitType === 'Quantity' ? 'primary' : 'text'}
+                      weight={unitType === 'Quantity' ? 'bold' : 'regular'}
+                    >
+                      Quantity
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
             
             {/* Quantity Controls */}
@@ -1272,16 +1327,28 @@ const styles = StyleSheet.create({
   quantitySection: {
     gap: 8,
     marginBottom: 8,
+    overflow: 'visible',
   },
   quantityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  unitQuantityRowWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
   unitQuantityRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
+  },
+  unitDropdownWrapper: {
+    flex: 1.2,
+    minWidth: 100,
+    zIndex: 1000,
+    overflow: 'visible',
   },
   unitSelector: {
     gap: 16,
@@ -1295,8 +1362,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    flex: 1.2,
+  },
+  unitMenuPopup: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    marginTop: -1,
+  },
+  unitMenu: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    borderWidth: 1,
+    borderRadius: 8,
     minWidth: 100,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  unitMenuOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    minHeight: 40,
+    justifyContent: 'center',
   },
   quantityControls: {
     flexDirection: 'row',

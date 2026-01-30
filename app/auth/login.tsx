@@ -156,6 +156,7 @@ export default function LoginScreen() {
               username: response.data.loggedInUser.username,
               mobile: response.data.loggedInUser.mobileno,
               tenantId: response.data.loggedInUser.tenantId?.toString(),
+              joinDate: response.data.loggedInUser.joinDate || response.data.loggedInUser.registrationDate || response.data.loggedInUser.createdDate,
             },
             response.data.sessionToken
           );
