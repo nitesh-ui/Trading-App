@@ -65,6 +65,7 @@ interface MarketChartProps {
   interval?: 'minute' | '5minute' | 'hour' | 'day';
   daysBack?: number;
   segment?: 'stocks' | 'forex' | 'crypto' | 'mcx'; // Add segment to know market hours
+  onPriceUpdate?: (data: { price: number; change: number; changePercent: number; open: number; high: number; low: number }) => void;
 }
 
 // ============================================================================
@@ -142,6 +143,7 @@ export const MarketChart: React.FC<MarketChartProps> = ({
   interval: initialInterval = 'day', // Changed default to 'day' for better historical data
   daysBack = 30, // Increased to 30 days for more data
   segment = 'stocks',
+  onPriceUpdate,
 }) => {
   const { theme } = useTheme();
   const webViewRef = useRef<WebView>(null);
@@ -150,6 +152,8 @@ export const MarketChart: React.FC<MarketChartProps> = ({
   const [marketOpen, setMarketOpen] = useState(isMarketOpen(segment));
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   const updateCountRef = useRef(0);
+  const previousCloseRef = useRef<number | null>(null);
+  const openPriceRef = useRef<number | null>(null);
   
   // State for interval selector
   const [selectedInterval, setSelectedInterval] = useState<'minute' | '5minute' | 'hour' | 'day'>(initialInterval);
@@ -415,6 +419,41 @@ export const MarketChart: React.FC<MarketChartProps> = ({
         Close: row.Close
       });
 
+      // Store Open price on first update
+      if (openPriceRef.current === null && row.Open) {
+        openPriceRef.current = row.Open;
+      }
+
+      // Store previous close on first update (for calculating change)
+      if (previousCloseRef.current === null && row.Close) {
+        previousCloseRef.current = row.Close;
+      }
+
+      // Calculate change and change percent
+      const previousClose = previousCloseRef.current || row.Lastprice;
+      const change = row.Lastprice - previousClose;
+      const changePercent = previousClose !== 0 ? (change / previousClose) * 100 : 0;
+
+      // Call onPriceUpdate callback if provided
+      if (onPriceUpdate) {
+        onPriceUpdate({
+          price: row.Lastprice,
+          change: change,
+          changePercent: changePercent,
+          open: row.Open || openPriceRef.current || row.Lastprice,
+          high: row.High || row.Lastprice,
+          low: row.Low || row.Lastprice,
+        });
+        console.log('📤 [CHART UPDATE] Called onPriceUpdate with:', {
+          price: row.Lastprice,
+          change,
+          changePercent,
+          open: row.Open || openPriceRef.current || row.Lastprice,
+          high: row.High || row.Lastprice,
+          low: row.Low || row.Lastprice,
+        });
+      }
+
       // Get current time rounded to the minute
       const now = Date.now();
       const currentMinute = Math.floor(now / 60000) * 60; // Round to current minute in seconds
@@ -449,10 +488,10 @@ export const MarketChart: React.FC<MarketChartProps> = ({
       console.log('🔔'.repeat(40));
       console.log('');
     } catch (err) {
-      console.error('❌ [CHART UPDATE] Error handling market update:', err);
+      console.log('❌ [CHART UPDATE] Error handling market update:', err);
       console.error('❌ [CHART UPDATE] Error stack:', (err as Error).stack);
     }
-  }, [scriptCode]);
+  }, [scriptCode, onPriceUpdate]);
 
   // ============================================================================
   // Subscribe to Global SignalR for Live Updates

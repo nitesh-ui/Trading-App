@@ -31,6 +31,41 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
+  // State for live price updates
+  const [livePrice, setLivePrice] = useState(asset.price);
+  const [liveChange, setLiveChange] = useState(asset.change);
+  const [liveChangePercent, setLiveChangePercent] = useState(asset.changePercent);
+  const [liveOpen, setLiveOpen] = useState(asset.price - (asset.change || 0));
+  const [liveHigh, setLiveHigh] = useState(asset.high || asset.price);
+  const [liveLow, setLiveLow] = useState(asset.low || asset.price);
+
+  // Reset live values when asset changes
+  React.useEffect(() => {
+    setLivePrice(asset.price);
+    setLiveChange(asset.change);
+    setLiveChangePercent(asset.changePercent);
+    setLiveOpen(asset.price - (asset.change || 0));
+    setLiveHigh(asset.high || asset.price);
+    setLiveLow(asset.low || asset.price);
+  }, [asset.symbol, asset.price, asset.change, asset.changePercent, asset.high, asset.low]);
+
+  // Handle live price updates from MarketChart
+  const handlePriceUpdate = useCallback((data: { 
+    price: number; 
+    change: number; 
+    changePercent: number; 
+    open: number; 
+    high: number; 
+    low: number;
+  }) => {
+    setLivePrice(data.price);
+    setLiveChange(data.change);
+    setLiveChangePercent(data.changePercent);
+    setLiveOpen(data.open);
+    setLiveHigh(data.high);
+    setLiveLow(data.low);
+  }, []);
+
   const formatPrice = (price: number) => {
     if (marketType === 'stocks') {
       return formatIndianCurrency(price);
@@ -41,14 +76,14 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
     return `$${price.toFixed(4)}`;
   };
 
-  const changeColor = asset.change >= 0 ? theme.colors.success : theme.colors.error;
-  const changeIcon = asset.change >= 0 ? 'trending-up' : 'trending-down';
+  const changeColor = liveChange >= 0 ? theme.colors.success : theme.colors.error;
+  const changeIcon = liveChange >= 0 ? 'trending-up' : 'trending-down';
 
   // Calculate chart stats based on current price and change
   const chartStats = {
-    current: asset.price,
-    high: asset.high || asset.price + Math.abs(asset.change || 0) * 0.8,
-    low: asset.low || asset.price - Math.abs(asset.change || 0) * 0.6,
+    current: livePrice,
+    high: liveHigh,
+    low: liveLow,
   };
 
   return (
@@ -78,12 +113,12 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             </View>
             <View style={styles.priceInfo}>
               <Text variant="title" weight="bold" color="text">
-                {formatPrice(asset.price)}
+                {formatPrice(livePrice)}
               </Text>
               <View style={[styles.changeContainer, { backgroundColor: changeColor + '20' }]}>
                 <Ionicons name={changeIcon} size={14} color={changeColor} />
                 <Text variant="caption" weight="medium" style={StyleSheet.flatten([styles.changeText, { color: changeColor }])}>
-                  {asset.change >= 0 ? '+' : ''}{formatPrice(asset.change)} ({asset.changePercent.toFixed(2)}%)
+                  {liveChange >= 0 ? '+' : ''}{formatPrice(liveChange)} ({liveChangePercent.toFixed(2)}%)
                 </Text>
               </View>
             </View>
@@ -119,7 +154,7 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             <View style={styles.priceDetailItem}>
               <Text variant="caption" color="textSecondary">Open</Text>
               <Text variant="body" weight="medium" color="text">
-                {formatPrice(asset.price - (asset.change || 0) + (asset.change || 0) * 0.3)}
+                {formatPrice(liveOpen)}
               </Text>
             </View>
             <View style={styles.priceDetailItem}>
@@ -137,7 +172,7 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             <View style={styles.priceDetailItem}>
               <Text variant="caption" color="textSecondary">Prev Close</Text>
               <Text variant="body" weight="medium" color="text">
-                {formatPrice(asset.price - (asset.change || 0))}
+                {formatPrice(livePrice - liveChange)}
               </Text>
             </View>
           </View>
@@ -150,6 +185,8 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             height={400}
             interval="minute"
             daysBack={7}
+            segment={marketType}
+            onPriceUpdate={handlePriceUpdate}
           />
         </Card>
 
@@ -159,7 +196,7 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             <View style={styles.currentStatItem}>
               <Text variant="caption" color="textSecondary" style={styles.statLabel}>Open</Text>
               <Text variant="body" weight="bold" color="text" numberOfLines={1}>
-                {formatPrice(asset.price - (asset.change || 0) + (asset.change || 0) * 0.3)}
+                {formatPrice(liveOpen)}
               </Text>
             </View>
             <View style={styles.currentStatItem}>
