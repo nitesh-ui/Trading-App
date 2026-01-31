@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text as RNText, Platform } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text as RNText, Platform, TouchableOpacity } from 'react-native';
 import WebView from 'react-native-webview';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSignalR } from '../../hooks/useSignalR';
@@ -62,7 +62,7 @@ interface MarketDataRow {
 interface MarketChartProps {
   scriptCode: string;
   height?: number;
-  interval?: 'minute' | 'day' | 'week' | 'month';
+  interval?: 'minute' | '5minute' | 'hour' | 'day';
   daysBack?: number;
   segment?: 'stocks' | 'forex' | 'crypto' | 'mcx'; // Add segment to know market hours
 }
@@ -139,7 +139,7 @@ const getMarketClosedMessage = (segment?: string): string => {
 export const MarketChart: React.FC<MarketChartProps> = ({
   scriptCode,
   height = 400,
-  interval = 'day', // Changed default to 'day' for better historical data
+  interval: initialInterval = 'day', // Changed default to 'day' for better historical data
   daysBack = 30, // Increased to 30 days for more data
   segment = 'stocks',
 }) => {
@@ -150,6 +150,9 @@ export const MarketChart: React.FC<MarketChartProps> = ({
   const [marketOpen, setMarketOpen] = useState(isMarketOpen(segment));
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   const updateCountRef = useRef(0);
+  
+  // State for interval selector
+  const [selectedInterval, setSelectedInterval] = useState<'minute' | '5minute' | 'hour' | 'day'>(initialInterval);
 
   const isDark = theme.colors.background === '#000000' || theme.colors.background === '#121212';
 
@@ -167,7 +170,7 @@ export const MarketChart: React.FC<MarketChartProps> = ({
     console.log('📊 Props:', {
       scriptCode,
       segment,
-      interval,
+      interval: selectedInterval,
       daysBack,
       height
     });
@@ -178,7 +181,7 @@ export const MarketChart: React.FC<MarketChartProps> = ({
     });
     console.log('🎯'.repeat(40));
     console.log('');
-  }, [scriptCode, segment, interval, daysBack]);
+  }, [scriptCode, segment, selectedInterval, daysBack]);
 
   // Check market hours periodically
   useEffect(() => {
@@ -199,22 +202,40 @@ export const MarketChart: React.FC<MarketChartProps> = ({
 
   const fetchHistoricalData = useCallback(async (): Promise<OHLCData[]> => {
     try {
+      // Adjust daysBack based on interval for better chart display
+      let adjustedDaysBack = daysBack;
+      switch (selectedInterval) {
+        case 'minute':
+          adjustedDaysBack = Math.min(daysBack, 2); // Max 2 days for 1-minute data
+          break;
+        case '5minute':
+          adjustedDaysBack = Math.min(daysBack, 7); // Max 7 days for 5-minute data
+          break;
+        case 'hour':
+          adjustedDaysBack = Math.min(daysBack, 30); // Max 30 days for hourly data
+          break;
+        case 'day':
+          adjustedDaysBack = Math.min(daysBack, 365); // Max 365 days for daily data
+          break;
+      }
+
       const toDate = new Date();
       const fromDate = new Date();
-      fromDate.setDate(toDate.getDate() - daysBack);
+      fromDate.setDate(toDate.getDate() - adjustedDaysBack);
 
       const fromStr = fromDate.toISOString().split('T')[0]; // YYYY-MM-DD
       const toStr = toDate.toISOString().split('T')[0];
 
-      const url = `${API_BASE_URL}/WatchListApi/historical-data?scriptCode=${scriptCode}&fromDate=${fromStr}&toDate=${toStr}&interval=${interval}`;
+      const url = `${API_BASE_URL}/WatchListApi/historical-data?scriptCode=${scriptCode}&fromDate=${fromStr}&toDate=${toStr}&interval=${selectedInterval}`;
 
       console.log('📊 [CHART DEBUG] ==============================================');
       console.log('📊 [CHART DEBUG] FETCHING HISTORICAL DATA');
       console.log('📊 [CHART DEBUG] ==============================================');
       console.log('📊 [CHART DEBUG] ScriptCode:', scriptCode);
-      console.log('📊 [CHART DEBUG] Interval:', interval);
+      console.log('📊 [CHART DEBUG] Interval:', selectedInterval);
       console.log('📊 [CHART DEBUG] Segment:', segment);
-      console.log('📊 [CHART DEBUG] Days Back:', daysBack);
+      console.log('📊 [CHART DEBUG] Days Back (requested):', daysBack);
+      console.log('📊 [CHART DEBUG] Days Back (adjusted):', adjustedDaysBack);
       console.log('📊 [CHART DEBUG] From Date:', fromStr);
       console.log('📊 [CHART DEBUG] To Date:', toStr);
       console.log('📊 [CHART DEBUG] Full URL:', url);
@@ -316,7 +337,7 @@ export const MarketChart: React.FC<MarketChartProps> = ({
       console.error('❌ [CHART DEBUG] Error stack:', (err as Error).stack);
       return [];
     }
-  }, [scriptCode, interval, daysBack, segment]);
+  }, [scriptCode, selectedInterval, daysBack, segment]);
 
   // ============================================================================
   // WebSocket: Handle Market Updates
@@ -805,8 +826,41 @@ export const MarketChart: React.FC<MarketChartProps> = ({
   // Render
   // ============================================================================
 
+  const intervalOptions: Array<{ value: 'minute' | '5minute' | 'hour' | 'day'; label: string }> = [
+    { value: 'minute', label: '1m' },
+    { value: '5minute', label: '5m' },
+    { value: 'hour', label: '1H' },
+    { value: 'day', label: '1D' },
+  ];
+
   return (
     <View style={[styles.container, { height }]}>
+      {/* Interval Selector */}
+      <View style={[styles.intervalSelector, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
+        {intervalOptions.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.intervalButton,
+              selectedInterval === option.value && styles.intervalButtonActive,
+              selectedInterval === option.value && { backgroundColor: theme.colors.primary },
+            ]}
+            onPress={() => setSelectedInterval(option.value)}
+            activeOpacity={0.7}
+          >
+            <RNText
+              style={[
+                styles.intervalButtonText,
+                { color: theme.colors.text },
+                selectedInterval === option.value && styles.intervalButtonTextActive,
+              ]}
+            >
+              {option.label}
+            </RNText>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -865,6 +919,34 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
+  },
+  intervalSelector: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    gap: 8,
+    zIndex: 2000, // Above loading overlay
+  },
+  intervalButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+    minWidth: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  intervalButtonActive: {
+    // backgroundColor will be set dynamically
+  },
+  intervalButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  intervalButtonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   webview: {
     flex: 1,
