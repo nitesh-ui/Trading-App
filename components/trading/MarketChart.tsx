@@ -852,18 +852,6 @@ export const MarketChart: React.FC<MarketChartProps> = ({
           }}
         />
       )}
-
-      {/* Debug: Last Update Time */}
-      {!loading && !error && lastUpdateTime && (
-        <View style={[styles.debugIndicator, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
-          <RNText style={[styles.debugText, { color: isDark ? '#fff' : '#000' }]}>
-            Last: {lastUpdateTime.toLocaleTimeString()}
-          </RNText>
-          <RNText style={[styles.debugText, { color: isDark ? '#fff' : '#000' }]}>
-            Updates: {updateCountRef.current}
-          </RNText>
-        </View>
-      )}
     </View>
   );
 };
@@ -901,19 +889,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     textAlign: 'center',
-  },
-  debugIndicator: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    zIndex: 100,
-  },
-  debugText: {
-    fontSize: 9,
-    fontWeight: '500',
   },
 });
 
