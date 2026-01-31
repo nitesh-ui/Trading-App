@@ -10,9 +10,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text as RNText, Platform } from 'react-native';
 import WebView from 'react-native-webview';
-import { HubConnectionBuilder, HubConnection, LogLevel } from '@microsoft/signalr';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useSignalR } from '../../hooks/useSignalR';
 
 // ============================================================================
 // Types
@@ -140,19 +139,46 @@ const getMarketClosedMessage = (segment?: string): string => {
 export const MarketChart: React.FC<MarketChartProps> = ({
   scriptCode,
   height = 400,
-  interval = 'minute',
-  daysBack = 5,
+  interval = 'day', // Changed default to 'day' for better historical data
+  daysBack = 30, // Increased to 30 days for more data
   segment = 'stocks',
 }) => {
   const { theme } = useTheme();
   const webViewRef = useRef<WebView>(null);
-  const wsConnectionRef = useRef<HubConnection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [wsConnected, setWsConnected] = useState(false);
   const [marketOpen, setMarketOpen] = useState(isMarketOpen(segment));
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+  const updateCountRef = useRef(0);
 
   const isDark = theme.colors.background === '#000000' || theme.colors.background === '#121212';
+
+  // Use global SignalR connection
+  const { isConnected: wsConnected, subscribe, unsubscribe } = useSignalR({
+    autoConnect: true,
+  });
+
+  // Log component initialization
+  useEffect(() => {
+    console.log('');
+    console.log('🎯'.repeat(40));
+    console.log('🎯 MARKETCHART COMPONENT INITIALIZED');
+    console.log('🎯'.repeat(40));
+    console.log('📊 Props:', {
+      scriptCode,
+      segment,
+      interval,
+      daysBack,
+      height
+    });
+    console.log('🏢 Market Status:', {
+      isOpen: marketOpen,
+      segment,
+      message: marketOpen ? 'Market is OPEN' : 'Market is CLOSED'
+    });
+    console.log('🎯'.repeat(40));
+    console.log('');
+  }, [scriptCode, segment, interval, daysBack]);
 
   // Check market hours periodically
   useEffect(() => {
@@ -182,14 +208,18 @@ export const MarketChart: React.FC<MarketChartProps> = ({
 
       const url = `${API_BASE_URL}/WatchListApi/historical-data?scriptCode=${scriptCode}&fromDate=${fromStr}&toDate=${toStr}&interval=${interval}`;
 
-      console.log('📊 [CHART DEBUG] Fetching historical data:', {
-        scriptCode,
-        url,
-        fromDate: fromStr,
-        toDate: toStr,
-        interval,
-        segment
-      });
+      console.log('📊 [CHART DEBUG] ==============================================');
+      console.log('📊 [CHART DEBUG] FETCHING HISTORICAL DATA');
+      console.log('📊 [CHART DEBUG] ==============================================');
+      console.log('📊 [CHART DEBUG] ScriptCode:', scriptCode);
+      console.log('📊 [CHART DEBUG] Interval:', interval);
+      console.log('📊 [CHART DEBUG] Segment:', segment);
+      console.log('📊 [CHART DEBUG] Days Back:', daysBack);
+      console.log('📊 [CHART DEBUG] From Date:', fromStr);
+      console.log('📊 [CHART DEBUG] To Date:', toStr);
+      console.log('📊 [CHART DEBUG] Full URL:', url);
+      console.log('📊 [CHART DEBUG] Current Time:', new Date().toISOString());
+      console.log('📊 [CHART DEBUG] ==============================================');
 
       const response = await fetch(url, {
         method: 'GET',
@@ -203,21 +233,36 @@ export const MarketChart: React.FC<MarketChartProps> = ({
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ [CHART DEBUG] API Error Response:', errorText);
-        // Return empty array to show empty chart
         return [];
       }
 
       const json: HistoricalAPIResponse = await response.json();
       
-      console.log('📊 [CHART DEBUG] Full API Response:', JSON.stringify(json, null, 2));
-      console.log('📊 [CHART DEBUG] Data check:', {
+      console.log('📊 [CHART DEBUG] API Response Summary:', {
         hasData: !!json.data,
         isError: json.data?.isError,
-        dataCount: json.data?.historicalData?.length || 0,
         errorMessage: json.data?.errorMessage,
-        firstItem: json.data?.historicalData?.[0],
-        lastItem: json.data?.historicalData?.[json.data?.historicalData?.length - 1]
+        dataCount: json.data?.historicalData?.length || 0,
       });
+
+      if (json.data?.historicalData && json.data.historicalData.length > 0) {
+        // Log first and last items to check data freshness
+        const firstItem = json.data.historicalData[0];
+        const lastItem = json.data.historicalData[json.data.historicalData.length - 1];
+        
+        console.log('📊 [CHART DEBUG] Data Freshness Check:');
+        console.log('  First Item:', {
+          timestamp: firstItem.timeStamp,
+          date: new Date(firstItem.timeStamp).toISOString(),
+          OHLC: [firstItem.open, firstItem.high, firstItem.low, firstItem.close]
+        });
+        console.log('  Last Item:', {
+          timestamp: lastItem.timeStamp,
+          date: new Date(lastItem.timeStamp).toISOString(),
+          OHLC: [lastItem.open, lastItem.high, lastItem.low, lastItem.close],
+          age: `${Math.floor((Date.now() - new Date(lastItem.timeStamp).getTime()) / 1000 / 60)} minutes old`
+        });
+      }
 
       if (json.data.isError) {
         console.warn('⚠️ [CHART DEBUG] API returned error:', json.data.errorMessage);
@@ -232,7 +277,7 @@ export const MarketChart: React.FC<MarketChartProps> = ({
       // Transform API format to Lightweight Charts format
       const chartData: OHLCData[] = json.data.historicalData.map((item, index) => {
         const timeValue = Math.floor(new Date(item.timeStamp).getTime() / 1000);
-        if (index < 3) {
+        if (index < 3 || index >= json.data.historicalData.length - 3) {
           console.log(`📊 [CHART DEBUG] Sample data point ${index}:`, {
             original: item,
             transformed: {
@@ -260,94 +305,18 @@ export const MarketChart: React.FC<MarketChartProps> = ({
       console.log(`✅ [CHART DEBUG] Loaded ${chartData.length} historical candles`);
       console.log('📊 [CHART DEBUG] Time range:', {
         first: new Date(chartData[0].time * 1000).toISOString(),
-        last: new Date(chartData[chartData.length - 1].time * 1000).toISOString()
+        last: new Date(chartData[chartData.length - 1].time * 1000).toISOString(),
+        span: `${Math.floor((chartData[chartData.length - 1].time - chartData[0].time) / 86400)} days`
       });
+      console.log('📊 [CHART DEBUG] ==============================================');
       
       return chartData;
     } catch (err) {
       console.error('❌ [CHART DEBUG] Error fetching historical data:', err);
-      // Return empty array instead of throwing
+      console.error('❌ [CHART DEBUG] Error stack:', (err as Error).stack);
       return [];
     }
   }, [scriptCode, interval, daysBack, segment]);
-
-  // ============================================================================
-  // WebSocket: Connect & Subscribe
-  // ============================================================================
-
-  const connectWebSocket = useCallback(async () => {
-    try {
-      // Get credentials from storage
-      const sessionToken = await AsyncStorage.getItem('sessionToken');
-      const userId = await AsyncStorage.getItem('userId');
-
-      if (!sessionToken || !userId) {
-        console.warn('⚠️ No auth credentials for WebSocket');
-        setWsConnected(false);
-        return;
-      }
-
-      const wsUrl = `${WS_BASE_URL}?id=${userId}&access_token=${encodeURIComponent(sessionToken)}`;
-      
-      console.log('🔌 Connecting to WebSocket for real-time updates...');
-
-      const connection = new HubConnectionBuilder()
-        .withUrl(wsUrl)
-        .withAutomaticReconnect({
-          nextRetryDelayInMilliseconds: (retryContext) => {
-            // Exponential backoff: 2s, 4s, 8s, 16s, max 30s
-            return Math.min(2000 * Math.pow(2, retryContext.previousRetryCount), 30000);
-          },
-        })
-        .configureLogging(LogLevel.Warning)
-        .build();
-
-      // Connection events
-      connection.onreconnecting(() => {
-        console.log('🔄 WebSocket reconnecting...');
-        setWsConnected(false);
-      });
-
-      connection.onreconnected(async () => {
-        console.log('✅ WebSocket reconnected, re-subscribing to', scriptCode);
-        setWsConnected(true);
-        // Re-subscribe after reconnection
-        try {
-          await connection.invoke('SubscribeToMarketData', scriptCode);
-          console.log('✅ Re-subscribed to market data');
-        } catch (err) {
-          console.error('❌ Failed to re-subscribe:', err);
-        }
-      });
-
-      connection.onclose((error) => {
-        console.log('❌ WebSocket closed', error);
-        setWsConnected(false);
-      });
-
-      // Listen for market updates
-      connection.on('ReceiveMarketUpdate', (message: any) => {
-        handleMarketUpdate(message);
-      });
-
-      await connection.start();
-      console.log('✅ WebSocket connected, subscribing to', scriptCode);
-      setWsConnected(true);
-
-      // Subscribe to specific instrument
-      try {
-        await connection.invoke('SubscribeToMarketData', scriptCode);
-        console.log('✅ Subscribed to market data for', scriptCode);
-      } catch (err) {
-        console.error('❌ Failed to subscribe to market data:', err);
-      }
-
-      wsConnectionRef.current = connection;
-    } catch (err) {
-      console.error('❌ WebSocket connection error:', err);
-      setWsConnected(false);
-    }
-  }, [scriptCode]);
 
   // ============================================================================
   // WebSocket: Handle Market Updates
@@ -355,60 +324,158 @@ export const MarketChart: React.FC<MarketChartProps> = ({
 
   const handleMarketUpdate = useCallback((message: any) => {
     try {
-      // The message structure from SignalR
+      updateCountRef.current += 1;
+      const updateNum = updateCountRef.current;
+      
+      console.log('');
+      console.log('🔔'.repeat(40));
+      console.log(`🔔 CHART LIVE UPDATE #${updateNum} - ${new Date().toISOString()}`);
+      console.log('🔔'.repeat(40));
+      
+      // Message from global SignalR service is already parsed
+      // Structure: { type: 'market_data', data: { Table: [...], Table1: [...] }, timestamp: ... }
       if (!message || !message.data) {
-        console.log('⚠️ Received empty market update');
+        console.log('⚠️ [CHART UPDATE] No data in message');
         return;
       }
 
-      // Parse the JSON string in data field
-      const parsedData = JSON.parse(message.data);
+      const parsedData = message.data;
+      
+      console.log('✅ [CHART UPDATE] Received market data:', {
+        hasTable: !!parsedData.Table,
+        tableLength: parsedData?.Table?.length || 0,
+        timestamp: message.timestamp
+      });
       
       if (!parsedData.Table || !Array.isArray(parsedData.Table)) {
-        console.log('⚠️ Invalid market update structure');
+        console.log('⚠️ [CHART UPDATE] Invalid structure - no Table array');
         return;
       }
 
+      console.log(`📊 [CHART UPDATE] Processing ${parsedData.Table.length} instruments`);
+      
+      // Log first 3 instruments on first update
+      if (updateNum === 1 && parsedData.Table.length > 0) {
+        console.log('🔍 [CHART UPDATE] Sample instruments from feed:');
+        parsedData.Table.slice(0, 3).forEach((item: any, idx: number) => {
+          console.log(`  ${idx + 1}.`, {
+            InstrumentToken: item.InstrumentToken,
+            Lastprice: item.Lastprice
+          });
+        });
+      }
+      
+      console.log('🎯 [CHART UPDATE] Looking for scriptCode:', scriptCode);
+      
       // Find row matching our scriptCode
       const row: MarketDataRow | undefined = parsedData.Table.find(
         (r: MarketDataRow) => r.InstrumentToken === scriptCode
       );
 
       if (!row) {
-        // Not for this instrument - this is normal
+        // Log available instruments periodically
+        if (updateNum === 1 || updateNum % 10 === 0) {
+          console.log('⏭️  [CHART UPDATE] No match for scriptCode:', scriptCode);
+          console.log('🔍 [CHART UPDATE] Available instruments (first 10):');
+          parsedData.Table.slice(0, 10).forEach((r: any) => {
+            console.log(`     - ${r.InstrumentToken}`);
+          });
+        }
         return;
       }
 
-      console.log('📊 Market update for', scriptCode, ':', {
-        price: row.Lastprice,
-        open: row.Open,
-        high: row.High,
-        low: row.Low
+      console.log('✅✅✅ [CHART UPDATE] FOUND MATCHING INSTRUMENT! ✅✅✅');
+      console.log('📊 [CHART UPDATE] Market update for', scriptCode, ':', {
+        InstrumentToken: row.InstrumentToken,
+        Lastprice: row.Lastprice,
+        Open: row.Open,
+        High: row.High,
+        Low: row.Low,
+        Close: row.Close
       });
 
+      // Get current time rounded to the minute
+      const now = Date.now();
+      const currentMinute = Math.floor(now / 60000) * 60; // Round to current minute in seconds
+      
       // Build tick for Lightweight Charts
       const tick: OHLCData = {
-        time: Math.floor(Date.now() / 1000),
+        time: currentMinute,
         open: row.Open || row.Lastprice,
         high: row.High || row.Lastprice,
         low: row.Low || row.Lastprice,
         close: row.Lastprice,
       };
 
+      console.log('📊 [CHART UPDATE] Sending tick to chart:', {
+        time: tick.time,
+        timeReadable: new Date(tick.time * 1000).toISOString(),
+        OHLC: [tick.open, tick.high, tick.low, tick.close]
+      });
+
       // Send update to WebView
       if (webViewRef.current) {
-        webViewRef.current.postMessage(
-          JSON.stringify({
-            type: 'update',
-            data: tick,
-          })
-        );
-        console.log('✅ Sent price update to chart');
+        const updateMessage = JSON.stringify({
+          type: 'update',
+          data: tick,
+        });
+        webViewRef.current.postMessage(updateMessage);
+        console.log('✅ [CHART UPDATE] Message posted to WebView successfully');
+        setLastUpdateTime(new Date());
+      } else {
+        console.warn('⚠️ [CHART UPDATE] WebView ref is null, cannot send update');
       }
+      console.log('🔔'.repeat(40));
+      console.log('');
     } catch (err) {
-      console.error('❌ Error handling market update:', err);
+      console.error('❌ [CHART UPDATE] Error handling market update:', err);
+      console.error('❌ [CHART UPDATE] Error stack:', (err as Error).stack);
     }
   }, [scriptCode]);
+
+  // ============================================================================
+  // Subscribe to Global SignalR for Live Updates
+  // ============================================================================
+
+  useEffect(() => {
+    if (!wsConnected) {
+      console.log('⚠️ [CHART] SignalR not connected yet, waiting...');
+      return;
+    }
+
+    console.log('');
+    console.log('�'.repeat(40));
+    console.log('📡 SUBSCRIBING CHART TO GLOBAL SIGNALR');
+    console.log('�'.repeat(40));
+    console.log('🎯 ScriptCode to filter:', scriptCode);
+    console.log('� Segment:', segment);
+
+    // Subscribe to all market data messages
+    const subscriptionId = subscribe('all', (message: any) => {
+      // Filter for market data messages only
+      if (message.type === 'market_data' && message.data) {
+        handleMarketUpdate(message);
+      }
+    });
+
+    console.log('✅ Subscribed to global SignalR with ID:', subscriptionId);
+    console.log('📡'.repeat(40));
+    console.log('');
+
+    return () => {
+      console.log('🧹 Unsubscribing chart from global SignalR');
+      unsubscribe(subscriptionId);
+    };
+  }, [wsConnected, scriptCode, segment, subscribe, unsubscribe, handleMarketUpdate]);
+
+  // ============================================================================
+  // WebSocket: Connect & Subscribe
+  // ============================================================================
+
+  const connectWebSocket = useCallback(async () => {
+    // NO LONGER NEEDED - Using global SignalR service
+    console.log('ℹ️  [CHART] Using global SignalR service, no separate connection needed');
+  }, [scriptCode, segment, handleMarketUpdate]);
 
   // ============================================================================
   // Lifecycle: Load Data & Connect WS
@@ -493,12 +560,8 @@ export const MarketChart: React.FC<MarketChartProps> = ({
     // Cleanup
     return () => {
       mounted = false;
-      if (wsConnectionRef.current) {
-        console.log('🧹 Cleaning up WebSocket connection');
-        wsConnectionRef.current.stop().catch(console.error);
-        wsConnectionRef.current = null;
-        setWsConnected(false);
-      }
+      // No WebSocket cleanup needed - global SignalR service handles it
+      console.log('🧹 Chart component unmounting');
     };
   }, [scriptCode, fetchHistoricalData, connectWebSocket]);
 
@@ -790,11 +853,14 @@ export const MarketChart: React.FC<MarketChartProps> = ({
         />
       )}
 
-      {/* WebSocket Status Indicator - Only show when connected */}
-      {!loading && !error && wsConnected && (
-        <View style={[styles.wsIndicator, { backgroundColor: '#26a69a' }]}>
-          <RNText style={styles.wsIndicatorText}>
-            ● Live
+      {/* Debug: Last Update Time */}
+      {!loading && !error && lastUpdateTime && (
+        <View style={[styles.debugIndicator, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
+          <RNText style={[styles.debugText, { color: isDark ? '#fff' : '#000' }]}>
+            Last: {lastUpdateTime.toLocaleTimeString()}
+          </RNText>
+          <RNText style={[styles.debugText, { color: isDark ? '#fff' : '#000' }]}>
+            Updates: {updateCountRef.current}
           </RNText>
         </View>
       )}
@@ -836,19 +902,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  wsIndicator: {
+  debugIndicator: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    bottom: 8,
+    left: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 8,
     zIndex: 100,
   },
-  wsIndicatorText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '600',
+  debugText: {
+    fontSize: 9,
+    fontWeight: '500',
   },
 });
 
