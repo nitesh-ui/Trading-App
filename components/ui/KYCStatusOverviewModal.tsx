@@ -8,6 +8,7 @@ import {
   View,
   ScrollView,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { Button, Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -75,7 +76,15 @@ export default function KYCStatusOverviewModal({
     try {
       setIsLoading(true);
       setError(null);
+      console.log('🔄 Fetching KYC data...');
       const response = await tradingApiService.getKYCWizard();
+      
+      console.log('📊 KYC API Response received:', {
+        hasSummary: !!response.summary,
+        summary: response.summary,
+        hasSteps: !!response.steps,
+        stepsCount: response.steps?.length || 0,
+      });
       
       if (response.summary) {
         setApprovedCount(response.summary.approved);
@@ -99,6 +108,7 @@ export default function KYCStatusOverviewModal({
 
         response.steps.forEach((step) => {
           const status = determineDocumentStatus(step);
+          console.log(`🔍 Processing KYC Type ${step.kycType} - Status: ${status}, Data:`, step.data);
           
           switch (step.kycType) {
             case 1: // Aadhaar Card
@@ -120,11 +130,12 @@ export default function KYCStatusOverviewModal({
         });
 
         setDocumentStatuses(newStatuses);
-        console.log('📋 Document Statuses:', newStatuses);
+        console.log('📋 All Document Statuses Updated:', newStatuses);
       }
     } catch (err) {
-      console.error('Error fetching KYC data:', err);
-      setError('Failed to load KYC status. Please try again.');
+      console.error('❌ Error fetching KYC data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load KYC status. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -392,8 +403,9 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     borderRadius: 16,
-    maxHeight: '90%',
+    maxHeight: Dimensions.get('window').height * 0.85,
     width: '100%',
+    backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -402,6 +414,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 10,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
@@ -416,16 +429,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   headerText: {
     fontSize: 18,
   },
   content: {
     flex: 1,
+    minHeight: 200,
   },
   contentContainer: {
     padding: 20,
-    paddingBottom: 10,
+    paddingBottom: 20,
+    flexGrow: 1,
   },
   section: {
     marginBottom: 32,

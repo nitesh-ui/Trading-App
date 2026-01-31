@@ -1,6 +1,7 @@
 // API service for authentication and trading
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sessionManager } from './sessionManager';
+import { uriToBlob, getMimeType } from '../utils/fileUtils';
 
 const API_BASE_URL = 'https://prod-tradingapi.sanaitatechnologies.com';
 
@@ -46,6 +47,9 @@ export interface LoginResponse {
       fullname: string;
       mobileno: string;
       sponsorid: string;
+      joinDate?: string;
+      registrationDate?: string;
+      createdDate?: string;
     };
     loggedInWatchlistAccess?: Array<{
       scriptExchange: string;
@@ -299,7 +303,7 @@ export interface SubmitBankDetailsResponse {
 
 // KYC Submission Interfaces (Aadhar, PAN, Profile Picture, Digital Signature)
 export interface SubmitKycRequest {
-  Type: 1 | 2 | 3 | 4; // 1: Aadhar, 2: PAN, 3: Profile Picture, 4: Digital Signature
+  Type: 1 | 2 | 4 | 5 | 6; // 1: Aadhar, 2: PAN, 4: Profile Picture, 5: Digital Signature, 6: Bank Details
   Id: number;
   Name: string;
   DocumentNumber: string;
@@ -655,14 +659,27 @@ class TradingApiService {
   private async saveSessionData(sessionData: any): Promise<void> {
     try {
       const now = new Date();
-      const originalValidity = new Date(sessionData.sessionValidity);
+      
+      // If sessionValidity is missing, set default (24 hours from now)
+      let originalValidity = now;
+      if (sessionData.sessionValidity) {
+        originalValidity = new Date(sessionData.sessionValidity);
+        // Check if the parsed date is valid
+        if (isNaN(originalValidity.getTime())) {
+          console.log('⚠️ Invalid sessionValidity received from API, using default 24-hour validity');
+          originalValidity = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        }
+      } else {
+        console.log('⚠️ No sessionValidity from API, using default 24-hour validity');
+        originalValidity = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      }
       
       // Initialize extended validity to 19 minutes from now (first extension on login)
       const initialExtendedValidity = new Date(now.getTime() + 19 * 60 * 1000);
       
       const sessionInfo = {
         sessionToken: sessionData.sessionToken,
-        sessionValidity: sessionData.sessionValidity,
+        sessionValidity: originalValidity.toISOString(),
         loggedInUser: sessionData.loggedInUser,
         loggedInWatchlistAccess: sessionData.loggedInWatchlistAccess,
         loginTime: now.toISOString(),
@@ -672,7 +689,7 @@ class TradingApiService {
 
       await AsyncStorage.multiSet([
         ['trading_session_token', sessionData.sessionToken || ''],
-        ['trading_session_validity', sessionData.sessionValidity || ''],
+        ['trading_session_validity', originalValidity.toISOString() || ''],
         ['trading_user_data', JSON.stringify(sessionData.loggedInUser || {})],
         ['trading_watchlist_access', JSON.stringify(sessionData.loggedInWatchlistAccess || [])],
         ['trading_session_info', JSON.stringify(sessionInfo)],
@@ -703,11 +720,21 @@ class TradingApiService {
       const parsed = JSON.parse(sessionInfo);
       const now = new Date();
       
-      // Check original session validity
-      const originalValidity = new Date(parsed.sessionValidity);
+      // Check original session validity - if missing or invalid, set default (24 hours from login)
+      let originalValidity = new Date(parsed.sessionValidity);
+      if (isNaN(originalValidity.getTime())) {
+        // If sessionValidity is missing or invalid, use 24 hours from login time
+        const loginTime = parsed.loginTime ? new Date(parsed.loginTime) : now;
+        originalValidity = new Date(loginTime.getTime() + 24 * 60 * 60 * 1000);
+        console.log('⚠️ Session validity was missing/invalid, using default 24-hour validity from login');
+      }
       
       // Check extended validity (original + extensions from API calls)
-      const extendedValidity = new Date(parsed.extendedValidityTime || parsed.sessionValidity);
+      let extendedValidity = new Date(parsed.extendedValidityTime || originalValidity);
+      if (isNaN(extendedValidity.getTime())) {
+        // Fallback to calculated original validity
+        extendedValidity = originalValidity;
+      }
       
       const isOriginalValid = originalValidity > now;
       const isExtendedValid = extendedValidity > now;
@@ -1558,8 +1585,19 @@ class TradingApiService {
 
       const parsed = JSON.parse(sessionInfo);
       const now = new Date();
-      const originalValidity = new Date(parsed.sessionValidity);
-      const extendedValidity = new Date(parsed.extendedValidityTime || parsed.sessionValidity);
+      
+      // Handle potentially missing or invalid sessionValidity
+      let originalValidity = new Date(parsed.sessionValidity);
+      if (isNaN(originalValidity.getTime())) {
+        const loginTime = parsed.loginTime ? new Date(parsed.loginTime) : now;
+        originalValidity = new Date(loginTime.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      let extendedValidity = new Date(parsed.extendedValidityTime || originalValidity);
+      if (isNaN(extendedValidity.getTime())) {
+        extendedValidity = originalValidity;
+      }
+      
       const loginTime = new Date(parsed.loginTime);
       const lastApiCall = new Date(parsed.lastApiCall);
 
@@ -2038,13 +2076,24 @@ class TradingApiService {
       const formData = new FormData();
       formData.append('Type', request.Type.toString());
       formData.append('Id', request.Id.toString());
-      formData.append('Name', request.Name);
-      formData.append('DocumentNumber', request.DocumentNumber);
+      
+      // Always append Name if provided
+      if (request.Name && request.Name.trim() !== '') {
+        formData.append('Name', request.Name);
+      }
+      
+      // Only append DocumentNumber if it's not empty (required for Aadhar Type 1 and PAN Type 2)
+      if (request.DocumentNumber && request.DocumentNumber.trim() !== '') {
+        formData.append('DocumentNumber', request.DocumentNumber);
+        console.log('📝 DocumentNumber appended:', request.DocumentNumber);
+      } else {
+        console.log('⏭️ DocumentNumber skipped (empty or not required for Type', request.Type + ')');
+      }
 
       console.log('📝 FormData prepared with fields:', {
         Type: request.Type,
         Id: request.Id,
-        Name: request.Name,
+        Name: request.Name || '(empty)',
         DocumentNumber: request.DocumentNumber || '(omitted)',
         HasFrontImage: !!request.FrontImageFile && !!request.FrontImageFile.uri,
         HasBackImage: !!request.BackImageFile && !!request.BackImageFile.uri,
@@ -2052,41 +2101,63 @@ class TradingApiService {
 
       // Handle front image upload
       if (request.FrontImageFile && request.FrontImageFile.uri) {
-        console.log('📸 Processing front image upload from URI:', request.FrontImageFile.uri);
-        const response = await fetch(request.FrontImageFile.uri);
-        const blob = await response.blob();
-        console.log('📦 Front image blob created, size:', blob.size, 'bytes');
-        formData.append('FrontImageFile', blob, request.FrontImageFile.name || 'front_image.jpg');
+        try {
+          console.log('📸 Processing front image upload from URI:', request.FrontImageFile.uri);
+          const frontBlob = await uriToBlob(
+            request.FrontImageFile.uri,
+            request.FrontImageFile.name || 'front_image.jpg',
+            request.FrontImageFile.type || 'image/jpeg'
+          );
+          console.log('📦 Front image blob created, size:', frontBlob.size, 'bytes', 'type:', frontBlob.type);
+          formData.append('FrontImageFile', frontBlob, request.FrontImageFile.name || 'front_image.jpg');
+        } catch (imageError) {
+          console.error('❌ Error processing front image:', imageError);
+          throw new Error(`Failed to process front image: ${imageError instanceof Error ? imageError.message : 'Unknown error'}`);
+        }
       }
 
-      // Handle back image upload
+      // Handle back image upload (only for types that require it - Aadhar Type 1, PAN Type 2)
       if (request.BackImageFile && request.BackImageFile.uri) {
-        console.log('📸 Processing back image upload from URI:', request.BackImageFile.uri);
-        const response = await fetch(request.BackImageFile.uri);
-        const blob = await response.blob();
-        console.log('📦 Back image blob created, size:', blob.size, 'bytes');
-        formData.append('BackImageFile', blob, request.BackImageFile.name || 'back_image.jpg');
+        try {
+          console.log('📸 Processing back image upload from URI:', request.BackImageFile.uri);
+          const backBlob = await uriToBlob(
+            request.BackImageFile.uri,
+            request.BackImageFile.name || 'back_image.jpg',
+            request.BackImageFile.type || 'image/jpeg'
+          );
+          console.log('📦 Back image blob created, size:', backBlob.size, 'bytes', 'type:', backBlob.type);
+          formData.append('BackImageFile', backBlob, request.BackImageFile.name || 'back_image.jpg');
+        } catch (imageError) {
+          console.error('❌ Error processing back image:', imageError);
+          throw new Error(`Failed to process back image: ${imageError instanceof Error ? imageError.message : 'Unknown error'}`);
+        }
       }
 
       const endpoint = `${API_BASE_URL}/KycApi/SubmitKyc`;
       console.log('🌐 Making KYC API request to:', endpoint);
       console.log('🔑 Session Token available:', sessionToken.substring(0, 10) + '...');
 
-      const submitResponse = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Accept': '*/*',
-          'X-Session-Key': sessionToken,
-        },
-        body: formData,
-      });
+      let submitResponse;
+      try {
+        submitResponse = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Accept': '*/*',
+            'X-Session-Key': sessionToken,
+          },
+          body: formData,
+        });
+      } catch (fetchError) {
+        console.error('🔥 Fetch request failed:', fetchError);
+        throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : 'Failed to connect to server'}`);
+      }
 
       console.log('📋 Submit KYC API Response Status:', submitResponse.status);
 
       if (!submitResponse.ok) {
         const errorText = await submitResponse.text();
         console.error('❌ Submit KYC API Error Response:', errorText);
-        throw new Error(`Failed to submit KYC document: ${submitResponse.status} ${submitResponse.statusText}`);
+        throw new Error(`Failed to submit KYC document: ${submitResponse.status} ${submitResponse.statusText} - ${errorText}`);
       }
 
       const data = await submitResponse.json();
@@ -2099,7 +2170,8 @@ class TradingApiService {
 
     } catch (error) {
       console.error('🔥 Submit KYC API Error:', error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Network request failed. Please check your connection and try again.';
+      throw new Error(errorMessage);
     }
   }
 

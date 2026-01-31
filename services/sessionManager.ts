@@ -8,6 +8,7 @@ interface UserData {
   mobile?: string;
   tenantId?: string;
   token?: string;
+  joinDate?: string;
 }
 
 interface SessionData {

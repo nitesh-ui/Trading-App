@@ -260,14 +260,42 @@ export default function SettingsScreen() {
     const loadUserData = async () => {
       const currentUser = sessionManager.getCurrentUser();
       if (currentUser) {
+        // Format mobile number with country code and spacing
+        let formattedMobile = currentUser.mobile || 'Number Not Found';
+        if (formattedMobile && formattedMobile !== 'Number Not Found') {
+          // Ensure it starts with +91 for India
+          if (!formattedMobile.startsWith('+91')) {
+            formattedMobile = `+91 ${formattedMobile}`;
+          } else if (!formattedMobile.includes(' ')) {
+            // Add spacing if +91 exists but no space
+            formattedMobile = formattedMobile.replace(/(\d{2})(\d{5})(\d{5})/, '$1 $2 $3');
+          }
+        }
+        
+        // Format join date if available
+        let formattedJoinDate = currentUser.joinDate || '15 Jan 2024';
+        if (formattedJoinDate && formattedJoinDate !== '15 Jan 2024') {
+          try {
+            const date = new Date(formattedJoinDate);
+            formattedJoinDate = date.toLocaleDateString('en-IN', { 
+              day: '2-digit', 
+              month: 'short', 
+              year: 'numeric' 
+            });
+          } catch (error) {
+            // Keep original format if parsing fails
+            console.error('Error formatting join date:', error);
+          }
+        }
+        
         setUserInfo(prev => ({
           ...prev,
           name: currentUser.name || 'Trading User',
           email: currentUser.email || 'user@example.com',
-          mobile: '+91 98765 43210', // This would come from API
+          mobile: formattedMobile,
           username: currentUser.username || currentUser.id,
           accountType: 'Live Account',
-          joinDate: '15 Jan 2024', // This would come from API
+          joinDate: formattedJoinDate,
         }));
       }
       

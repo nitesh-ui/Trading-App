@@ -120,6 +120,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
 
   const handleFileUpload = async (type: string) => {
     try {
+      console.log('📱 Opening file picker for type:', type);
       const result = await DocumentPicker.getDocumentAsync({
         type: ['image/jpeg', 'image/png'],
         copyToCacheDirectory: true,
@@ -132,6 +133,12 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
 
       if (result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+        console.log('📄 File selected:', {
+          name: asset.name,
+          size: asset.size,
+          type: asset.mimeType,
+          uri: asset.uri?.substring(0, 50) + '...',
+        });
         
         // Validate file type
         if (!['image/jpeg', 'image/png'].includes(asset.mimeType || '')) {
@@ -471,15 +478,16 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       const userName = currentUser?.username || 'User';
 
       const response = await tradingApiService.submitKyc({
-        Type: 3, // Profile Picture
+        Type: 4, // Profile Picture
         Id: userId,
         Name: userName,
-        DocumentNumber: '',
+        DocumentNumber: '', // Not required for Profile Picture
         FrontImageFile: {
           uri: profilePicture,
           type: 'image/jpeg',
           name: 'profile_picture.jpg',
         },
+        // BackImageFile not needed for Profile Picture
       });
 
       console.log('✅ Profile Picture submitted successfully:', response);
@@ -527,15 +535,16 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       const userId = parseInt(currentUser?.id || '1');
 
       const response = await tradingApiService.submitKyc({
-        Type: 4, // Digital Signature
+        Type: 5, // Digital Signature
         Id: userId,
         Name: digitalSignatureName,
-        DocumentNumber: '',
+        DocumentNumber: '', // Not required for Digital Signature
         FrontImageFile: {
           uri: digitalSignature,
           type: 'image/jpeg',
           name: 'digital_signature.jpg',
         },
+        // BackImageFile not needed for Digital Signature
       });
 
       console.log('✅ Digital Signature submitted successfully:', response);

@@ -149,43 +149,32 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose, avail
     try {
       setIsSubmitting(true);
 
-      // Generate a unique boundary
-      const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
-      
-      const formParts = [];
+      // Use FormData API which works on both web and React Native
+      const formData = new FormData();
       
       // Add text fields
-      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="AccountInfo"\r\n\r\n${accountInfo.trim()}`);
-      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="RequestType"\r\n\r\n2`);
-      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="Amount"\r\n\r\n${amount}`);
-      formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="PhoneNumber"\r\n\r\n${phoneNumber.replace(/\s+/g, '')}`);
+      formData.append('AccountInfo', accountInfo.trim());
+      formData.append('RequestType', '2');
+      formData.append('Amount', amount);
+      formData.append('PhoneNumber', phoneNumber.replace(/\s+/g, ''));
       
       // If there's a QR code image, add it
       if (qrCode) {
-        // Convert the image URI to a blob
+        // For React Native, fetch the image and create a blob
         const response = await fetch(qrCode.uri);
         const blob = await response.blob();
         
-        formParts.push(
-          `--${boundary}\r\nContent-Disposition: form-data; name="_RequestImage"; filename="${qrCode.name || 'qr_code.jpg'}"\r\nContent-Type: ${qrCode.mimeType || 'image/jpeg'}\r\n\r\n`
-        );
-        formParts.push(await blob.text());
+        // TypeScript requires casting for React Native compatibility
+        formData.append('_RequestImage', blob as any, qrCode.name || 'qr_code.jpg');
       }
-      
-      // Add the final boundary
-      formParts.push(`--${boundary}--\r\n`);
-      
-      // Join all parts with CRLF
-      const formBody = formParts.join('\r\n');
 
       const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/FundRequestApi/AddFundInformationHistory', {
         method: 'POST',
         headers: {
           'accept': '*/*',
           'X-Session-Key': sessionManager.getToken() || '',
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
         },
-        body: formBody
+        body: formData
       });
 
       const result = await response.json();
