@@ -48,7 +48,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import React, { memo, Suspense, useCallback, useMemo, useState } from 'react';
-import { Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Card, Text } from '../../components/atomic';
 import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
 import { StockCardSkeleton } from '../../components/LoadingComponents';
@@ -504,26 +504,42 @@ export default function TradesScreen() {
     console.log('Square off trade:', trade);
     
     // Show confirmation dialog
+    const confirmTitle = 'Confirm Square Off';
     const confirmMessage = `Are you sure you want to square off ${trade.quantity} ${trade.symbol}?`;
-    let confirmed = false;
     
-    if (Platform.OS === 'web') {
-      confirmed = window.confirm(confirmMessage);
-    } else {
-      // For mobile, we'll proceed directly for now
-      // In a real app, you might want to implement a custom modal
-      confirmed = true;
-    }
+    // Use platform-specific confirmation
+    const showConfirmation = (): Promise<boolean> => {
+      return new Promise((resolve) => {
+        if (Platform.OS === 'web') {
+          // Use browser's confirm dialog for web
+          resolve(window.confirm(confirmMessage));
+        } else {
+          // Use React Native Alert for mobile
+          Alert.alert(
+            confirmTitle,
+            confirmMessage,
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => resolve(false),
+              },
+              {
+                text: 'Square Off',
+                style: 'destructive',
+                onPress: () => resolve(true),
+              },
+            ],
+            { cancelable: true, onDismiss: () => resolve(false) }
+          );
+        }
+      });
+    };
+    
+    const confirmed = await showConfirmation();
     
     if (confirmed) {
       try {
-        // Show processing notification
-        // showNotification({
-        //   type: 'info',
-        //   title: 'Processing Square Off',
-        //   message: `Placing square off order for ${trade.symbol}...`
-        // });
-        
         // Call square off API
         const result = await tradingApiService.squareOffTrade(
           trade.activeTradeID,
@@ -574,20 +590,42 @@ export default function TradesScreen() {
     }
     
     // Show confirmation dialog with breakdown
+    const confirmTitle = 'Confirm Square Off All';
     let confirmMessage = `Are you sure you want to square off all ${totalCount} position${totalCount > 1 ? 's' : ''}?`;
     if (activeCount > 0 && pendingCount > 0) {
       confirmMessage = `Are you sure you want to square off ${activeCount} active and ${pendingCount} pending position${totalCount > 1 ? 's' : ''}?`;
     }
     
-    let confirmed = false;
+    // Use platform-specific confirmation
+    const showConfirmation = (): Promise<boolean> => {
+      return new Promise((resolve) => {
+        if (Platform.OS === 'web') {
+          // Use browser's confirm dialog for web
+          resolve(window.confirm(confirmMessage));
+        } else {
+          // Use React Native Alert for mobile
+          Alert.alert(
+            confirmTitle,
+            confirmMessage,
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => resolve(false),
+              },
+              {
+                text: 'Square Off All',
+                style: 'destructive',
+                onPress: () => resolve(true),
+              },
+            ],
+            { cancelable: true, onDismiss: () => resolve(false) }
+          );
+        }
+      });
+    };
     
-    if (Platform.OS === 'web') {
-      confirmed = window.confirm(confirmMessage);
-    } else {
-      // For mobile, we'll proceed directly for now
-      // In a real app, you might want to implement a custom modal
-      confirmed = true;
-    }
+    const confirmed = await showConfirmation();
     
     if (confirmed) {
       try {
