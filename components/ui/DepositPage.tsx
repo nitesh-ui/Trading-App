@@ -39,8 +39,9 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
   const handleChooseFile = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['image/*'], // Allow only images
-        copyToCacheDirectory: true // Important for iOS
+        type: 'image/*', // Allow all image types
+        copyToCacheDirectory: true, // Important for iOS
+        multiple: false
       });
 
       if (result.canceled) {
@@ -63,10 +64,17 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
         uri: asset.uri,
         name: asset.name,
         size: asset.size,
-        mimeType: asset.mimeType
+        mimeType: asset.mimeType || 'image/jpeg'
+      });
+      
+      console.log('📸 Screenshot selected:', {
+        name: asset.name,
+        size: asset.size,
+        mimeType: asset.mimeType,
+        uri: asset.uri.substring(0, 50) + '...'
       });
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('❌ Error picking document:', error);
       showNotification({
         type: 'error',
         title: 'File Selection Failed',
@@ -130,24 +138,38 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
       
       // If there's a screenshot, add it as a file
       if (screenshot) {
-        // For React Native, fetch the image and create a blob
-        const response = await fetch(screenshot.uri);
-        const blob = await response.blob();
+        // For React Native, we need to handle file upload differently
+        // The FormData in React Native expects a specific object structure
+        const fileToUpload: any = {
+          uri: screenshot.uri,
+          type: screenshot.mimeType || 'image/jpeg',
+          name: screenshot.name || 'transaction_screenshot.jpg',
+        };
         
-        // TypeScript requires casting for React Native compatibility
-        formData.append('_RequestImage', blob as any, screenshot.name || 'transaction_screenshot.jpg');
+        formData.append('_RequestImage', fileToUpload);
       }
+
+      console.log('📤 Submitting deposit request:', {
+        amount,
+        phoneNumber: phoneNumber.replace(/\s+/g, ''),
+        hasScreenshot: !!screenshot,
+        accountInfo: accountInfo.trim() || 'No description provided'
+      });
 
       const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/FundRequestApi/AddFundInformationHistory', {
         method: 'POST',
         headers: {
           'accept': '*/*',
           'X-Session-Key': sessionManager.getToken() || '',
+          // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
         },
         body: formData
       });
 
+      console.log('📡 Deposit API Response Status:', response.status);
+
       const result = await response.json();
+      console.log('✅ Deposit API Response:', result);
       
       if (!response.ok) {
         throw new Error(result.message || 'Failed to submit deposit request');
@@ -167,7 +189,13 @@ const DepositPage: React.FC<DepositPageProps> = ({ visible, onClose }) => {
       setAccountInfo('');
 
     } catch (error: any) {
-      console.error('Error submitting deposit:', error);
+      console.error('❌ Error submitting deposit:', error);
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      
       showNotification({
         type: 'error',
         title: 'Submission Failed',
