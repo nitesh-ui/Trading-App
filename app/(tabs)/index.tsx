@@ -1119,25 +1119,11 @@ const WatchlistContent = memo(() => {
   }, []);
 
   const handleTradePageExecute = useCallback((tradeData: any) => {
-    // Simulate trade execution
-    Alert.alert(
-      'Trade Executed',
-      `${tradeData.action.toUpperCase()} ${tradeData.quantity} ${tradeData.asset.symbol}`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setIsTradePageVisible(false);
-            setTradeAsset(null);
-            showNotification({ 
-              type: 'success', 
-              title: 'Trade executed successfully' 
-            });
-          },
-        },
-      ]
-    );
-  }, [showNotification]);
+    // Trade execution is now handled by TradePage component
+    // Just close the trade page - notification is already shown by TradePage
+    setIsTradePageVisible(false);
+    setTradeAsset(null);
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
