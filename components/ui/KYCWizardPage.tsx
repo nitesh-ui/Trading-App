@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { Button, Input, Text } from '../atomic';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -29,6 +30,13 @@ interface KYCWizardPageProps {
   visible: boolean;
   selectedType?: KYCType | null;
   onClose: () => void;
+}
+
+interface FileAsset {
+  uri: string;
+  name: string;
+  mimeType: string;
+  size?: number;
 }
 
 const KYC_STEPS = [
@@ -49,27 +57,27 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
   // Aadhar Card State
   const [aadharName, setAadharName] = useState('');
   const [aadharNumber, setAadharNumber] = useState('');
-  const [aadharFront, setAadharFront] = useState<string | null>(null);
-  const [aadharBack, setAadharBack] = useState<string | null>(null);
+  const [aadharFront, setAadharFront] = useState<FileAsset | null>(null);
+  const [aadharBack, setAadharBack] = useState<FileAsset | null>(null);
 
   // PAN Card State
   const [panName, setPanName] = useState('');
   const [panNumber, setPanNumber] = useState('');
-  const [panImage, setPanImage] = useState<string | null>(null);
+  const [panImage, setPanImage] = useState<FileAsset | null>(null);
 
   // Profile Picture State
-  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [profilePicture, setProfilePicture] = useState<FileAsset | null>(null);
 
   // Digital Signature State
   const [digitalSignatureName, setDigitalSignatureName] = useState('');
-  const [digitalSignature, setDigitalSignature] = useState<string | null>(null);
+  const [digitalSignature, setDigitalSignature] = useState<FileAsset | null>(null);
 
   // Bank Details State
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
   const [accountHolderName, setAccountHolderName] = useState('');
-  const [bankDocument, setBankDocument] = useState<string | null>(null);
+  const [bankDocument, setBankDocument] = useState<FileAsset | null>(null);
 
   const [loading, setLoading] = useState(false);
 
@@ -161,55 +169,33 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           return;
         }
 
-        // Set the file URI based on type
+        // Create file asset object
+        const fileAsset: FileAsset = {
+          uri: asset.uri,
+          name: asset.name,
+          mimeType: asset.mimeType || 'image/jpeg',
+          size: asset.size,
+        };
+
+        // Set the file asset based on type
         switch (type) {
           case 'aadharFront':
-            setAadharFront(asset.uri);
-            showNotification({
-              type: 'success',
-              title: 'Success',
-              message: 'Aadhar front image selected',
-            });
+            setAadharFront(fileAsset);
             break;
           case 'aadharBack':
-            setAadharBack(asset.uri);
-            showNotification({
-              type: 'success',
-              title: 'Success',
-              message: 'Aadhar back image selected',
-            });
+            setAadharBack(fileAsset);
             break;
           case 'panImage':
-            setPanImage(asset.uri);
-            showNotification({
-              type: 'success',
-              title: 'Success',
-              message: 'PAN image selected',
-            });
+            setPanImage(fileAsset);
             break;
           case 'profilePicture':
-            setProfilePicture(asset.uri);
-            showNotification({
-              type: 'success',
-              title: 'Success',
-              message: 'Profile picture selected',
-            });
+            setProfilePicture(fileAsset);
             break;
           case 'digitalSignature':
-            setDigitalSignature(asset.uri);
-            showNotification({
-              type: 'success',
-              title: 'Success',
-              message: 'Digital signature selected',
-            });
+            setDigitalSignature(fileAsset);
             break;
           case 'bankDocument':
-            setBankDocument(asset.uri);
-            showNotification({
-              type: 'success',
-              title: 'Success',
-              message: 'Bank document selected',
-            });
+            setBankDocument(fileAsset);
             break;
         }
 
@@ -283,25 +269,54 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
         UserName: userName,
       });
 
-      const response = await tradingApiService.submitBankDetails({
-        Id: 1,
-        Name: accountHolderName,
-        BankName: bankName,
-        IFSC: ifscCode,
-        AccountNumber: accountNumber,
-        FrontImage: {
-          uri: bankDocument,
-          type: 'image/jpeg',
-          name: 'bank_document.jpg',
+      // Use FormData API which works on both web and React Native
+      const formData = new FormData();
+      formData.append('Id', '1');
+      formData.append('Name', accountHolderName);
+      formData.append('BankName', bankName);
+      formData.append('IFSC', ifscCode);
+      formData.append('AccountNumber', accountNumber);
+      formData.append('UserName', userName);
+
+      // Add file - handle web vs mobile differently
+      if (Platform.OS === 'web') {
+        const response = await fetch(bankDocument.uri);
+        const blob = await response.blob();
+        formData.append('FrontImage', blob, bankDocument.name || 'bank_document.jpg');
+      } else {
+        const fileToUpload: any = {
+          uri: bankDocument.uri,
+          type: bankDocument.mimeType || 'image/jpeg',
+          name: bankDocument.name || 'bank_document.jpg',
+        };
+        formData.append('FrontImage', fileToUpload);
+      }
+
+      const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/KycApi/SubmitBank', {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionManager.getToken() || '',
+          // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
         },
-        UserName: userName,
+        body: formData,
       });
 
-      console.log('✅ Bank details submitted successfully:', response);
+      console.log('🏦 Bank Details API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Bank Details API Error Response:', errorText);
+        throw new Error(`Failed to submit bank details: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Bank details submitted successfully:', data);
+      
       showNotification({
         type: 'success',
         title: 'Success',
-        message: response.message || 'Bank details submitted successfully',
+        message: data.message || 'Bank details submitted successfully',
       });
       handleClose();
     } catch (error) {
@@ -358,28 +373,66 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       const currentUser = sessionManager.getCurrentUser();
       const userId = parseInt(currentUser?.id || '1');
 
-      const response = await tradingApiService.submitKyc({
-        Type: 1, // Aadhar
-        Id: userId,
-        Name: aadharName,
-        DocumentNumber: aadharNumber,
-        FrontImageFile: {
-          uri: aadharFront,
-          type: 'image/jpeg',
-          name: 'aadhar_front.jpg',
+      // Use FormData API which works on both web and React Native
+      const formData = new FormData();
+      formData.append('Type', '1'); // Aadhar
+      formData.append('Id', userId.toString());
+      formData.append('Name', aadharName);
+      formData.append('DocumentNumber', aadharNumber);
+
+      // Add front image - handle web vs mobile differently
+      if (Platform.OS === 'web') {
+        const frontResponse = await fetch(aadharFront.uri);
+        const frontBlob = await frontResponse.blob();
+        formData.append('FrontImageFile', frontBlob, aadharFront.name || 'aadhar_front.jpg');
+      } else {
+        const frontFileToUpload: any = {
+          uri: aadharFront.uri,
+          type: aadharFront.mimeType || 'image/jpeg',
+          name: aadharFront.name || 'aadhar_front.jpg',
+        };
+        formData.append('FrontImageFile', frontFileToUpload);
+      }
+
+      // Add back image - handle web vs mobile differently
+      if (Platform.OS === 'web') {
+        const backResponse = await fetch(aadharBack.uri);
+        const backBlob = await backResponse.blob();
+        formData.append('BackImageFile', backBlob, aadharBack.name || 'aadhar_back.jpg');
+      } else {
+        const backFileToUpload: any = {
+          uri: aadharBack.uri,
+          type: aadharBack.mimeType || 'image/jpeg',
+          name: aadharBack.name || 'aadhar_back.jpg',
+        };
+        formData.append('BackImageFile', backFileToUpload);
+      }
+
+      const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/KycApi/SubmitKyc', {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionManager.getToken() || '',
+          // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
         },
-        BackImageFile: {
-          uri: aadharBack,
-          type: 'image/jpeg',
-          name: 'aadhar_back.jpg',
-        },
+        body: formData,
       });
 
-      console.log('✅ Aadhar submitted successfully:', response);
+      console.log('🎫 Aadhar API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Aadhar API Error Response:', errorText);
+        throw new Error(`Failed to submit Aadhar: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Aadhar submitted successfully:', data);
+      
       showNotification({
         type: 'success',
         title: 'Success',
-        message: response.message || 'Aadhar card submitted successfully',
+        message: data.message || 'Aadhar card submitted successfully',
       });
       handleClose();
     } catch (error) {
@@ -428,23 +481,52 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       const currentUser = sessionManager.getCurrentUser();
       const userId = parseInt(currentUser?.id || '1');
 
-      const response = await tradingApiService.submitKyc({
-        Type: 2, // PAN
-        Id: userId,
-        Name: panName,
-        DocumentNumber: panNumber,
-        FrontImageFile: {
-          uri: panImage,
-          type: 'image/jpeg',
-          name: 'pan_image.jpg',
+      // Use FormData API which works on both web and React Native
+      const formData = new FormData();
+      formData.append('Type', '2'); // PAN
+      formData.append('Id', userId.toString());
+      formData.append('Name', panName);
+      formData.append('DocumentNumber', panNumber);
+
+      // Add image - handle web vs mobile differently
+      if (Platform.OS === 'web') {
+        const response = await fetch(panImage.uri);
+        const blob = await response.blob();
+        formData.append('FrontImageFile', blob, panImage.name || 'pan_image.jpg');
+      } else {
+        const fileToUpload: any = {
+          uri: panImage.uri,
+          type: panImage.mimeType || 'image/jpeg',
+          name: panImage.name || 'pan_image.jpg',
+        };
+        formData.append('FrontImageFile', fileToUpload);
+      }
+
+      const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/KycApi/SubmitKyc', {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionManager.getToken() || '',
+          // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
         },
+        body: formData,
       });
 
-      console.log('✅ PAN submitted successfully:', response);
+      console.log('💳 PAN API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ PAN API Error Response:', errorText);
+        throw new Error(`Failed to submit PAN: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ PAN submitted successfully:', data);
+      
       showNotification({
         type: 'success',
         title: 'Success',
-        message: response.message || 'PAN card submitted successfully',
+        message: data.message || 'PAN card submitted successfully',
       });
       handleClose();
     } catch (error) {
@@ -477,24 +559,52 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       const userId = parseInt(currentUser?.id || '1');
       const userName = currentUser?.username || 'User';
 
-      const response = await tradingApiService.submitKyc({
-        Type: 4, // Profile Picture
-        Id: userId,
-        Name: userName,
-        DocumentNumber: '', // Not required for Profile Picture
-        FrontImageFile: {
-          uri: profilePicture,
-          type: 'image/jpeg',
-          name: 'profile_picture.jpg',
+      // Use FormData API which works on both web and React Native
+      const formData = new FormData();
+      formData.append('Type', '4'); // Profile Picture
+      formData.append('Id', userId.toString());
+      formData.append('Name', userName);
+      formData.append('DocumentNumber', ''); // Not required for Profile Picture
+
+      // Add image - handle web vs mobile differently
+      if (Platform.OS === 'web') {
+        const response = await fetch(profilePicture.uri);
+        const blob = await response.blob();
+        formData.append('FrontImageFile', blob, profilePicture.name || 'profile_picture.jpg');
+      } else {
+        const fileToUpload: any = {
+          uri: profilePicture.uri,
+          type: profilePicture.mimeType || 'image/jpeg',
+          name: profilePicture.name || 'profile_picture.jpg',
+        };
+        formData.append('FrontImageFile', fileToUpload);
+      }
+
+      const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/KycApi/SubmitKyc', {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionManager.getToken() || '',
+          // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
         },
-        // BackImageFile not needed for Profile Picture
+        body: formData,
       });
 
-      console.log('✅ Profile Picture submitted successfully:', response);
+      console.log('📷 Profile Picture API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Profile Picture API Error Response:', errorText);
+        throw new Error(`Failed to submit Profile Picture: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Profile Picture submitted successfully:', data);
+      
       showNotification({
         type: 'success',
         title: 'Success',
-        message: response.message || 'Profile picture submitted successfully',
+        message: data.message || 'Profile picture submitted successfully',
       });
       handleClose();
     } catch (error) {
@@ -534,24 +644,52 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
       const currentUser = sessionManager.getCurrentUser();
       const userId = parseInt(currentUser?.id || '1');
 
-      const response = await tradingApiService.submitKyc({
-        Type: 5, // Digital Signature
-        Id: userId,
-        Name: digitalSignatureName,
-        DocumentNumber: '', // Not required for Digital Signature
-        FrontImageFile: {
-          uri: digitalSignature,
-          type: 'image/jpeg',
-          name: 'digital_signature.jpg',
+      // Use FormData API which works on both web and React Native
+      const formData = new FormData();
+      formData.append('Type', '5'); // Digital Signature
+      formData.append('Id', userId.toString());
+      formData.append('Name', digitalSignatureName);
+      formData.append('DocumentNumber', ''); // Not required for Digital Signature
+
+      // Add image - handle web vs mobile differently
+      if (Platform.OS === 'web') {
+        const response = await fetch(digitalSignature.uri);
+        const blob = await response.blob();
+        formData.append('FrontImageFile', blob, digitalSignature.name || 'digital_signature.jpg');
+      } else {
+        const fileToUpload: any = {
+          uri: digitalSignature.uri,
+          type: digitalSignature.mimeType || 'image/jpeg',
+          name: digitalSignature.name || 'digital_signature.jpg',
+        };
+        formData.append('FrontImageFile', fileToUpload);
+      }
+
+      const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/KycApi/SubmitKyc', {
+        method: 'POST',
+        headers: {
+          'Accept': '*/*',
+          'X-Session-Key': sessionManager.getToken() || '',
+          // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
         },
-        // BackImageFile not needed for Digital Signature
+        body: formData,
       });
 
-      console.log('✅ Digital Signature submitted successfully:', response);
+      console.log('✍️ Digital Signature API Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Digital Signature API Error Response:', errorText);
+        throw new Error(`Failed to submit Digital Signature: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Digital Signature submitted successfully:', data);
+      
       showNotification({
         type: 'success',
         title: 'Success',
-        message: response.message || 'Digital signature submitted successfully',
+        message: data.message || 'Digital signature submitted successfully',
       });
       handleClose();
     } catch (error) {
@@ -606,9 +744,18 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           onPress={() => handleFileUpload('aadharFront')}
         >
           <Text variant="body" color={aadharFront ? 'text' : 'textSecondary'}>
-            {aadharFront ? 'File chosen' : 'Choose file'}
+            {aadharFront ? aadharFront.name : 'Choose file'}
           </Text>
         </TouchableOpacity>
+        {aadharFront && (
+          <View style={styles.imagePreviewContainer}>
+            <Image
+              source={{ uri: aadharFront.uri }}
+              style={styles.imagePreview}
+              resizeMode="cover"
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.formSection}>
@@ -620,9 +767,18 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           onPress={() => handleFileUpload('aadharBack')}
         >
           <Text variant="body" color={aadharBack ? 'text' : 'textSecondary'}>
-            {aadharBack ? 'File chosen' : 'Choose file'}
+            {aadharBack ? aadharBack.name : 'Choose file'}
           </Text>
         </TouchableOpacity>
+        {aadharBack && (
+          <View style={styles.imagePreviewContainer}>
+            <Image
+              source={{ uri: aadharBack.uri }}
+              style={styles.imagePreview}
+              resizeMode="cover"
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.submitButtonContainer}>
@@ -676,9 +832,18 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           onPress={() => handleFileUpload('panImage')}
         >
           <Text variant="body" color={panImage ? 'text' : 'textSecondary'}>
-            {panImage ? 'File chosen' : 'Choose file'}
+            {panImage ? panImage.name : 'Choose file'}
           </Text>
         </TouchableOpacity>
+        {panImage && (
+          <View style={styles.imagePreviewContainer}>
+            <Image
+              source={{ uri: panImage.uri }}
+              style={styles.imagePreview}
+              resizeMode="cover"
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.submitButtonContainer}>
@@ -707,9 +872,18 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           onPress={() => handleFileUpload('profilePicture')}
         >
           <Text variant="body" color={profilePicture ? 'text' : 'textSecondary'}>
-            {profilePicture ? 'File chosen' : 'Choose file'}
+            {profilePicture ? profilePicture.name : 'Choose file'}
           </Text>
         </TouchableOpacity>
+        {profilePicture && (
+          <View style={styles.imagePreviewContainer}>
+            <Image
+              source={{ uri: profilePicture.uri }}
+              style={styles.imagePreview}
+              resizeMode="cover"
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.submitButtonContainer}>
@@ -750,9 +924,18 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           onPress={() => handleFileUpload('digitalSignature')}
         >
           <Text variant="body" color={digitalSignature ? 'text' : 'textSecondary'}>
-            {digitalSignature ? 'File chosen' : 'Choose file'}
+            {digitalSignature ? digitalSignature.name : 'Choose file'}
           </Text>
         </TouchableOpacity>
+        {digitalSignature && (
+          <View style={styles.imagePreviewContainer}>
+            <Image
+              source={{ uri: digitalSignature.uri }}
+              style={styles.imagePreview}
+              resizeMode="cover"
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.submitButtonContainer}>
@@ -831,9 +1014,18 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           onPress={() => handleFileUpload('bankDocument')}
         >
           <Text variant="body" color={bankDocument ? 'text' : 'textSecondary'}>
-            {bankDocument ? 'File chosen' : 'Choose file'}
+            {bankDocument ? bankDocument.name : 'Choose file'}
           </Text>
         </TouchableOpacity>
+        {bankDocument && (
+          <View style={styles.imagePreviewContainer}>
+            <Image
+              source={{ uri: bankDocument.uri }}
+              style={styles.imagePreview}
+              resizeMode="cover"
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.submitButtonContainer}>
@@ -1036,5 +1228,15 @@ const styles = StyleSheet.create({
   },
   submitButtonContainer: {
     marginTop: 24,
+  },
+  imagePreviewContainer: {
+    marginTop: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
   },
 });

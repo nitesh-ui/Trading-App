@@ -2019,14 +2019,20 @@ class TradingApiService {
         HasFrontImage: !!request.FrontImage && !!request.FrontImage.uri,
       });
 
-      // Handle file upload
+      // Handle file upload - React Native compatible
       if (request.FrontImage && request.FrontImage.uri) {
         console.log('📸 Processing file upload from URI:', request.FrontImage.uri);
-        // Create file blob from URI
-        const response = await fetch(request.FrontImage.uri);
-        const blob = await response.blob();
-        console.log('📦 File blob created, size:', blob.size, 'bytes');
-        formData.append('FrontImage', blob, request.FrontImage.name || 'bank_document.jpg');
+        
+        // For React Native, we need to handle file upload differently
+        // The FormData in React Native expects a specific object structure
+        const fileToUpload: any = {
+          uri: request.FrontImage.uri,
+          type: request.FrontImage.type || 'image/jpeg',
+          name: request.FrontImage.name || 'bank_document.jpg',
+        };
+        
+        formData.append('FrontImage', fileToUpload);
+        console.log('📦 File added to FormData:', fileToUpload.name);
       }
 
       const endpoint = `${API_BASE_URL}/KycApi/SubmitBank`;
@@ -2038,6 +2044,7 @@ class TradingApiService {
         headers: {
           'Accept': '*/*',
           'X-Session-Key': sessionToken,
+          // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
         },
         body: formData,
       });
@@ -2101,34 +2108,42 @@ class TradingApiService {
         HasBackImage: !!request.BackImageFile && !!request.BackImageFile.uri,
       });
 
-      // Handle front image upload
+      // Handle front image upload - React Native compatible
       if (request.FrontImageFile && request.FrontImageFile.uri) {
         try {
           console.log('📸 Processing front image upload from URI:', request.FrontImageFile.uri);
-          const frontBlob = await uriToBlob(
-            request.FrontImageFile.uri,
-            request.FrontImageFile.name || 'front_image.jpg',
-            request.FrontImageFile.type || 'image/jpeg'
-          );
-          console.log('📦 Front image blob created, size:', frontBlob.size, 'bytes', 'type:', frontBlob.type);
-          formData.append('FrontImageFile', frontBlob, request.FrontImageFile.name || 'front_image.jpg');
+          
+          // For React Native, we need to handle file upload differently
+          // The FormData in React Native expects a specific object structure
+          const frontFileToUpload: any = {
+            uri: request.FrontImageFile.uri,
+            type: request.FrontImageFile.type || 'image/jpeg',
+            name: request.FrontImageFile.name || 'front_image.jpg',
+          };
+          
+          formData.append('FrontImageFile', frontFileToUpload);
+          console.log('📦 Front image added to FormData:', frontFileToUpload.name);
         } catch (imageError) {
           console.error('❌ Error processing front image:', imageError);
           throw new Error(`Failed to process front image: ${imageError instanceof Error ? imageError.message : 'Unknown error'}`);
         }
       }
 
-      // Handle back image upload (only for types that require it - Aadhar Type 1, PAN Type 2)
+      // Handle back image upload - React Native compatible (only for types that require it - Aadhar Type 1, PAN Type 2)
       if (request.BackImageFile && request.BackImageFile.uri) {
         try {
           console.log('📸 Processing back image upload from URI:', request.BackImageFile.uri);
-          const backBlob = await uriToBlob(
-            request.BackImageFile.uri,
-            request.BackImageFile.name || 'back_image.jpg',
-            request.BackImageFile.type || 'image/jpeg'
-          );
-          console.log('📦 Back image blob created, size:', backBlob.size, 'bytes', 'type:', backBlob.type);
-          formData.append('BackImageFile', backBlob, request.BackImageFile.name || 'back_image.jpg');
+          
+          // For React Native, we need to handle file upload differently
+          // The FormData in React Native expects a specific object structure
+          const backFileToUpload: any = {
+            uri: request.BackImageFile.uri,
+            type: request.BackImageFile.type || 'image/jpeg',
+            name: request.BackImageFile.name || 'back_image.jpg',
+          };
+          
+          formData.append('BackImageFile', backFileToUpload);
+          console.log('📦 Back image added to FormData:', backFileToUpload.name);
         } catch (imageError) {
           console.error('❌ Error processing back image:', imageError);
           throw new Error(`Failed to process back image: ${imageError instanceof Error ? imageError.message : 'Unknown error'}`);
@@ -2146,6 +2161,7 @@ class TradingApiService {
           headers: {
             'Accept': '*/*',
             'X-Session-Key': sessionToken,
+            // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
           },
           body: formData,
         });
