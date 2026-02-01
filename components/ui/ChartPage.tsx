@@ -190,30 +190,6 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
           />
         </Card>
 
-        {/* Current Price Stats - Optimized Layout */}
-        <Card padding="medium" style={styles.currentStatsCard}>
-          <View style={styles.currentStatsContainer}>
-            <View style={styles.currentStatItem}>
-              <Text variant="caption" color="textSecondary" style={styles.statLabel}>Open</Text>
-              <Text variant="body" weight="bold" color="text" numberOfLines={1}>
-                {formatPrice(liveOpen)}
-              </Text>
-            </View>
-            <View style={styles.currentStatItem}>
-              <Text variant="caption" color="textSecondary" style={styles.statLabel}>High</Text>
-              <Text variant="body" weight="bold" color="success" numberOfLines={1}>
-                {formatPrice(chartStats.high)}
-              </Text>
-            </View>
-            <View style={styles.currentStatItem}>
-              <Text variant="caption" color="textSecondary" style={styles.statLabel}>Low</Text>
-              <Text variant="body" weight="bold" color="error" numberOfLines={1}>
-                {formatPrice(chartStats.low)}
-              </Text>
-            </View>
-          </View>
-        </Card>
-
         </ScrollView>
 
         {/* 
