@@ -488,6 +488,8 @@ export interface GetRequiredMarginRequest {
   scriptCode: number;
   lastprice: number;
   isMisOrder: boolean;
+  tradinG_UNIT_TYPE: number; // 1 for 'Lot', 2 for 'Quantity'
+  scriptLotSize: number;
 }
 
 export interface RequiredMarginData {
@@ -2293,7 +2295,9 @@ class TradingApiService {
             qty: request.qty,
             scriptCode: request.scriptCode,
             lastprice: request.lastprice,
-            isMisOrder: request.isMisOrder
+            isMisOrder: request.isMisOrder,
+            tradinG_UNIT_TYPE: request.tradinG_UNIT_TYPE,
+            scriptLotSize: request.scriptLotSize
           })
         }
       );
