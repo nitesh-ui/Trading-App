@@ -33,6 +33,12 @@ export const StockCard: React.FC<StockCardProps> = React.memo(({
   const theme = providedTheme || contextTheme;
   const animatedHeight = React.useRef(new Animated.Value(showDetails ? 1 : 0)).current;
 
+  // Safety check: return null if stock is undefined
+  if (!stock) {
+    console.warn('⚠️ StockCard received undefined stock prop');
+    return null;
+  }
+
   React.useEffect(() => {
     Animated.timing(animatedHeight, {
       toValue: showDetails ? 1 : 0,
