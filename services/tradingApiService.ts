@@ -551,7 +551,7 @@ class TradingApiService {
       const requestBody: LoginRequest = {
         emailOrUsername: credentials.emailOrUsername,
         password: credentials.password,
-       // domainURL: 'uat.sanaitatechnologies.com',
+        // domainURL: 'uat.sanaitatechnologies.com',
         domainURL: 'demo.sanaitatechnologies.com',
         user_Location: '',
         ipAddess: ''
@@ -577,7 +577,7 @@ class TradingApiService {
       if (!response.ok) {
         // Handle HTTP errors
         let errorMessage = `Login failed: ${response.status} ${response.statusText}`;
-        
+
         try {
           // Try to parse JSON error response first
           const errorData = await response.json();
@@ -595,9 +595,9 @@ class TradingApiService {
             // Keep the default error message
           }
         }
-        
+
         console.error('❌ API Error Response:', errorMessage);
-        
+
         return {
           success: false,
           message: errorMessage,
@@ -644,7 +644,7 @@ class TradingApiService {
 
     } catch (error) {
       console.error('🔥 API Request Error:', error);
-      
+
       return {
         success: false,
         message: 'Network error. Please check your connection and try again.',
@@ -659,7 +659,7 @@ class TradingApiService {
   private async saveSessionData(sessionData: any): Promise<void> {
     try {
       const now = new Date();
-      
+
       // If sessionValidity is missing, set default (24 hours from now)
       let originalValidity = now;
       if (sessionData.sessionValidity) {
@@ -673,10 +673,10 @@ class TradingApiService {
         console.log('⚠️ No sessionValidity from API, using default 24-hour validity');
         originalValidity = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       }
-      
+
       // Initialize extended validity to 19 minutes from now (first extension on login)
       const initialExtendedValidity = new Date(now.getTime() + 19 * 60 * 1000);
-      
+
       const sessionInfo = {
         sessionToken: sessionData.sessionToken,
         sessionValidity: originalValidity.toISOString(),
@@ -719,7 +719,7 @@ class TradingApiService {
 
       const parsed = JSON.parse(sessionInfo);
       const now = new Date();
-      
+
       // Check original session validity - if missing or invalid, set default (24 hours from login)
       let originalValidity = new Date(parsed.sessionValidity);
       if (isNaN(originalValidity.getTime())) {
@@ -728,17 +728,17 @@ class TradingApiService {
         originalValidity = new Date(loginTime.getTime() + 24 * 60 * 60 * 1000);
         console.log('⚠️ Session validity was missing/invalid, using default 24-hour validity from login');
       }
-      
+
       // Check extended validity (original + extensions from API calls)
       let extendedValidity = new Date(parsed.extendedValidityTime || originalValidity);
       if (isNaN(extendedValidity.getTime())) {
         // Fallback to calculated original validity
         extendedValidity = originalValidity;
       }
-      
+
       const isOriginalValid = originalValidity > now;
       const isExtendedValid = extendedValidity > now;
-      
+
       console.log('🔍 Session validity check:', {
         now: now.toISOString(),
         originalValidity: originalValidity.toISOString(),
@@ -775,17 +775,17 @@ class TradingApiService {
 
       const parsed = JSON.parse(sessionInfo);
       const now = new Date();
-      
+
       // Extend validity by 19 minutes from now
       const newExtendedValidity = new Date(now.getTime() + 19 * 60 * 1000);
-      
+
       const previousExtendedValidity = parsed.extendedValidityTime;
-      
+
       parsed.lastApiCall = now.toISOString();
       parsed.extendedValidityTime = newExtendedValidity.toISOString();
 
       await AsyncStorage.setItem('trading_session_info', JSON.stringify(parsed));
-      
+
       console.log('✅ Session validity extended:', {
         previousExpiry: previousExtendedValidity,
         newExpiry: newExtendedValidity.toISOString(),
@@ -885,7 +885,7 @@ class TradingApiService {
     try {
       // Clear session data from AsyncStorage
       await this.clearSessionData();
-      
+
       // If we have a session token, try to call logout API
       const sessionData = await this.getSessionData();
       if (sessionData?.sessionToken || token) {
@@ -1104,7 +1104,7 @@ class TradingApiService {
       if (error instanceof Error && error.message.includes('Session expired')) {
         throw error;
       }
-      
+
       console.error('🔥 Change Password API Error:', error);
       return {
         success: false,
@@ -1262,7 +1262,7 @@ class TradingApiService {
       if (response.status === 401) {
         console.log('⚠️ Received 401 - session expired on server, clearing local session');
         await this.clearSessionData();
-        
+
         // Call the global unauthorized handler if set
         if (this.unauthorizedHandler) {
           try {
@@ -1272,7 +1272,7 @@ class TradingApiService {
             console.error('❌ Error in unauthorized handler:', handlerError);
           }
         }
-        
+
         throw new Error('Session expired. Please login again.');
       }
 
@@ -1280,7 +1280,7 @@ class TradingApiService {
       if (response.status === 403) {
         console.log('⚠️ Received 403 - insufficient permissions, clearing local session');
         await this.clearSessionData();
-        
+
         // Call the global unauthorized handler if set (403 is also auth-related)
         if (this.unauthorizedHandler) {
           try {
@@ -1290,7 +1290,7 @@ class TradingApiService {
             console.error('❌ Error in unauthorized handler:', handlerError);
           }
         }
-        
+
         throw new Error('Access denied. Please login again.');
       }
 
@@ -1305,7 +1305,7 @@ class TradingApiService {
       if (error instanceof Error && error.message.includes('Session expired')) {
         throw error; // Re-throw session errors
       }
-      
+
       console.error('❌ Network error in authenticated request:', error);
       throw error;
     }
@@ -1360,13 +1360,13 @@ class TradingApiService {
 
       // Check if the API response indicates success or failure
       // The API might return 200 but with an error message in the response body
-      const isApiSuccess = response.ok && 
-                          (data.success !== false) && 
-                          !data.error &&
-                          !data.message?.toLowerCase().includes('error') &&
-                          !data.message?.toLowerCase().includes('failed') &&
-                          !data.message?.toLowerCase().includes('insufficient') &&
-                          !data.message?.toLowerCase().includes('invalid');
+      const isApiSuccess = response.ok &&
+        (data.success !== false) &&
+        !data.error &&
+        !data.message?.toLowerCase().includes('error') &&
+        !data.message?.toLowerCase().includes('failed') &&
+        !data.message?.toLowerCase().includes('insufficient') &&
+        !data.message?.toLowerCase().includes('invalid');
 
       if (isApiSuccess) {
         return {
@@ -1378,7 +1378,7 @@ class TradingApiService {
         // API returned an error
         const errorMessage = data.message || data.error || 'Trade execution failed';
         console.log('❌ ProceedBuySell API Error:', errorMessage);
-        
+
         return {
           success: false,
           message: errorMessage,
@@ -1396,7 +1396,7 @@ class TradingApiService {
           error: 'Session expired'
         };
       }
-      
+
       console.error('❌ Error executing trade:', error);
       return {
         success: false,
@@ -1435,7 +1435,7 @@ class TradingApiService {
         // Re-throw session errors to be handled by calling components
         throw error;
       }
-      
+
       console.error('❌ Error fetching active trades:', error);
       throw error;
     }
@@ -1489,8 +1489,8 @@ class TradingApiService {
    * Update target and stop loss for an active trade
    */
   async updateTradeTargetStopLoss(
-    activeTradeID: number, 
-    target: string, 
+    activeTradeID: number,
+    target: string,
     stopLoss: string
   ): Promise<{ success: boolean; message: string }> {
     try {
@@ -1585,19 +1585,19 @@ class TradingApiService {
 
       const parsed = JSON.parse(sessionInfo);
       const now = new Date();
-      
+
       // Handle potentially missing or invalid sessionValidity
       let originalValidity = new Date(parsed.sessionValidity);
       if (isNaN(originalValidity.getTime())) {
         const loginTime = parsed.loginTime ? new Date(parsed.loginTime) : now;
         originalValidity = new Date(loginTime.getTime() + 24 * 60 * 60 * 1000);
       }
-      
+
       let extendedValidity = new Date(parsed.extendedValidityTime || originalValidity);
       if (isNaN(extendedValidity.getTime())) {
         extendedValidity = originalValidity;
       }
-      
+
       const loginTime = new Date(parsed.loginTime);
       const lastApiCall = new Date(parsed.lastApiCall);
 
@@ -1716,7 +1716,7 @@ class TradingApiService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Notifications API Error Response:', errorText);
-        
+
         return {
           message: `Failed to fetch notifications: ${response.status} ${response.statusText}`,
           data: [],
@@ -1737,7 +1737,7 @@ class TradingApiService {
 
     } catch (error) {
       console.error('🔥 Get Notifications API Error:', error);
-      
+
       return {
         message: 'Network error. Please check your connection and try again.',
         data: [],
@@ -1785,7 +1785,7 @@ class TradingApiService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Transaction History API Error Response:', errorText);
-        
+
         return {
           message: `Failed to fetch transaction history: ${response.status} ${response.statusText}`,
           data: [],
@@ -1806,7 +1806,7 @@ class TradingApiService {
 
     } catch (error) {
       console.error('🔥 Get Transaction History API Error:', error);
-      
+
       return {
         message: 'Network error. Please check your connection and try again.',
         data: [],
@@ -1857,7 +1857,7 @@ class TradingApiService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Wallet Balance API Error Response:', errorText);
-        
+
         return {
           message: `Failed to fetch wallet balance: ${response.status} ${response.statusText}`,
           data: {
@@ -1912,7 +1912,7 @@ class TradingApiService {
 
     } catch (error) {
       console.error('🔥 Get Wallet Balance API Error:', error);
-      
+
       return {
         message: 'Network error. Please check your connection and try again.',
         data: {
@@ -2076,12 +2076,12 @@ class TradingApiService {
       const formData = new FormData();
       formData.append('Type', request.Type.toString());
       formData.append('Id', request.Id.toString());
-      
+
       // Always append Name if provided
       if (request.Name && request.Name.trim() !== '') {
         formData.append('Name', request.Name);
       }
-      
+
       // Only append DocumentNumber if it's not empty (required for Aadhar Type 1 and PAN Type 2)
       if (request.DocumentNumber && request.DocumentNumber.trim() !== '') {
         formData.append('DocumentNumber', request.DocumentNumber);
@@ -2216,7 +2216,7 @@ class TradingApiService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Transaction History API Error Response:', errorText);
-        
+
         return {
           message: `Failed to fetch transaction history: ${response.status} ${response.statusText}`,
           data: [],
@@ -2236,7 +2236,7 @@ class TradingApiService {
 
     } catch (error) {
       console.error('🔥 Get Transaction History API Error:', error);
-      
+
       return {
         message: 'Network error. Please check your connection and try again.',
         data: [],
@@ -2252,7 +2252,7 @@ class TradingApiService {
 
     try {
       const response = await this.makeAuthenticatedRequest(
-        `${API_BASE_URL}/UserWalletApi/GetTransactionDetails?transactionId=${transactionId}`,
+        `${API_BASE_URL}/UserWalletApi/GetWalletTransactionDetails?transactionId=${transactionId}`,
         {
           method: 'GET',
         }
@@ -2317,7 +2317,7 @@ class TradingApiService {
       if (error instanceof Error && error.message.includes('Session expired')) {
         throw error;
       }
-      
+
       console.error('❌ Error fetching required margin:', error);
       throw error;
     }

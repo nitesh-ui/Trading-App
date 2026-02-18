@@ -113,11 +113,15 @@ export default function SettingsScreen() {
   const [userInfo, setUserInfo] = useState({
     name: 'Demo User',
     email: 'demo@example.com',
-    mobile: '+91 98765 43210',
+    mobile: '+91 XXXXXXXXXX',
     username: 'demo',
     accountType: 'Demo Account',
-    joinDate: '15 Jan 2024',
-    totalTrades: 127,
+    joinDate: new Date().toLocaleDateString('en-IN', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric' 
+    }),
+    totalTrades: 0,
     currentBalance: '5,00,000',
   });
 
@@ -273,8 +277,16 @@ export default function SettingsScreen() {
         }
         
         // Format join date if available
-        let formattedJoinDate = currentUser.joinDate || '15 Jan 2024';
-        if (formattedJoinDate && formattedJoinDate !== '15 Jan 2024') {
+        let formattedJoinDate = currentUser.joinDate || new Date().toLocaleDateString('en-IN', { 
+          day: '2-digit', 
+          month: 'short', 
+          year: 'numeric' 
+        });
+        if (formattedJoinDate && formattedJoinDate !== new Date().toLocaleDateString('en-IN', { 
+          day: '2-digit', 
+          month: 'short', 
+          year: 'numeric' 
+        })) {
           try {
             const date = new Date(formattedJoinDate);
             formattedJoinDate = date.toLocaleDateString('en-IN', { 

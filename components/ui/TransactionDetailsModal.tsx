@@ -26,11 +26,15 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = memo(({
 }) => {
   const { theme } = useTheme();
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined || amount === null) return 'N/A';
     return amount.toLocaleString('en-IN', { minimumFractionDigits: 2 });
   };
 
-  const formatPnL = (amount: number) => {
+  const formatPnL = (amount: number | undefined) => {
+    if (amount === undefined || amount === null) {
+      return { text: 'N/A', color: '#999999' };
+    }
     const isPositive = amount >= 0;
     return {
       text: `${isPositive ? '+' : ''}${formatCurrency(Math.abs(amount))}`,

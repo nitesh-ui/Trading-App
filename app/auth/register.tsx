@@ -85,12 +85,10 @@ export default function RegisterScreen() {
       newErrors.mobile = 'Please enter a valid mobile number';
     }
 
-    // Validate username
-    if (!form.username.trim()) {
-      newErrors.username = 'Username is required';
-    } else if (form.username.length < 3) {
+    // Validate username (optional)
+    if (form.username.trim() && form.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(form.username)) {
+    } else if (form.username.trim() && !/^[a-zA-Z0-9_]+$/.test(form.username)) {
       newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
@@ -145,7 +143,7 @@ export default function RegisterScreen() {
         confirmPassword: form.confirmPassword,
         // domainURL: 'uat.sanaitatechnologies.com',
         domainURL: 'demo.sanaitatechnologies.com',
-        sponserId: form.sponserId || 'NEW'
+        sponserId: form.sponserId
       });
 
       // Check if we have a success message, even if data is null

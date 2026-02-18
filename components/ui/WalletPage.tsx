@@ -263,10 +263,10 @@ const TransactionItem = memo(({ transaction, onDetailsPress }: {
           />
         </View>
         <View style={styles.transactionDetails}>
-          <Text variant="body" weight="medium" color="text" numberOfLines={1}>
+          <Text variant="body" weight="medium" color="text">
             {transaction.description}
           </Text>
-          <Text variant="caption" color="textSecondary">
+          <Text variant="caption" color="textSecondary" style={{ marginTop: 4 }}>
             {formatDate()} • {getStatusText()}
           </Text>
           {/* {transaction.recievedform && (
@@ -284,14 +284,14 @@ const TransactionItem = memo(({ transaction, onDetailsPress }: {
         >
           {formatAmount()}
         </Text>
-        <TouchableOpacity 
+        {/* <TouchableOpacity 
           style={[styles.detailsButton, { backgroundColor: theme.colors.primary }]}
           onPress={() => onDetailsPress(transaction.id)}
         >
           <Text variant="caption" style={{ color: 'white', fontWeight: '600' }}>
             Details
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     </TouchableOpacity>
   );
@@ -380,25 +380,40 @@ const TransactionHistory = memo(() => {
       setLoadingDetails(true);
       setSelectedTransactionId(transactionId);
       setShowDetailsModal(true);
+      setTransactionDetails(null); // Reset details before fetching
       
-      const details = await tradingApiService.getTransactionDetails(transactionId);
+      const response = await tradingApiService.getTransactionDetails(transactionId);
       
-      if (details) {
-        setTransactionDetails(details);
-      } else {
+      console.log('Transaction Details Response:', response);
+      
+      // Check if response has valid data with expected properties
+      if (response && response.Completedtradeid) {
+        setTransactionDetails(response);
+      } else if (!response) {
+        // API returned null (error or 404)
         showNotification({
           type: 'error',
-          title: 'Error',
-          message: 'Failed to load transaction details'
+          title: 'Transaction Not Found',
+          message: 'Transaction details not available'
         });
+        setShowDetailsModal(false);
+      } else {
+        // Response exists but no valid data
+        showNotification({
+          type: 'error',
+          title: 'Transaction Not Found',
+          message: 'Transaction details not available'
+        });
+        setShowDetailsModal(false);
       }
     } catch (err: any) {
       console.error('Error fetching transaction details:', err);
       showNotification({
         type: 'error',
         title: 'Error',
-        message: 'Failed to load transaction details'
+        message: err.message || 'Failed to load transaction details'
       });
+      setShowDetailsModal(false);
     } finally {
       setLoadingDetails(false);
     }
@@ -1011,13 +1026,15 @@ const styles = StyleSheet.create({
   transactionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 16,
+    paddingHorizontal: 16,
   },
   transactionLeft: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flex: 1,
+    marginRight: 12,
   },
   transactionRight: {
     alignItems: 'flex-end',
@@ -1030,10 +1047,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    flexShrink: 0,
   },
   transactionDetails: {
     flex: 1,
-    gap: 2,
+    gap: 4,
+    minWidth: 0,
+    paddingRight: 12,
   },
   transactionAmount: {
     marginLeft: 12,

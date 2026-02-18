@@ -1289,10 +1289,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   marketDataItem: {
-    minWidth: '18%',
+    width: '48%',
     alignItems: 'center',
-    marginBottom: 4,
-    flex: 1,
+    marginBottom: 12,
   },
   marketDataLabel: {
     fontSize: 10,

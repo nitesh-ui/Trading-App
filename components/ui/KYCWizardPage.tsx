@@ -50,19 +50,24 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
   const [aadharName, setAadharName] = useState('');
   const [aadharNumber, setAadharNumber] = useState('');
   const [aadharFront, setAadharFront] = useState<string | null>(null);
+  const [aadharFrontName, setAadharFrontName] = useState<string>('');
   const [aadharBack, setAadharBack] = useState<string | null>(null);
+  const [aadharBackName, setAadharBackName] = useState<string>('');
 
   // PAN Card State
   const [panName, setPanName] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [panImage, setPanImage] = useState<string | null>(null);
+  const [panImageName, setPanImageName] = useState<string>('');
 
   // Profile Picture State
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [profilePictureName, setProfilePictureName] = useState<string>('');
 
   // Digital Signature State
   const [digitalSignatureName, setDigitalSignatureName] = useState('');
   const [digitalSignature, setDigitalSignature] = useState<string | null>(null);
+  const [digitalSignatureFileName, setDigitalSignatureFileName] = useState<string>('');
 
   // Bank Details State
   const [bankName, setBankName] = useState('');
@@ -70,10 +75,33 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
   const [ifscCode, setIfscCode] = useState('');
   const [accountHolderName, setAccountHolderName] = useState('');
   const [bankDocument, setBankDocument] = useState<string | null>(null);
+  const [bankDocumentName, setBankDocumentName] = useState<string>('');
 
   const [loading, setLoading] = useState(false);
 
   const slideAnim = React.useRef(new Animated.Value(SCREEN_WIDTH)).current;
+
+  // Load username from session and pre-fill name fields
+  React.useEffect(() => {
+    if (visible) {
+      const currentUser = sessionManager.getCurrentUser();
+      const username = currentUser?.name || currentUser?.username || '';
+      
+      // Pre-fill name fields if not already set
+      if (username && !aadharName) {
+        setAadharName(username);
+      }
+      if (username && !panName) {
+        setPanName(username);
+      }
+      if (username && !digitalSignatureName) {
+        setDigitalSignatureName(username);
+      }
+      if (username && !accountHolderName) {
+        setAccountHolderName(username);
+      }
+    }
+  }, [visible]);
 
   React.useEffect(() => {
     if (visible) {
@@ -103,18 +131,24 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
     setAadharName('');
     setAadharNumber('');
     setAadharFront(null);
+    setAadharFrontName('');
     setAadharBack(null);
+    setAadharBackName('');
     setPanName('');
     setPanNumber('');
     setPanImage(null);
+    setPanImageName('');
     setProfilePicture(null);
+    setProfilePictureName('');
     setDigitalSignatureName('');
     setDigitalSignature(null);
+    setDigitalSignatureFileName('');
     setBankName('');
     setAccountNumber('');
     setIfscCode('');
     setAccountHolderName('');
     setBankDocument(null);
+    setBankDocumentName('');
     onClose();
   };
 
@@ -165,6 +199,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
         switch (type) {
           case 'aadharFront':
             setAadharFront(asset.uri);
+            setAadharFrontName(asset.name || 'aadhar_front.jpg');
             showNotification({
               type: 'success',
               title: 'Success',
@@ -173,6 +208,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
             break;
           case 'aadharBack':
             setAadharBack(asset.uri);
+            setAadharBackName(asset.name || 'aadhar_back.jpg');
             showNotification({
               type: 'success',
               title: 'Success',
@@ -181,6 +217,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
             break;
           case 'panImage':
             setPanImage(asset.uri);
+            setPanImageName(asset.name || 'pan_image.jpg');
             showNotification({
               type: 'success',
               title: 'Success',
@@ -189,6 +226,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
             break;
           case 'profilePicture':
             setProfilePicture(asset.uri);
+            setProfilePictureName(asset.name || 'profile_picture.jpg');
             showNotification({
               type: 'success',
               title: 'Success',
@@ -197,6 +235,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
             break;
           case 'digitalSignature':
             setDigitalSignature(asset.uri);
+            setDigitalSignatureFileName(asset.name || 'digital_signature.jpg');
             showNotification({
               type: 'success',
               title: 'Success',
@@ -205,6 +244,7 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
             break;
           case 'bankDocument':
             setBankDocument(asset.uri);
+            setBankDocumentName(asset.name || 'bank_document.jpg');
             showNotification({
               type: 'success',
               title: 'Success',
@@ -605,8 +645,8 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           style={[styles.fileButton, { borderColor: theme.colors.border }]}
           onPress={() => handleFileUpload('aadharFront')}
         >
-          <Text variant="body" color={aadharFront ? 'text' : 'textSecondary'}>
-            {aadharFront ? 'File chosen' : 'Choose file'}
+          <Text variant="body" color={aadharFront ? 'text' : 'textSecondary'} numberOfLines={1}>
+            {aadharFrontName || 'Choose file'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -619,8 +659,8 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           style={[styles.fileButton, { borderColor: theme.colors.border }]}
           onPress={() => handleFileUpload('aadharBack')}
         >
-          <Text variant="body" color={aadharBack ? 'text' : 'textSecondary'}>
-            {aadharBack ? 'File chosen' : 'Choose file'}
+          <Text variant="body" color={aadharBack ? 'text' : 'textSecondary'} numberOfLines={1}>
+            {aadharBackName || 'Choose file'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -675,8 +715,8 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           style={[styles.fileButton, { borderColor: theme.colors.border }]}
           onPress={() => handleFileUpload('panImage')}
         >
-          <Text variant="body" color={panImage ? 'text' : 'textSecondary'}>
-            {panImage ? 'File chosen' : 'Choose file'}
+          <Text variant="body" color={panImage ? 'text' : 'textSecondary'} numberOfLines={1}>
+            {panImageName || 'Choose file'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -706,8 +746,8 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           style={[styles.fileButton, { borderColor: theme.colors.border }]}
           onPress={() => handleFileUpload('profilePicture')}
         >
-          <Text variant="body" color={profilePicture ? 'text' : 'textSecondary'}>
-            {profilePicture ? 'File chosen' : 'Choose file'}
+          <Text variant="body" color={profilePicture ? 'text' : 'textSecondary'} numberOfLines={1}>
+            {profilePictureName || 'Choose file'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -749,8 +789,8 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           style={[styles.fileButton, { borderColor: theme.colors.border }]}
           onPress={() => handleFileUpload('digitalSignature')}
         >
-          <Text variant="body" color={digitalSignature ? 'text' : 'textSecondary'}>
-            {digitalSignature ? 'File chosen' : 'Choose file'}
+          <Text variant="body" color={digitalSignature ? 'text' : 'textSecondary'} numberOfLines={1}>
+            {digitalSignatureFileName || 'Choose file'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -830,8 +870,8 @@ export default function KYCWizardPage({ visible, selectedType, onClose }: KYCWiz
           style={[styles.fileButton, { borderColor: theme.colors.border }]}
           onPress={() => handleFileUpload('bankDocument')}
         >
-          <Text variant="body" color={bankDocument ? 'text' : 'textSecondary'}>
-            {bankDocument ? 'File chosen' : 'Choose file'}
+          <Text variant="body" color={bankDocument ? 'text' : 'textSecondary'} numberOfLines={1}>
+            {bankDocumentName || 'Choose file'}
           </Text>
         </TouchableOpacity>
       </View>

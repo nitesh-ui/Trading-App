@@ -242,11 +242,9 @@ const EditTradeTargetPage: React.FC<EditTradeTargetPageProps> = ({
           </View>
           <View style={styles.infoRow}>
             <Text variant="body" color="textSecondary">Type</Text>
-            <View style={[styles.typeBadge, { 
-              backgroundColor: trade.type === 'BUY' ? theme.colors.success : theme.colors.error 
-            }]}>
+            <View style={{backgroundColor: theme.colors.success, padding: 4, borderRadius: 4}}>
               <Text variant="caption" style={{ color: theme.colors.surface }}>
-                {trade.type}
+                {trade.productType}
               </Text>
             </View>
           </View>
