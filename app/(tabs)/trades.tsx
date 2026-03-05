@@ -158,7 +158,8 @@ const MemoizedTradeCard = memo<{
   onEdit?: (trade: Trade) => void;
   onEditPending?: (trade: Trade) => void;
   onDelete?: (trade: Trade) => void;
-}>(({ trade, onPress, onSquareOff, onEdit, onEditPending, onDelete }) => {
+  selectedFilter?: string; // Add selectedFilter to know current view context
+}>(({ trade, onPress, onSquareOff, onEdit, onEditPending, onDelete, selectedFilter }) => {
   const { theme } = useTheme();
   
   const getStatusColor = (status: string) => {
@@ -212,6 +213,20 @@ const MemoizedTradeCard = memo<{
     });
   }
 
+  // Determine if we should show edit/square-off options
+  // Hide them when viewing COMPLETED filter or if trade is cancelled
+  const isInCompletedView = selectedFilter === 'COMPLETED';
+  const isCancelled = trade.status === 'CANCELLED';
+  const showActions = !isInCompletedView && !isCancelled;
+
+  // Determine status label to display
+  const getStatusLabel = () => {
+    if (trade.status === 'COMPLETED' && selectedFilter === 'ACTIVE') {
+      return 'ACTIVE'; // Show ACTIVE when in ACTIVE tab
+    }
+    return trade.status; // Show actual status (COMPLETED/CANCELLED/PENDING) otherwise
+  };
+
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card style={styles.tradeCard}>
@@ -235,10 +250,10 @@ const MemoizedTradeCard = memo<{
                 weight="medium"
                 style={{ color: getStatusColor(trade.status) }}
               >
-                {trade.status === 'COMPLETED' ? 'ACTIVE' : trade.status}
+                {getStatusLabel()}
               </Text>
-              {/* Edit icon for completed/active trades */}
-              {trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
+              {/* Edit icon for completed/active trades - only show if not in COMPLETED view and not cancelled */}
+              {showActions && trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
                 <TouchableOpacity 
                   onPress={handleEdit}
                   style={{ padding: 4 }}
@@ -330,8 +345,8 @@ const MemoizedTradeCard = memo<{
             {trade.timestamp}
           </Text>
           
-          {/* Square Off Button for Completed (Active) Trades */}
-          {trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
+          {/* Square Off Button for Completed (Active) Trades - only show if not in COMPLETED view and not cancelled */}
+          {showActions && trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
             <TouchableOpacity 
               style={[styles.squareOffButton, { 
                 backgroundColor: theme.colors.error + '15',
@@ -389,7 +404,8 @@ const MemoizedTradeCard = memo<{
   return (
     prevProps.trade.id === nextProps.trade.id &&
     prevProps.trade.status === nextProps.trade.status &&
-    prevProps.trade.pnl === nextProps.trade.pnl
+    prevProps.trade.pnl === nextProps.trade.pnl &&
+    prevProps.selectedFilter === nextProps.selectedFilter
   );
 });
 
@@ -467,10 +483,20 @@ export default function TradesScreen() {
   const filteredTrades = useMemo(() => {
     let filtered: Trade[] = trades;
     
-    // Filter by status - map ACTIVE to COMPLETED
+    // Filter by status
     if (selectedFilter !== 'ALL') {
-      const statusFilter = selectedFilter === 'ACTIVE' ? 'COMPLETED' : selectedFilter;
-      filtered = filtered.filter((trade: Trade) => trade.status === statusFilter);
+      if (selectedFilter === 'ACTIVE') {
+        // Show only COMPLETED status trades (active trades)
+        filtered = filtered.filter((trade: Trade) => trade.status === 'COMPLETED');
+      } else if (selectedFilter === 'COMPLETED') {
+        // Show both COMPLETED and CANCELLED trades
+        filtered = filtered.filter((trade: Trade) => 
+          trade.status === 'COMPLETED' || trade.status === 'CANCELLED'
+        );
+      } else {
+        // For other filters (like PENDING), filter by exact status
+        filtered = filtered.filter((trade: Trade) => trade.status === selectedFilter);
+      }
     }
     
     // Filter by search query
@@ -787,8 +813,9 @@ export default function TradesScreen() {
       onEdit={handleEditTrade}
       onEditPending={handleEditPendingTrade}
       onDelete={handleDeleteTrade}
+      selectedFilter={selectedFilter}
     />
-  ), [handleTradePress, handleSquareOff, handleEditTrade, handleEditPendingTrade, handleDeleteTrade]);
+  ), [handleTradePress, handleSquareOff, handleEditTrade, handleEditPendingTrade, handleDeleteTrade, selectedFilter]);
 
   const keyExtractor = useCallback((item: Trade) => item.id, []);
 
@@ -892,7 +919,7 @@ export default function TradesScreen() {
             style={[styles.filterContainer, { backgroundColor: 'transparent' }]}
             contentContainerStyle={styles.filterContainer}
           >
-            {['ALL', 'ACTIVE', 'PENDING', 'CANCELLED'].map((filter) => (
+            {['ALL', 'ACTIVE', 'PENDING', 'COMPLETED'].map((filter) => (
               <TouchableOpacity
                 key={filter}
                 style={[
