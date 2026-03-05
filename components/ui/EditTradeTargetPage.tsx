@@ -30,6 +30,7 @@ interface EditTradeTargetPageProps {
     activeTradeID: number;
     currentTarget?: string;
     currentStopLoss?: string;
+    lastPrice?: number; // LTP from API
     // Additional fields for proceedBuySell API
     productType?: string;
     priceType?: string;
@@ -256,6 +257,12 @@ const EditTradeTargetPage: React.FC<EditTradeTargetPageProps> = ({
             <Text variant="body" color="textSecondary">Order Price</Text>
             <Text variant="body" weight="semibold" color="text">{trade.price.toFixed(2)}</Text>
           </View>
+          {trade.lastPrice !== undefined && trade.lastPrice !== null && (
+            <View style={styles.infoRow}>
+              <Text variant="body" color="textSecondary">LTP</Text>
+              <Text variant="body" weight="semibold" color="text">{trade.lastPrice.toFixed(2)}</Text>
+            </View>
+          )}
           {trade.timestamp && (
             <View style={styles.infoRow}>
               <Text variant="body" color="textSecondary">Order Time</Text>

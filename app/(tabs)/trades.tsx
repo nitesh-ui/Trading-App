@@ -77,6 +77,7 @@ interface Trade {
   productType?: string;
   priceType?: string;
   exchange?: string;
+  lastPrice?: number; // LTP from objScriptDTO
   // Original API fields needed for square-off and editing
   activeTradeID: number;
   apiStatus: string;
@@ -120,6 +121,7 @@ const transformApiTradeToUi = (apiTrade: ActiveTradeItem): Trade => {
     productType: apiTrade.productType,
     priceType: apiTrade.priceType,
     exchange: apiTrade.objScriptDTO?.scriptExchange,
+    lastPrice: apiTrade.objScriptDTO?.lastprice, // LTP from API
     // Original API fields needed for square-off and editing
     activeTradeID: apiTrade.activeTradeID,
     apiStatus: apiTrade.status,
@@ -965,6 +967,7 @@ export default function TradesScreen() {
               activeTradeID: selectedTradeForEdit.activeTradeID,
               currentTarget: selectedTradeForEdit.target,
               currentStopLoss: selectedTradeForEdit.stopLoss,
+              lastPrice: selectedTradeForEdit.lastPrice,
               productType: selectedTradeForEdit.productType,
               priceType: selectedTradeForEdit.priceType,
               triggerPrice: selectedTradeForEdit.triggerPrice,
