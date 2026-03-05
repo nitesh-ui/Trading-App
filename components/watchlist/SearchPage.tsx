@@ -62,6 +62,11 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
   const [addedSymbols, setAddedSymbols] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<TextInput>(null);
 
+  // Helper function to create unique key for symbol + exchange
+  const getSymbolKey = useCallback((symbol: string, exchange: string) => {
+    return `${symbol}-${exchange}`;
+  }, []);
+
   // Function to add search query to recent searches
   const addToRecentSearches = useCallback((query: string) => {
     if (!query.trim() || query.length < 2) return;
@@ -157,7 +162,8 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     if (hasSearched) {
       // Update API results to reflect recently added symbols
       return apiSearchResults.map(result => {
-        const isRecentlyAdded = addedSymbols.has(result.symbol);
+        const symbolKey = getSymbolKey(result.symbol, result.exchange || 'NSE');
+        const isRecentlyAdded = addedSymbols.has(symbolKey);
         if (isRecentlyAdded) {
           // If we recently added this symbol, show it as in watchlist
           return {
@@ -190,7 +196,8 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     // Convert AssetItem to SearchResult for local fallback
     // Since these are from filteredAssets (already in watchlist), they should all show checkmarks
     return assets.map(asset => {
-      const isRecentlyAdded = addedSymbols.has(asset.symbol);
+      const symbolKey = getSymbolKey(asset.symbol, asset.exchange || 'NSE');
+      const isRecentlyAdded = addedSymbols.has(symbolKey);
       return {
         ...asset,
         isInWatchlist: true, // These are always in watchlist since they come from filteredAssets
@@ -199,7 +206,7 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
         size: asset.size,
       };
     });
-  }, [filteredAssets, selectedFilter, localSearchQuery, watchlistState.marketType, watchlistState.watchlistItems, hasSearched, apiSearchResults, addedSymbols]);
+  }, [filteredAssets, selectedFilter, localSearchQuery, watchlistState.marketType, watchlistState.watchlistItems, hasSearched, apiSearchResults, addedSymbols, getSymbolKey]);
 
   const handleSearch = useCallback((query: string) => {
     setLocalSearchQuery(query);
@@ -228,7 +235,8 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
     }
 
     try {
-      setAddingSymbol(item.symbol); // Set loading state
+      const symbolKey = getSymbolKey(item.symbol, item.exchange || 'NSE');
+      setAddingSymbol(symbolKey); // Set loading state with unique key
       
       // Use the lot size and size from the API response if available
       const lotSize = item.lotSize ? item.lotSize.toString() : "1";
@@ -238,7 +246,8 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
         symbol: item.symbol, 
         exchange: item.exchange, 
         lotSize,
-        size
+        size,
+        symbolKey
       });
 
       // Call the real API to add to watchlist
@@ -253,14 +262,14 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
         // Clear loading state first to show checkmark
         setAddingSymbol(null);
         
-        // Mark symbol as successfully added
-        setAddedSymbols(prev => new Set(prev).add(item.symbol));
+        // Mark symbol as successfully added using unique key
+        setAddedSymbols(prev => new Set(prev).add(symbolKey));
         
         // Show success notification
         showNotification({
           type: 'success',
           title: 'Added to Watchlist',
-          message: `${item.symbol} added successfully! Returning to watchlist...`
+          message: `${item.symbol} (${item.exchange}) added successfully! Returning to watchlist...`
         });
 
         // Also add to local watchlist context for immediate UI update
@@ -296,7 +305,7 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
       setAddingSymbol(null);
     }
     // Note: No finally block needed as we handle state clearing in success and error cases separately
-  }, [addToWatchlist, showNotification, refreshData, onClose, addingSymbol]);
+  }, [addToWatchlist, showNotification, refreshData, onClose, addingSymbol, getSymbolKey]);
 
   const handleClearSearch = useCallback(() => {
     setLocalSearchQuery('');
@@ -342,8 +351,9 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
   const renderSearchResult = useCallback(({ item }: { item: SearchResult }) => {
     const isInWatchlist = item.isInWatchlist;
     const canAdd = item.canAdd;
-    const isAdding = addingSymbol === item.symbol;
-    const wasAdded = addedSymbols.has(item.symbol);
+    const symbolKey = getSymbolKey(item.symbol, item.exchange || 'NSE');
+    const isAdding = addingSymbol === symbolKey;
+    const wasAdded = addedSymbols.has(symbolKey);
     
     // Determine the final state: if was added locally or originally in watchlist
     const showAsAdded = isInWatchlist || wasAdded;
@@ -441,7 +451,7 @@ const SearchPage = memo(({ visible, onClose }: SearchPageProps) => {
         </View>
       </Pressable>
     );
-  }, [theme.colors, handleAddToWatchlist, addingSymbol, addedSymbols]);
+  }, [theme.colors, handleAddToWatchlist, addingSymbol, addedSymbols, getSymbolKey]);
 
   const renderRecentSearch = useCallback(({ item }: { item: string }) => (
     <Pressable
