@@ -304,6 +304,8 @@ class WatchlistApiService {
         wid: item.wid, // Watchlist ID for delete operations
         instrumentToken: item.instrumentToken || item.scriptCode, // Use instrumentToken if provided, fallback to scriptCode
         lotSize: item.scriptLotSize, // Include lot size from API
+        bid: item.bid, // Include bid price from API
+        ask: item.ask, // Include ask price from API
       };
     });
   }

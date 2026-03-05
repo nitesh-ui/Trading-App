@@ -261,8 +261,25 @@ const TradePage: React.FC<TradePageProps> = ({
     return { isValid: true, errorMessage: '' };
   };
 
-  // Calculate bid/ask based on actual asset price (simple estimation)
+  // Calculate bid/ask - Use fetched watchlist data if available, otherwise fall back to estimation
   const getBidAsk = () => {
+    // Priority 1: Use fetched watchlist data from API
+    if (fetchedWatchlistAsset && fetchedWatchlistAsset.bid && fetchedWatchlistAsset.ask) {
+      return {
+        bid: fetchedWatchlistAsset.bid,
+        ask: fetchedWatchlistAsset.ask
+      };
+    }
+    
+    // Priority 2: Use original asset data if it has bid/ask
+    if (asset.bid && asset.ask) {
+      return {
+        bid: asset.bid,
+        ask: asset.ask
+      };
+    }
+    
+    // Priority 3: Estimate based on price with a small spread
     const spread = marketType === 'stocks' ? 0.05 : 0.0001; // Small spread for stocks, smaller for forex
     return {
       bid: asset.price - spread,
@@ -272,11 +289,19 @@ const TradePage: React.FC<TradePageProps> = ({
 
   const { bid, ask } = getBidAsk();
 
-  // Debug log to see what asset data is available
+  // Debug log to see what asset data is available and bid/ask source
   console.log('📊 TradePage asset data:', {
     symbol: asset.symbol,
     name: asset.name,
     price: asset.price,
+    bid: bid,
+    ask: ask,
+    bidAskSource: fetchedWatchlistAsset?.bid && fetchedWatchlistAsset?.ask ? 'fetched-watchlist' :
+                  asset.bid && asset.ask ? 'asset-prop' : 'calculated',
+    fetchedBid: fetchedWatchlistAsset?.bid,
+    fetchedAsk: fetchedWatchlistAsset?.ask,
+    assetBid: asset.bid,
+    assetAsk: asset.ask,
     change: asset.change,
     high: asset.high,
     low: asset.low,
