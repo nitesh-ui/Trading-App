@@ -269,15 +269,17 @@ export default function PortfolioScreen() {
       const totalPnL = holdings.reduce((sum, holding) => sum + holding.pnl, 0);
       const totalPnLPercent = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
       
-      // Note: API doesn't provide today's P&L separately
-      // For now, showing total P&L until API is enhanced
+      // Use dailyTotalprofitloss from wallet API for Today's P&L
+      const todaysPnL = walletData?.dailyTotalprofitloss || 0;
+      const todaysPnLPercent = totalInvested > 0 ? (todaysPnL / totalInvested) * 100 : 0;
+      
       return {
         totalInvested,
         totalCurrent,
         totalPnL,
         totalPnLPercent,
-        todaysPnL: totalPnL, // Use total P&L as today's P&L (API limitation)
-        todaysPnLPercent: totalPnLPercent, // Use total P&L% as today's P&L% (API limitation)
+        todaysPnL: todaysPnL, // Use daily P&L from wallet API
+        todaysPnLPercent: todaysPnLPercent, // Calculate percentage based on invested value
         walletBalance: walletData?.amount || '0',
         usedMargin: walletData?.usedMargin || 0,
         availableMargin: walletData?.availableMargin || 0,
