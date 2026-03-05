@@ -380,23 +380,28 @@ const UnifiedDrawer = memo<UnifiedDrawerProps>(({
                     </View>
                   </Card>
 
-                  {/* Chart Section - Replace with View Chart button */}
+                  {/* Chart Section - Opens internal MarketChart */}
                   <Card padding="medium" style={styles.chartCard}>
                     <View style={styles.viewChartContainer}>
                       <View style={styles.chartInfo}>
                         <Text variant="subtitle" weight="medium" color="text">
-                          TradingView Chart
+                          Live Market Chart
                         </Text>
                         <Text variant="caption" color="textSecondary">
-                          View live chart with advanced tools
+                          View live chart with real-time updates
                         </Text>
                       </View>
                       <TouchableOpacity
-                        onPress={openTradingViewChart}
+                        onPress={() => {
+                          if (onViewChart) {
+                            onViewChart();
+                            onClose();
+                          }
+                        }}
                         style={[styles.viewChartButton, { backgroundColor: theme.colors.primary }]}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="open-outline" size={18} color={theme.colors.surface} />
+                        <Ionicons name="stats-chart" size={18} color={theme.colors.surface} />
                         <Text variant="body" weight="medium" style={{ color: theme.colors.surface, marginLeft: 6 }}>
                           Open Chart
                         </Text>

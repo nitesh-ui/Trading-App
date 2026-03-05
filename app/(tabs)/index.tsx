@@ -702,6 +702,11 @@ const WatchlistContent = memo(() => {
 
   // Merge real-time prices with watchlist assets for performance
   const enhancedAssets = React.useMemo(() => {
+    // Safety check: ensure filteredAssets is an array
+    if (!filteredAssets || !Array.isArray(filteredAssets) || filteredAssets.length === 0) {
+      return [];
+    }
+
     if (realtimePrices.size === 0) {
       return filteredAssets;
     }
@@ -836,12 +841,12 @@ const WatchlistContent = memo(() => {
       console.log('⏸️ Skipping instrument subscription:', {
         wsConnected,
         hasSubscribeFn: !!subscribeToInstruments,
-        assetsCount: filteredAssets.length
+        assetsCount: filteredAssets?.length || 0
       });
       return;
     }
 
-    if (filteredAssets.length === 0) {
+    if (!filteredAssets || filteredAssets.length === 0) {
       console.log('⏸️ No assets to subscribe to yet');
       return;
     }
@@ -1114,25 +1119,11 @@ const WatchlistContent = memo(() => {
   }, []);
 
   const handleTradePageExecute = useCallback((tradeData: any) => {
-    // Simulate trade execution
-    Alert.alert(
-      'Trade Executed',
-      `${tradeData.action.toUpperCase()} ${tradeData.quantity} ${tradeData.asset.symbol}`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setIsTradePageVisible(false);
-            setTradeAsset(null);
-            showNotification({ 
-              type: 'success', 
-              title: 'Trade executed successfully' 
-            });
-          },
-        },
-      ]
-    );
-  }, [showNotification]);
+    // Trade execution is now handled by TradePage component
+    // Just close the trade page - notification is already shown by TradePage
+    setIsTradePageVisible(false);
+    setTradeAsset(null);
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>

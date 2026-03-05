@@ -4,6 +4,7 @@ export type { CryptoData } from './CryptoCard';
 export { ForexCard } from './ForexCard';
 export type { ForexData } from './ForexCard';
 export { MarketMovers } from './MarketMovers';
+export { MarketChart } from './MarketChart';
 export { PortfolioSummary } from './PortfolioSummary';
 export { PriceDisplay } from './PriceDisplay';
 export { RealTimePriceIndicator } from './RealTimePriceIndicator';

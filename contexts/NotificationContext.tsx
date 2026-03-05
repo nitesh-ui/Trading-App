@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import {
     Animated,
     Dimensions,
+    Modal,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -143,16 +144,26 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       clearNotificationCount 
     }}>
       {children}
-      <View style={styles.container} pointerEvents="box-none">
-        {notifications.map((notification) => (
-          <NotificationItem
-            key={notification.id}
-            notification={notification}
-            onDismiss={() => hideNotification(notification.id)}
-            styles={getNotificationStyles(notification.type)}
-          />
-        ))}
-      </View>
+      <Modal
+        visible={notifications.length > 0}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        presentationStyle="overFullScreen"
+      >
+        <View style={styles.modalContainer} pointerEvents="box-none">
+          <View style={styles.container} pointerEvents="box-none">
+            {notifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onDismiss={() => hideNotification(notification.id)}
+                styles={getNotificationStyles(notification.type)}
+              />
+            ))}
+          </View>
+        </View>
+      </Modal>
     </NotificationContext.Provider>
   );
 };
@@ -275,12 +286,17 @@ export const useNotification = () => {
 };
 
 const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   container: {
     position: 'absolute',
     top: 50,
     left: 16,
     right: 16,
-    zIndex: 9999,
+    zIndex: 999999,
+    elevation: 999999,
   },
   notification: {
     borderRadius: 12,
@@ -292,7 +308,8 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
+    elevation: 999,
+    zIndex: 999999,
   },
   content: {
     flexDirection: 'row',

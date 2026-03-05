@@ -190,7 +190,7 @@ export default function KYCStatusOverviewModal({
       <Text 
         variant="caption" 
         weight="medium"
-        style={{ color: getStatusColor(status) }}
+        style={{ color: getStatusColor(status), fontSize: 13 }}
       >
         {status}
       </Text>
@@ -209,9 +209,9 @@ export default function KYCStatusOverviewModal({
     <View style={styles.documentItem}>
       <View style={styles.documentLeft}>
         <View style={[styles.iconCircle, { backgroundColor: theme.colors.primary + '20' }]}>
-          <Ionicons name={icon as any} size={20} color={theme.colors.primary} />
+          <Ionicons name={icon as any} size={24} color={theme.colors.primary} />
         </View>
-        <Text variant="body" weight="medium" color="text">
+        <Text variant="body" weight="medium" color="text" style={{ fontSize: 16 }}>
           {label}
         </Text>
       </View>
@@ -222,25 +222,41 @@ export default function KYCStatusOverviewModal({
   return (
     <Modal
       visible={visible}
-      animationType="fade"
+      animationType="slide"
       transparent
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
+        <TouchableOpacity 
+          style={styles.overlayTouchable} 
+          activeOpacity={1} 
+          onPress={onClose}
+        />
         <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+          {/* Drag Indicator */}
+          <View style={styles.dragIndicatorContainer}>
+            <View style={[styles.dragIndicator, { backgroundColor: theme.colors.border }]} />
+          </View>
+
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
             <View style={styles.headerTitle}>
-              <Ionicons name="document-outline" size={24} color={theme.colors.primary} />
-              <Text variant="headline" weight="bold" color="text" style={styles.headerText}>
+              <Ionicons name="document-outline" size={28} color={theme.colors.primary} />
+              <Text variant="headline" weight="bold" color="text" style={styles.headerText} numberOfLines={1}>
                 KYC Status Overview
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => setRefreshTrigger(prev => prev + 1)}>
+            <View style={styles.headerActions}>
+              <TouchableOpacity 
+                onPress={() => setRefreshTrigger(prev => prev + 1)}
+                style={styles.iconButton}
+              >
                 <Ionicons name="refresh" size={24} color={theme.colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={onClose}>
+              <TouchableOpacity 
+                onPress={onClose}
+                style={styles.iconButton}
+              >
                 <Ionicons name="close" size={28} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
@@ -321,11 +337,11 @@ export default function KYCStatusOverviewModal({
                         variant="headline" 
                         weight="bold" 
                         color="text"
-                        style={{ color: '#10B981' }}
+                        style={{ color: '#10B981', fontSize: 28 }}
                       >
                         {approvedCount}
                       </Text>
-                      <Text variant="caption" color="textSecondary">
+                      <Text variant="caption" color="textSecondary" style={{ fontSize: 13, marginTop: 4 }}>
                         Approved
                       </Text>
                     </View>
@@ -335,11 +351,11 @@ export default function KYCStatusOverviewModal({
                         variant="headline" 
                         weight="bold" 
                         color="text"
-                        style={{ color: '#EF4444' }}
+                        style={{ color: '#EF4444', fontSize: 28 }}
                       >
                         {rejectedCount}
                       </Text>
-                      <Text variant="caption" color="textSecondary">
+                      <Text variant="caption" color="textSecondary" style={{ fontSize: 13, marginTop: 4 }}>
                         Rejected
                       </Text>
                     </View>
@@ -349,11 +365,11 @@ export default function KYCStatusOverviewModal({
                         variant="headline" 
                         weight="bold" 
                         color="text"
-                        style={{ color: '#F59E0B' }}
+                        style={{ color: '#F59E0B', fontSize: 28 }}
                       >
                         {underReviewCount}
                       </Text>
-                      <Text variant="caption" color="textSecondary">
+                      <Text variant="caption" color="textSecondary" style={{ fontSize: 13, marginTop: 4 }}>
                         Under Review
                       </Text>
                     </View>
@@ -363,11 +379,11 @@ export default function KYCStatusOverviewModal({
                         variant="headline" 
                         weight="bold" 
                         color="text"
-                        style={{ color: '#6B7280' }}
+                        style={{ color: '#6B7280', fontSize: 28 }}
                       >
                         {pendingCount}
                       </Text>
-                      <Text variant="caption" color="textSecondary">
+                      <Text variant="caption" color="textSecondary" style={{ fontSize: 13, marginTop: 4 }}>
                         Pending
                       </Text>
                     </View>
@@ -393,36 +409,51 @@ export default function KYCStatusOverviewModal({
   );
 }
 
+const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    justifyContent: 'flex-end',
+  },
+  overlayTouchable: {
+    flex: 1,
   },
   modalContent: {
-    borderRadius: 16,
-    maxHeight: Dimensions.get('window').height * 0.85,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: screenHeight * 0.90,
+    maxHeight: screenHeight * 0.90,
     width: '100%',
     backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: -4,
     },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 10,
-    overflow: 'hidden',
+  },
+  dragIndicatorContainer: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  dragIndicator: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.5,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 18,
     borderBottomWidth: 1,
   },
   headerTitle: {
@@ -430,54 +461,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    marginRight: 12,
   },
   headerText: {
-    fontSize: 18,
+    fontSize: 20,
+    flexShrink: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  iconButton: {
+    padding: 6,
   },
   content: {
     flex: 1,
-    minHeight: 200,
   },
   contentContainer: {
-    padding: 20,
-    paddingBottom: 20,
+    padding: 24,
+    paddingBottom: 24,
     flexGrow: 1,
   },
   section: {
-    marginBottom: 32,
+    marginBottom: 36,
   },
   sectionTitle: {
-    marginBottom: 16,
-    fontSize: 16,
+    marginBottom: 18,
+    fontSize: 18,
   },
   documentItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+    borderRadius: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   documentLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     flex: 1,
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
   },
   progressGrid: {
     flexDirection: 'row',
@@ -486,44 +527,48 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   progressItem: {
-    flex: 1,
-    minWidth: '45%',
-    paddingVertical: 16,
+    width: '48%',
+    paddingVertical: 18,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.02)',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 90,
   },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 20,
     textAlign: 'center',
+    fontSize: 16,
   },
   errorContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingVertical: 60,
+    paddingHorizontal: 24,
   },
   errorText: {
-    marginTop: 12,
+    marginTop: 16,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
+    fontSize: 16,
   },
   retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 12,
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 10,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
   },
 });
 

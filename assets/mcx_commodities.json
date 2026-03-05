@@ -1,0 +1,75 @@
+{
+  "description": "MCX Commodities supported on TradingView with continuous futures",
+  "lastUpdated": "2026-01-06",
+  "note": "Only these commodities have valid TradingView continuous futures symbols (MCX:SYMBOL1!)",
+  "commodities": {
+    "GOLD": {
+      "tradingViewSymbol": "MCX:GOLD1!",
+      "description": "Gold",
+      "unit": "10 grams"
+    },
+    "SILVER": {
+      "tradingViewSymbol": "MCX:SILVER1!",
+      "description": "Silver",
+      "unit": "1 kg"
+    },
+    "CRUDEOIL": {
+      "tradingViewSymbol": "MCX:CRUDEOIL1!",
+      "description": "Crude Oil",
+      "unit": "100 barrels"
+    },
+    "NATURALGAS": {
+      "tradingViewSymbol": "MCX:NATURALGAS1!",
+      "description": "Natural Gas",
+      "unit": "1250 mmBtu"
+    },
+    "COPPER": {
+      "tradingViewSymbol": "MCX:COPPER1!",
+      "description": "Copper",
+      "unit": "1 MT"
+    },
+    "ALUMINIUM": {
+      "tradingViewSymbol": "MCX:ALUMINIUM1!",
+      "description": "Aluminium",
+      "unit": "1 MT"
+    },
+    "ZINC": {
+      "tradingViewSymbol": "MCX:ZINC1!",
+      "description": "Zinc",
+      "unit": "1 MT"
+    },
+    "LEAD": {
+      "tradingViewSymbol": "MCX:LEAD1!",
+      "description": "Lead",
+      "unit": "1 MT"
+    },
+    "NICKEL": {
+      "tradingViewSymbol": "MCX:NICKEL1!",
+      "description": "Nickel",
+      "unit": "250 kg"
+    },
+    "SILVERM": {
+      "tradingViewSymbol": "MCX:SILVERM1!",
+      "description": "Silver Mini",
+      "unit": "5 kg"
+    },
+    "GOLDM": {
+      "tradingViewSymbol": "MCX:GOLDM1!",
+      "description": "Gold Mini",
+      "unit": "100 grams"
+    },
+    "GOLDPETAL": {
+      "tradingViewSymbol": "MCX:GOLDPETAL1!",
+      "description": "Gold Petal",
+      "unit": "1 gram"
+    }
+  },
+  "aliases": {
+    "NATGAS": "NATURALGAS",
+    "NG": "NATURALGAS",
+    "CL": "CRUDEOIL",
+    "GC": "GOLD",
+    "SI": "SILVER",
+    "HG": "COPPER"
+  }
+}

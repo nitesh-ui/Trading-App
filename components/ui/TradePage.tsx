@@ -541,13 +541,16 @@ const TradePage: React.FC<TradePageProps> = ({
       
       // Use fetched scriptCode with fallback
       const finalScriptCode = fetchedWatchlistAsset?.scriptCode || asset.scriptCode || 0;
+      const finalLotSize = fetchedWatchlistAsset?.lotSize || asset.lotSize || 1;
       
       const request: GetRequiredMarginRequest = {
         currentPosition: action === 'buy' ? 'Buy' : 'Sell',
         qty: quantity,
         scriptCode: finalScriptCode,
         lastprice: asset.price,
-        isMisOrder: productType === 'MIS'
+        isMisOrder: productType === 'MIS',
+        tradinG_UNIT_TYPE: unitType === 'Lot' ? 1 : 2, // 1 for 'Lot', 2 for 'Quantity'
+        scriptLotSize: finalLotSize
       };
 
       console.log('🚀 Fetching required margin with request:', request);

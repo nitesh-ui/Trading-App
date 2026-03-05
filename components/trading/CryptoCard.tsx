@@ -34,6 +34,12 @@ export const CryptoCard: React.FC<CryptoCardProps> = React.memo(({
   const theme = providedTheme || contextTheme;
   const animatedHeight = React.useRef(new Animated.Value(showDetails ? 1 : 0)).current;
 
+  // Safety check: return null if crypto is undefined
+  if (!crypto) {
+    console.warn('⚠️ CryptoCard received undefined crypto prop');
+    return null;
+  }
+
   React.useEffect(() => {
     Animated.timing(animatedHeight, {
       toValue: showDetails ? 1 : 0,

@@ -33,6 +33,12 @@ export const ForexCard: React.FC<ForexCardProps> = React.memo(({
   const theme = providedTheme || contextTheme;
   const animatedHeight = React.useRef(new Animated.Value(showDetails ? 1 : 0)).current;
 
+  // Safety check: return null if pair is undefined
+  if (!pair) {
+    console.warn('⚠️ ForexCard received undefined pair prop');
+    return null;
+  }
+
   React.useEffect(() => {
     Animated.timing(animatedHeight, {
       toValue: showDetails ? 1 : 0,

@@ -8,11 +8,10 @@ import {
   Dimensions,
   Platform
 } from 'react-native';
-import WebView from 'react-native-webview';
 import { Card, Text, Button } from '../atomic';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SlidingPage from './SlidingPage';
-import { CandlestickChart } from '../trading';
+import MarketChart from '../trading/MarketChart';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AssetItem, MarketType } from '../watchlist/types';
 import { formatIndianCurrency } from '../../utils/indianFormatting';
@@ -31,98 +30,41 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketType, onBuyPress, onSellPress }) => {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [selectedTimeframe, setSelectedTimeframe] = useState('5D');
 
-  const timeframes = ['5D', '1M', '1Y', '5Y', 'YTD'];
+  // State for live price updates
+  const [livePrice, setLivePrice] = useState(asset.price);
+  const [liveChange, setLiveChange] = useState(asset.change);
+  const [liveChangePercent, setLiveChangePercent] = useState(asset.changePercent);
+  const [liveOpen, setLiveOpen] = useState(asset.price - (asset.change || 0));
+  const [liveHigh, setLiveHigh] = useState(asset.high || asset.price);
+  const [liveLow, setLiveLow] = useState(asset.low || asset.price);
 
-  // Generate TradingView symbol based on market type
-  const getTradingViewSymbol = useCallback(() => {
-    const symbol = asset.symbol;
-    
-    switch (marketType) {
-      case 'stocks':
-        // Indian stocks: NSE or BSE exchange
-        if (asset.exchange === 'NSE' || asset.exchange === 'BSE') {
-          return `${asset.exchange}:${symbol}`;
-        }
-        // US stocks: use NASDAQ or NYSE
-        return `NASDAQ:${symbol}`;
-      
-      case 'crypto':
-        // Crypto: use Binance as default exchange
-        // Remove common suffixes like USDT, USD
-        const cleanSymbol = symbol.replace(/USDT|USD$/i, '');
-        return `BINANCE:${cleanSymbol}USDT`;
-      
-      case 'forex':
-        // Forex: use FX prefix
-        return `FX_IDC:${symbol}`;
-      
-      default:
-        return symbol;
-    }
-  }, [asset, marketType]);
+  // Reset live values when asset changes
+  React.useEffect(() => {
+    setLivePrice(asset.price);
+    setLiveChange(asset.change);
+    setLiveChangePercent(asset.changePercent);
+    setLiveOpen(asset.price - (asset.change || 0));
+    setLiveHigh(asset.high || asset.price);
+    setLiveLow(asset.low || asset.price);
+  }, [asset.symbol, asset.price, asset.change, asset.changePercent, asset.high, asset.low]);
 
-  // Generate TradingView Advanced Chart HTML
-  const tradingViewHTML = useMemo(() => {
-    const tvSymbol = getTradingViewSymbol();
-    const isDark = theme.colors.background === '#000000' || theme.colors.background === '#121212';
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              background-color: ${theme.colors.background};
-              overflow: hidden;
-            }
-            #tradingview-widget-container {
-              width: 100%;
-              height: 100vh;
-            }
-          </style>
-        </head>
-        <body>
-          <div id="tradingview-widget-container">
-            <div id="tradingview_chart"></div>
-          </div>
-          
-          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-          <script type="text/javascript">
-            new TradingView.widget({
-              "autosize": true,
-              "symbol": "${tvSymbol}",
-              "interval": "D",
-              "timezone": "Asia/Kolkata",
-              "theme": "${isDark ? 'dark' : 'light'}",
-              "style": "1",
-              "locale": "en",
-              "toolbar_bg": "${theme.colors.card}",
-              "enable_publishing": false,
-              "hide_top_toolbar": false,
-              "hide_legend": false,
-              "save_image": false,
-              "container_id": "tradingview_chart",
-              "studies": [
-                "MASimple@tv-basicstudies"
-              ],
-              "show_popup_button": false,
-              "popup_width": "1000",
-              "popup_height": "650"
-            });
-          </script>
-        </body>
-      </html>
-    `;
-  }, [theme, getTradingViewSymbol]);
+  // Handle live price updates from MarketChart
+  const handlePriceUpdate = useCallback((data: { 
+    price: number; 
+    change: number; 
+    changePercent: number; 
+    open: number; 
+    high: number; 
+    low: number;
+  }) => {
+    setLivePrice(data.price);
+    setLiveChange(data.change);
+    setLiveChangePercent(data.changePercent);
+    setLiveOpen(data.open);
+    setLiveHigh(data.high);
+    setLiveLow(data.low);
+  }, []);
 
   const formatPrice = (price: number) => {
     if (marketType === 'stocks') {
@@ -134,19 +76,15 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
     return `$${price.toFixed(4)}`;
   };
 
-  const changeColor = asset.change >= 0 ? theme.colors.success : theme.colors.error;
-  const changeIcon = asset.change >= 0 ? 'trending-up' : 'trending-down';
+  const changeColor = liveChange >= 0 ? theme.colors.success : theme.colors.error;
+  const changeIcon = liveChange >= 0 ? 'trending-up' : 'trending-down';
 
-  // Mock chart data for current, high, low based on screenshot
+  // Calculate chart stats based on current price and change
   const chartStats = {
-    current: asset.price,
-    high: asset.high || asset.price + Math.abs(asset.change || 0) * 0.8,
-    low: asset.low || asset.price - Math.abs(asset.change || 0) * 0.6,
+    current: livePrice,
+    high: liveHigh,
+    low: liveLow,
   };
-
-  const handleTimeframePress = useCallback((timeframe: string) => {
-    setSelectedTimeframe(timeframe);
-  }, []);
 
   return (
     <SlidingPage
@@ -158,7 +96,7 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
         <ScrollView 
           style={[styles.container, { backgroundColor: theme.colors.background }]}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={StyleSheet.flatten([styles.scrollContent, { paddingBottom: insets.bottom + 140 }])}
+          contentContainerStyle={StyleSheet.flatten([styles.scrollContent, { paddingBottom: insets.bottom + 20 }])}
         >
         {/* Asset Header */}
         <Card padding="large" style={styles.headerCard}>
@@ -175,12 +113,12 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             </View>
             <View style={styles.priceInfo}>
               <Text variant="title" weight="bold" color="text">
-                {formatPrice(asset.price)}
+                {formatPrice(livePrice)}
               </Text>
               <View style={[styles.changeContainer, { backgroundColor: changeColor + '20' }]}>
                 <Ionicons name={changeIcon} size={14} color={changeColor} />
                 <Text variant="caption" weight="medium" style={StyleSheet.flatten([styles.changeText, { color: changeColor }])}>
-                  {asset.change >= 0 ? '+' : ''}{formatPrice(asset.change)} ({asset.changePercent.toFixed(2)}%)
+                  {liveChange >= 0 ? '+' : ''}{formatPrice(liveChange)} ({liveChangePercent.toFixed(2)}%)
                 </Text>
               </View>
             </View>
@@ -216,7 +154,7 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             <View style={styles.priceDetailItem}>
               <Text variant="caption" color="textSecondary">Open</Text>
               <Text variant="body" weight="medium" color="text">
-                {formatPrice(asset.price - (asset.change || 0) + (asset.change || 0) * 0.3)}
+                {formatPrice(liveOpen)}
               </Text>
             </View>
             <View style={styles.priceDetailItem}>
@@ -234,95 +172,37 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             <View style={styles.priceDetailItem}>
               <Text variant="caption" color="textSecondary">Prev Close</Text>
               <Text variant="body" weight="medium" color="text">
-                {formatPrice(asset.price - (asset.change || 0))}
+                {formatPrice(livePrice - liveChange)}
               </Text>
             </View>
           </View>
         </Card>
 
-        {/* Timeframe Selector */}
-        
-
-        {/* TradingView Chart */}
+        {/* Live Market Chart */}
         <Card padding="none" style={styles.chartCard}>
-          <View style={styles.chartContainer}>
-            <WebView
-              source={{ html: tradingViewHTML }}
-              style={styles.webview}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-              showsHorizontalScrollIndicator={false}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={true}
-              scalesPageToFit={true}
-              bounces={false}
-              originWhitelist={['*']}
-              allowsInlineMediaPlayback={true}
-              mediaPlaybackRequiresUserAction={false}
-              onError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.warn('WebView error: ', nativeEvent);
-              }}
-              onHttpError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.warn('WebView HTTP error: ', nativeEvent);
-              }}
-            />
-          </View>
-        </Card>
-
-        {/* Chart Legend */}
-        <Card padding="medium" style={styles.legendCard}>
-          <View style={styles.legendContainer}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
-              <Text variant="caption" color="text">Close Price</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.success }]} />
-              <Text variant="caption" color="text">High</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.error }]} />
-              <Text variant="caption" color="text">Low</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Current Stats */}
-        <Card padding="large" style={styles.currentStatsCard}>
-          <View style={styles.currentStatsContainer}>
-            <View style={styles.currentStatItem}>
-              <Text variant="caption" color="textSecondary">Current</Text>
-              <Text variant="title" weight="bold" color="text">
-                {formatPrice(chartStats.current)}
-              </Text>
-            </View>
-            <View style={styles.currentStatItem}>
-              <Text variant="caption" color="textSecondary">High</Text>
-              <Text variant="title" weight="bold" color="success">
-                {formatPrice(chartStats.high)}
-              </Text>
-            </View>
-            <View style={styles.currentStatItem}>
-              <Text variant="caption" color="textSecondary">Low</Text>
-              <Text variant="title" weight="bold" color="error">
-                {formatPrice(chartStats.low)}
-              </Text>
-            </View>
-          </View>
+          <MarketChart 
+            scriptCode={asset.scriptCode?.toString() || asset.symbol} 
+            height={400}
+            interval="minute"
+            daysBack={7}
+            segment={marketType}
+            onPriceUpdate={handlePriceUpdate}
+          />
         </Card>
 
         </ScrollView>
 
-        {/* Sticky Footer Action Buttons */}
+        {/* 
+          Sticky Footer Action Buttons - COMMENTED OUT (not functional yet)
+          TODO: Integrate with trading system before enabling
+        */}
+        {/* 
         <View style={[
           styles.footer,
           {
             backgroundColor: theme.colors.background,
             paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
-            bottom: (insets.bottom || 0) + 64, // offset above bottom tab bar
+            bottom: (insets.bottom || 0) + 64,
           }
         ]}>
           <View style={styles.actionButtons}>
@@ -350,6 +230,7 @@ const ChartPage: React.FC<ChartPageProps> = ({ visible, onClose, asset, marketTy
             </TouchableOpacity>
           </View>
         </View>
+        */}
       </View>
     </SlidingPage>
   );
@@ -425,54 +306,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   
-  // Timeframe
-  timeframeCard: {
-    marginBottom: 8,
-  },
-  timeframeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  timeframeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 50,
-    alignItems: 'center',
-  },
-  
   // Chart
   chartCard: {
     marginBottom: 8,
     overflow: 'hidden',
-  },
-  chartContainer: {
-    height: 400,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  webview: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  
-  // Legend
-  legendCard: {
-    marginBottom: 8,
-  },
-  legendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
   },
   
   // Current Stats
@@ -481,11 +318,13 @@ const styles = StyleSheet.create({
   },
   currentStatsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
+    alignItems: 'center',
   },
   currentStatItem: {
     alignItems: 'center',
     flex: 1,
+    paddingHorizontal: 4,
   },
   
   // Action Buttons

@@ -40,8 +40,9 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose, avail
   const handleChooseFile = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['image/jpeg', 'image/png'], // Allow only JPG and PNG
-        copyToCacheDirectory: true // Important for iOS
+        type: 'image/*', // Allow all image types
+        copyToCacheDirectory: true, // Important for iOS
+        multiple: false
       });
 
       if (result.canceled) {
@@ -60,24 +61,21 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose, avail
         return;
       }
 
-      // Validate file type
-      if (asset.mimeType && !['image/jpeg', 'image/png'].includes(asset.mimeType)) {
-        showNotification({
-          type: 'error',
-          title: 'Invalid File Type',
-          message: 'Please select a JPG or PNG image file'
-        });
-        return;
-      }
-
       setQrCode({
         uri: asset.uri,
         name: asset.name,
         size: asset.size,
-        mimeType: asset.mimeType
+        mimeType: asset.mimeType || 'image/jpeg'
+      });
+      
+      console.log('📸 QR Code selected:', {
+        name: asset.name,
+        size: asset.size,
+        mimeType: asset.mimeType,
+        uri: asset.uri.substring(0, 50) + '...'
       });
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('❌ Error picking document:', error);
       showNotification({
         type: 'error',
         title: 'File Selection Failed',
@@ -160,24 +158,38 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose, avail
       
       // If there's a QR code image, add it
       if (qrCode) {
-        // For React Native, fetch the image and create a blob
-        const response = await fetch(qrCode.uri);
-        const blob = await response.blob();
+        // For React Native, we need to handle file upload differently
+        // The FormData in React Native expects a specific object structure
+        const fileToUpload: any = {
+          uri: qrCode.uri,
+          type: qrCode.mimeType || 'image/jpeg',
+          name: qrCode.name || 'qr_code.jpg',
+        };
         
-        // TypeScript requires casting for React Native compatibility
-        formData.append('_RequestImage', blob as any, qrCode.name || 'qr_code.jpg');
+        formData.append('_RequestImage', fileToUpload);
       }
+
+      console.log('📤 Submitting withdrawal request:', {
+        amount,
+        phoneNumber: phoneNumber.replace(/\s+/g, ''),
+        hasQrCode: !!qrCode,
+        accountInfo: accountInfo.trim()
+      });
 
       const response = await fetch('https://prod-tradingapi.sanaitatechnologies.com/FundRequestApi/AddFundInformationHistory', {
         method: 'POST',
         headers: {
           'accept': '*/*',
           'X-Session-Key': sessionManager.getToken() || '',
+          // Don't set Content-Type header - let the browser/app set it automatically for multipart/form-data
         },
         body: formData
       });
 
+      console.log('📡 Withdrawal API Response Status:', response.status);
+
       const result = await response.json();
+      console.log('✅ Withdrawal API Response:', result);
 
       if (!response.ok) {
         throw new Error(result.message || 'Failed to submit withdrawal request');
@@ -197,7 +209,13 @@ const WithdrawalPage: React.FC<WithdrawalPageProps> = ({ visible, onClose, avail
       onClose();
 
     } catch (error: any) {
-      console.error('Error submitting withdrawal:', error);
+      console.error('❌ Error submitting withdrawal:', error);
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      
       showNotification({
         type: 'error',
         title: 'Submission Failed',
