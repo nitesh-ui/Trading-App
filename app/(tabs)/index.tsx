@@ -1150,13 +1150,6 @@ const WatchlistContent = memo(() => {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}
-              onPress={handleOpenWatchlistManager}
-            >
-              <Ionicons name="bookmark" size={20} color={theme.colors.primary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}
               onPress={handleOpenWalletPage}
             >
               <Ionicons name="wallet" size={20} color={theme.colors.primary} />
