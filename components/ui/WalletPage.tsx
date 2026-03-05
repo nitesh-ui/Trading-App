@@ -123,23 +123,6 @@ const WalletBalanceCard = memo(({
         {formatCurrency(walletBalance)}
       </Text>
       
-      <View style={styles.balanceBreakdown}>
-        <View style={styles.breakdownItem}>
-          <Text variant="caption" style={StyleSheet.flatten([styles.breakdownLabel, { color: 'white' }])}>
-            Active Trades
-          </Text>
-          <Text 
-            variant="body" 
-            weight="semibold" 
-            style={{ 
-              color: totalProfitLoss >= 0 ? '#4ade80' : '#f87171' 
-            }}
-          >
-            {totalProfitLoss >= 0 ? '+' : ''}{formatCurrency(Math.abs(totalProfitLoss))}
-          </Text>
-        </View>
-      </View>
-      
       <View style={styles.balanceActions}>
         <Button
           title="Deposit"
