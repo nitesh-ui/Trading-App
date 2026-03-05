@@ -7,7 +7,8 @@ import {
   ScrollView,
   TextInput,
   Dimensions,
-  Platform
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, Text, Button } from '../atomic';
@@ -831,11 +832,17 @@ const TradePage: React.FC<TradePageProps> = ({
       onClose={onClose}
       title={`${action.toUpperCase()} ${asset.name || asset.symbol}`}
     >
-      <View style={styles.pageWrapper}>
+      <KeyboardAvoidingView 
+        style={styles.pageWrapper}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      >
         <ScrollView 
           style={[styles.container, { backgroundColor: theme.colors.background }]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
         {/* Asset Header with Real-time Price */}
         <Card padding="medium" style={styles.priceHeaderCard}>
@@ -1243,7 +1250,7 @@ const TradePage: React.FC<TradePageProps> = ({
           </Text>
         </TouchableOpacity>
       </View>
-      </View>
+      </KeyboardAvoidingView>
     </SlidingPage>
   );
 };
@@ -1260,7 +1267,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 12,
-    paddingBottom: 140, // Space for button and tab bar
+    paddingBottom: 200, // Extra space for keyboard and button
   },
   
   // Header Container - No border/background
