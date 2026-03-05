@@ -74,6 +74,9 @@ const TradePage: React.FC<TradePageProps> = ({
   const [fetchedWatchlistAsset, setFetchedWatchlistAsset] = useState<AssetItem | null>(null);
   const [isLoadingWatchlistData, setIsLoadingWatchlistData] = useState(false);
 
+  // Debounce timer ref for margin API calls (use number type for React Native)
+  const marginDebounceTimerRef = React.useRef<number | null>(null);
+
   // Debug: Log asset data immediately when component receives it
   React.useEffect(() => {
     console.log('🎯 === TradePage MOUNTED/UPDATED ===');
@@ -793,10 +796,26 @@ const TradePage: React.FC<TradePageProps> = ({
   }, [visible, asset.symbol]);
 
   // Fetch required margin when wallet balance is available and parameters change
+  // Added 300ms debouncing to prevent flickering when rapidly changing quantity
   useEffect(() => {
     if (visible && walletBalance !== '0') {
-      fetchRequiredMargin();
+      // Clear previous timer
+      if (marginDebounceTimerRef.current) {
+        clearTimeout(marginDebounceTimerRef.current);
+      }
+      
+      // Set new timer to fetch margin after 300ms of no changes
+      marginDebounceTimerRef.current = setTimeout(() => {
+        fetchRequiredMargin();
+      }, 300);
     }
+    
+    // Cleanup on unmount
+    return () => {
+      if (marginDebounceTimerRef.current) {
+        clearTimeout(marginDebounceTimerRef.current);
+      }
+    };
   }, [visible, quantity, productType, orderType, walletBalance, fetchRequiredMargin]);
 
   // Fetch watchlist data when the component mounts or asset changes
