@@ -248,10 +248,6 @@ const TransactionItem = memo(({ transaction, onDetailsPress }: {
     }
   };
 
-  const getStatusText = () => {
-    return transaction.status === '1' ? 'Completed' : 'Pending';
-  };
-
   return (
     <TouchableOpacity style={[styles.transactionItem, { borderBottomWidth: 1, borderBottomColor: theme.colors.border }]}>
       <View style={styles.transactionLeft}>
@@ -267,7 +263,7 @@ const TransactionItem = memo(({ transaction, onDetailsPress }: {
             {transaction.description}
           </Text>
           <Text variant="caption" color="textSecondary" style={{ marginTop: 4 }}>
-            {formatDate()} • {getStatusText()}
+            {formatDate()}
           </Text>
           {/* {transaction.recievedform && (
             <Text variant="caption" color="textSecondary" numberOfLines={1}>
