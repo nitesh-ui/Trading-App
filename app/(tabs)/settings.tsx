@@ -487,9 +487,6 @@ export default function SettingsScreen() {
             <Text variant="caption" color="textSecondary">
               {userInfo.accountType}
             </Text>
-            <Text variant="caption" color="textSecondary">
-              Member since {userInfo.joinDate}
-            </Text>
           </View>
         </View>
 
