@@ -44,35 +44,47 @@
  * - Refresh control for pull-to-refresh
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
-import React, { memo, Suspense, useCallback, useMemo, useState } from 'react';
-import { Alert, Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Card, Text } from '../../components/atomic';
-import { ScreenErrorBoundary } from '../../components/ErrorBoundary';
-import { StockCardSkeleton } from '../../components/LoadingComponents';
-import { OptimizedFlatList } from '../../components/OptimizedList';
-import NotificationsPage from '../../components/ui/NotificationsPage';
-import { NotificationIcon } from '../../components/ui/NotificationIcon';
-import WalletPage from '../../components/ui/WalletPage';
-import EditTradeTargetPage from '../../components/ui/EditTradeTargetPage';
-import EditPendingTradePage from '../../components/ui/EditPendingTradePage';
-import { useNotification } from '../../contexts/NotificationContext';
-import { useTheme } from '../../contexts/ThemeContext';
-import { useDebounce, useRenderPerformance } from '../../hooks/usePerformance';
-import { queryKeys } from '../../services/queryClient';
-import { sessionExpiryHandler } from '../../services/sessionExpiryHandler';
-import { tradingApiService, ActiveTradeItem } from '../../services/tradingApiService';
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
+import React, { memo, Suspense, useCallback, useMemo, useState } from "react";
+import {
+  Alert,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Card, Text } from "../../components/atomic";
+import { ScreenErrorBoundary } from "../../components/ErrorBoundary";
+import { StockCardSkeleton } from "../../components/LoadingComponents";
+import { OptimizedFlatList } from "../../components/OptimizedList";
+import NotificationsPage from "../../components/ui/NotificationsPage";
+import { NotificationIcon } from "../../components/ui/NotificationIcon";
+import WalletPage from "../../components/ui/WalletPage";
+import EditTradeTargetPage from "../../components/ui/EditTradeTargetPage";
+import EditPendingTradePage from "../../components/ui/EditPendingTradePage";
+import { useNotification } from "../../contexts/NotificationContext";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useDebounce, useRenderPerformance } from "../../hooks/usePerformance";
+import { queryKeys } from "../../services/queryClient";
+import { sessionExpiryHandler } from "../../services/sessionExpiryHandler";
+import {
+  tradingApiService,
+  ActiveTradeItem,
+} from "../../services/tradingApiService";
 
 interface Trade {
   id: string;
   symbol: string;
-  type: 'BUY' | 'SELL';
+  type: "BUY" | "SELL";
   quantity: number;
   price: number;
   timestamp: string;
-  status: 'COMPLETED' | 'PENDING' | 'CANCELLED';
+  status: "COMPLETED" | "PENDING" | "CANCELLED";
   pnl?: number;
   productType?: string;
   priceType?: string;
@@ -96,23 +108,23 @@ interface Trade {
  */
 const transformApiTradeToUi = (apiTrade: ActiveTradeItem): Trade => {
   // Map API status to UI status
-  let uiStatus: 'COMPLETED' | 'PENDING' | 'CANCELLED' = 'PENDING';
+  let uiStatus: "COMPLETED" | "PENDING" | "CANCELLED" = "PENDING";
   const apiStatus = apiTrade.status.toUpperCase();
-  
-  if (apiStatus === 'COMPLETE') {
-    uiStatus = 'COMPLETED';
-  } else if (apiStatus === 'OPEN') {
-    uiStatus = 'PENDING'; // Open status means trade is pending
-  } else if (apiStatus === 'CANCELLED') {
-    uiStatus = 'CANCELLED';
+
+  if (apiStatus === "COMPLETE") {
+    uiStatus = "COMPLETED";
+  } else if (apiStatus === "OPEN") {
+    uiStatus = "PENDING"; // Open status means trade is pending
+  } else if (apiStatus === "CANCELLED") {
+    uiStatus = "CANCELLED";
   } else {
-    uiStatus = 'PENDING'; // Default to pending for any other status
+    uiStatus = "PENDING"; // Default to pending for any other status
   }
 
   return {
     id: apiTrade.activeTradeID.toString(),
     symbol: apiTrade.tradeSymbol,
-    type: apiTrade.currentPosition.toUpperCase() as 'BUY' | 'SELL',
+    type: apiTrade.currentPosition.toUpperCase() as "BUY" | "SELL",
     quantity: apiTrade.qty,
     price: apiTrade.orderPrice,
     timestamp: `${apiTrade.orderDate} ${apiTrade.orderTime}`,
@@ -159,317 +171,385 @@ const MemoizedTradeCard = memo<{
   onEditPending?: (trade: Trade) => void;
   onDelete?: (trade: Trade) => void;
   selectedFilter?: string; // Add selectedFilter to know current view context
-}>(({ trade, onPress, onSquareOff, onEdit, onEditPending, onDelete, selectedFilter }) => {
-  const { theme } = useTheme();
-  
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return theme.colors.success;
-      case 'PENDING':
-        return theme.colors.warning;
-      case 'CANCELLED':
-        return theme.colors.error;
-      default:
-        return theme.colors.textSecondary;
+}>(
+  ({
+    trade,
+    onPress,
+    onSquareOff,
+    onEdit,
+    onEditPending,
+    onDelete,
+    selectedFilter,
+  }) => {
+    const { theme } = useTheme();
+
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case "COMPLETED":
+          return theme.colors.success;
+        case "PENDING":
+          return theme.colors.warning;
+        case "CANCELLED":
+          return theme.colors.error;
+        default:
+          return theme.colors.textSecondary;
+      }
+    };
+
+    const getPnLColor = (pnl?: number) => {
+      if (!pnl) return theme.colors.textSecondary;
+      return pnl >= 0 ? theme.colors.success : theme.colors.error;
+    };
+
+    const handlePress = useCallback(() => {
+      onPress?.(trade);
+    }, [onPress, trade]);
+
+    const handleSquareOff = useCallback(() => {
+      onSquareOff?.(trade);
+    }, [onSquareOff, trade]);
+
+    const handleEdit = useCallback(
+      (e: any) => {
+        e?.stopPropagation?.();
+        onEdit?.(trade);
+      },
+      [onEdit, trade],
+    );
+
+    const handleEditPending = useCallback(
+      (e: any) => {
+        e?.stopPropagation?.();
+        onEditPending?.(trade);
+      },
+      [onEditPending, trade],
+    );
+
+    const handleDelete = useCallback(
+      (e: any) => {
+        e?.stopPropagation?.();
+        onDelete?.(trade);
+      },
+      [onDelete, trade],
+    );
+
+    // Debug: Log trade status to help identify why icons might not show
+    if (trade.status === "PENDING") {
+      console.log("🔍 Pending trade:", {
+        symbol: trade.symbol,
+        status: trade.status,
+        apiStatus: trade.apiStatus,
+        shouldShowIcons:
+          trade.status === "PENDING" && trade.apiStatus === "OPEN",
+      });
     }
-  };
 
-  const getPnLColor = (pnl?: number) => {
-    if (!pnl) return theme.colors.textSecondary;
-    return pnl >= 0 ? theme.colors.success : theme.colors.error;
-  };
+    // Determine if we should show edit/square-off options
+    // Hide them when viewing COMPLETED filter or if trade is cancelled
+    const isInCompletedView = selectedFilter === "COMPLETED";
+    const isCancelled = trade.status === "CANCELLED";
+    const showActions = !isInCompletedView && !isCancelled;
 
-  const handlePress = useCallback(() => {
-    onPress?.(trade);
-  }, [onPress, trade]);
+    // Determine status label to display
+    const getStatusLabel = () => {
+      if (trade.status === "COMPLETED" && selectedFilter === "ACTIVE") {
+        return "ACTIVE"; // Show ACTIVE when in ACTIVE tab
+      }
+      return trade.status; // Show actual status (COMPLETED/CANCELLED/PENDING) otherwise
+    };
 
-  const handleSquareOff = useCallback(() => {
-    onSquareOff?.(trade);
-  }, [onSquareOff, trade]);
+    return (
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
+        <Card style={styles.tradeCard}>
+          <View style={styles.tradeHeader}>
+            <View style={styles.tradeSymbol}>
+              <Text variant="body" weight="semibold" color="text">
+                {trade.symbol}
+              </Text>
+              <View
+                style={[
+                  styles.typeIndicator,
+                  {
+                    backgroundColor:
+                      trade.type === "BUY"
+                        ? theme.colors.success
+                        : theme.colors.error,
+                  },
+                ]}
+              >
+                <Text variant="caption" style={{ color: theme.colors.surface }}>
+                  {trade.type}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.tradeStatus}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+              >
+                <Text
+                  variant="caption"
+                  weight="medium"
+                  style={{ color: getStatusColor(trade.status) }}
+                >
+                  {getStatusLabel()}
+                </Text>
+                {/* Edit icon for completed/active trades - only show if not in COMPLETED view and not cancelled */}
+                {showActions &&
+                  trade.status === "COMPLETED" &&
+                  trade.apiStatus.toUpperCase() === "COMPLETE" && (
+                    <TouchableOpacity
+                      onPress={handleEdit}
+                      style={{ padding: 4 }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons
+                        name="create-outline"
+                        size={18}
+                        color={theme.colors.primary}
+                      />
+                    </TouchableOpacity>
+                  )}
+                {/* Edit and Delete icons for pending trades */}
+                {trade.status === "PENDING" &&
+                  trade.apiStatus.toUpperCase() === "OPEN" && (
+                    <>
+                      <TouchableOpacity
+                        onPress={handleEditPending}
+                        style={{ padding: 4 }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons
+                          name="create-outline"
+                          size={18}
+                          color={theme.colors.primary}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleDelete}
+                        style={{ padding: 4 }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color={theme.colors.error}
+                        />
+                      </TouchableOpacity>
+                    </>
+                  )}
+              </View>
+            </View>
+          </View>
 
-  const handleEdit = useCallback((e: any) => {
-    e?.stopPropagation?.();
-    onEdit?.(trade);
-  }, [onEdit, trade]);
+          <View style={styles.tradeDetails}>
+            <View style={styles.tradeDetailLeft}>
+              <Text variant="caption" color="textSecondary">
+                Quantity
+              </Text>
+              <Text variant="body" color="text" weight="medium">
+                {trade.quantity}
+              </Text>
+            </View>
+            <View style={styles.tradeDetailCenter}>
+              <Text variant="caption" color="textSecondary">
+                Price
+              </Text>
+              <Text variant="body" color="text" weight="medium">
+                {trade.price.toFixed(2)}
+              </Text>
+            </View>
+            {trade.pnl !== undefined && (
+              <View style={styles.tradeDetailRight}>
+                <Text variant="caption" color="textSecondary">
+                  P&L
+                </Text>
+                <Text
+                  variant="body"
+                  weight="medium"
+                  style={{ color: getPnLColor(trade.pnl) }}
+                >
+                  {trade.pnl >= 0 ? "+" : ""}
+                  {trade.pnl.toFixed(2)}
+                </Text>
+              </View>
+            )}
+          </View>
 
-  const handleEditPending = useCallback((e: any) => {
-    e?.stopPropagation?.();
-    onEditPending?.(trade);
-  }, [onEditPending, trade]);
-
-  const handleDelete = useCallback((e: any) => {
-    e?.stopPropagation?.();
-    onDelete?.(trade);
-  }, [onDelete, trade]);
-
-  // Debug: Log trade status to help identify why icons might not show
-  if (trade.status === 'PENDING') {
-    console.log('🔍 Pending trade:', {
-      symbol: trade.symbol,
-      status: trade.status,
-      apiStatus: trade.apiStatus,
-      shouldShowIcons: trade.status === 'PENDING' && trade.apiStatus === 'OPEN'
-    });
-  }
-
-  // Determine if we should show edit/square-off options
-  // Hide them when viewing COMPLETED filter or if trade is cancelled
-  const isInCompletedView = selectedFilter === 'COMPLETED';
-  const isCancelled = trade.status === 'CANCELLED';
-  const showActions = !isInCompletedView && !isCancelled;
-
-  // Determine status label to display
-  const getStatusLabel = () => {
-    if (trade.status === 'COMPLETED' && selectedFilter === 'ACTIVE') {
-      return 'ACTIVE'; // Show ACTIVE when in ACTIVE tab
-    }
-    return trade.status; // Show actual status (COMPLETED/CANCELLED/PENDING) otherwise
-  };
-
-  return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-      <Card style={styles.tradeCard}>
-        <View style={styles.tradeHeader}>
-          <View style={styles.tradeSymbol}>
-            <Text variant="body" weight="semibold" color="text">
-              {trade.symbol}
-            </Text>
-            <View style={[styles.typeIndicator, { 
-              backgroundColor: trade.type === 'BUY' ? theme.colors.success : theme.colors.error 
-            }]}>
-              <Text variant="caption" style={{ color: theme.colors.surface }}>
-                {trade.type}
+          {/* Target and Stop Loss Row */}
+          <View style={styles.targetStopLossRow}>
+            <View style={styles.targetStopLossLeft}>
+              <Text variant="caption" color="textSecondary">
+                Target
+              </Text>
+              <Text variant="caption" color="text" weight="medium">
+                {trade.target && parseFloat(trade.target) > 0
+                  ? `${parseFloat(trade.target).toFixed(2)}`
+                  : "N/A"}
+              </Text>
+            </View>
+            <View style={styles.targetStopLossRight}>
+              <Text variant="caption" color="textSecondary">
+                Stop Loss
+              </Text>
+              <Text variant="caption" color="text" weight="medium">
+                {trade.stopLoss && parseFloat(trade.stopLoss) > 0
+                  ? `${parseFloat(trade.stopLoss).toFixed(2)}`
+                  : "N/A"}
               </Text>
             </View>
           </View>
-          <View style={styles.tradeStatus}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text 
-                variant="caption" 
-                weight="medium"
-                style={{ color: getStatusColor(trade.status) }}
-              >
-                {getStatusLabel()}
-              </Text>
-              {/* Edit icon for completed/active trades - only show if not in COMPLETED view and not cancelled */}
-              {showActions && trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
-                <TouchableOpacity 
-                  onPress={handleEdit}
-                  style={{ padding: 4 }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+
+          <View style={styles.tradeFooter}>
+            <Text
+              variant="caption"
+              color="textSecondary"
+              style={styles.timestamp}
+            >
+              {trade.timestamp}
+            </Text>
+
+            {/* Square Off Button for Completed (Active) Trades - only show if not in COMPLETED view and not cancelled */}
+            {showActions &&
+              trade.status === "COMPLETED" &&
+              trade.apiStatus.toUpperCase() === "COMPLETE" && (
+                <TouchableOpacity
+                  style={[
+                    styles.squareOffButton,
+                    {
+                      backgroundColor: theme.colors.error + "15",
+                      borderColor: theme.colors.error,
+                    },
+                  ]}
+                  onPress={handleSquareOff}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons 
-                    name="create-outline" 
-                    size={18} 
-                    color={theme.colors.primary} 
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={14}
+                    color={theme.colors.error}
+                    style={{ marginRight: 4 }}
                   />
+                  <Text
+                    variant="caption"
+                    weight="semibold"
+                    style={{ color: theme.colors.error }}
+                  >
+                    Square Off
+                  </Text>
                 </TouchableOpacity>
               )}
-              {/* Edit and Delete icons for pending trades */}
-              {trade.status === 'PENDING' && trade.apiStatus.toUpperCase() === 'OPEN' && (
-                <>
-                  <TouchableOpacity 
-                    onPress={handleEditPending}
-                    style={{ padding: 4 }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+
+            {/* Square Off Button for Pending Trades */}
+            {trade.status === "PENDING" &&
+              trade.apiStatus.toUpperCase() === "OPEN" && (
+                <TouchableOpacity
+                  style={[
+                    styles.squareOffButton,
+                    {
+                      backgroundColor: theme.colors.warning + "15",
+                      borderColor: theme.colors.warning,
+                    },
+                  ]}
+                  onPress={handleSquareOff}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={14}
+                    color={theme.colors.warning}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    variant="caption"
+                    weight="semibold"
+                    style={{ color: theme.colors.warning }}
                   >
-                    <Ionicons 
-                      name="create-outline" 
-                      size={18} 
-                      color={theme.colors.primary} 
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    onPress={handleDelete}
-                    style={{ padding: 4 }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons 
-                      name="trash-outline" 
-                      size={18} 
-                      color={theme.colors.error} 
-                    />
-                  </TouchableOpacity>
-                </>
+                    Square Off
+                  </Text>
+                </TouchableOpacity>
               )}
-            </View>
           </View>
-        </View>
-        
-        <View style={styles.tradeDetails}>
-          <View style={styles.tradeDetailLeft}>
-            <Text variant="caption" color="textSecondary">Quantity</Text>
-            <Text variant="body" color="text" weight="medium">{trade.quantity}</Text>
-          </View>
-          <View style={styles.tradeDetailCenter}>
-            <Text variant="caption" color="textSecondary">Price</Text>
-            <Text variant="body" color="text" weight="medium">{trade.price.toFixed(2)}</Text>
-          </View>
-          {trade.pnl !== undefined && (
-            <View style={styles.tradeDetailRight}>
-              <Text variant="caption" color="textSecondary">P&L</Text>
-              <Text 
-                variant="body" 
-                weight="medium"
-                style={{ color: getPnLColor(trade.pnl) }}
-              >
-                {trade.pnl >= 0 ? '+' : ''}{trade.pnl.toFixed(2)}
-              </Text>
-            </View>
-          )}
-        </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.trade.id === nextProps.trade.id &&
+      prevProps.trade.status === nextProps.trade.status &&
+      prevProps.trade.pnl === nextProps.trade.pnl &&
+      prevProps.selectedFilter === nextProps.selectedFilter
+    );
+  },
+);
 
-        {/* Target and Stop Loss Row */}
-        <View style={styles.targetStopLossRow}>
-          <View style={styles.targetStopLossLeft}>
-            <Text variant="caption" color="textSecondary">Target</Text>
-            <Text variant="caption" color="text" weight="medium">
-              {trade.target && parseFloat(trade.target) > 0 
-                ? `${parseFloat(trade.target).toFixed(2)}` 
-                : 'N/A'}
-            </Text>
-          </View>
-          <View style={styles.targetStopLossRight}>
-            <Text variant="caption" color="textSecondary">Stop Loss</Text>
-            <Text variant="caption" color="text" weight="medium">
-              {trade.stopLoss && parseFloat(trade.stopLoss) > 0 
-                ? `${parseFloat(trade.stopLoss).toFixed(2)}` 
-                : 'N/A'}
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.tradeFooter}>
-          <Text variant="caption" color="textSecondary" style={styles.timestamp}>
-            {trade.timestamp}
-          </Text>
-          
-          {/* Square Off Button for Completed (Active) Trades - only show if not in COMPLETED view and not cancelled */}
-          {showActions && trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE' && (
-            <TouchableOpacity 
-              style={[styles.squareOffButton, { 
-                backgroundColor: theme.colors.error + '15',
-                borderColor: theme.colors.error 
-              }]}
-              onPress={handleSquareOff}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="close-circle-outline" 
-                size={14} 
-                color={theme.colors.error} 
-                style={{ marginRight: 4 }}
-              />
-              <Text 
-                variant="caption" 
-                weight="semibold"
-                style={{ color: theme.colors.error }}
-              >
-                Square Off
-              </Text>
-            </TouchableOpacity>
-          )}
-          
-          {/* Square Off Button for Pending Trades */}
-          {trade.status === 'PENDING' && trade.apiStatus.toUpperCase() === 'OPEN' && (
-            <TouchableOpacity 
-              style={[styles.squareOffButton, { 
-                backgroundColor: theme.colors.warning + '15',
-                borderColor: theme.colors.warning 
-              }]}
-              onPress={handleSquareOff}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="close-circle-outline" 
-                size={14} 
-                color={theme.colors.warning} 
-                style={{ marginRight: 4 }}
-              />
-              <Text 
-                variant="caption" 
-                weight="semibold"
-                style={{ color: theme.colors.warning }}
-              >
-                Square Off
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </Card>
-    </TouchableOpacity>
-  );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.trade.id === nextProps.trade.id &&
-    prevProps.trade.status === nextProps.trade.status &&
-    prevProps.trade.pnl === nextProps.trade.pnl &&
-    prevProps.selectedFilter === nextProps.selectedFilter
-  );
-});
-
-MemoizedTradeCard.displayName = 'MemoizedTradeCard';
+MemoizedTradeCard.displayName = "MemoizedTradeCard";
 
 export default function TradesScreen() {
   const { theme } = useTheme();
   const { showNotification } = useNotification();
-  
+
   // Performance monitoring
-  useRenderPerformance('TradesScreen');
-  
-  const [selectedFilter, setSelectedFilter] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  useRenderPerformance("TradesScreen");
+
+  const [selectedFilter, setSelectedFilter] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  
+
   // Modal states
-  const [isNotificationsPageVisible, setIsNotificationsPageVisible] = useState(false);
+  const [isNotificationsPageVisible, setIsNotificationsPageVisible] =
+    useState(false);
   const [isWalletPageVisible, setIsWalletPageVisible] = useState(false);
   const [isEditTradePageVisible, setIsEditTradePageVisible] = useState(false);
-  const [selectedTradeForEdit, setSelectedTradeForEdit] = useState<Trade | null>(null);
-  const [isEditPendingTradePageVisible, setIsEditPendingTradePageVisible] = useState(false);
-  const [selectedPendingTradeForEdit, setSelectedPendingTradeForEdit] = useState<Trade | null>(null);
-  
+  const [selectedTradeForEdit, setSelectedTradeForEdit] =
+    useState<Trade | null>(null);
+  const [isEditPendingTradePageVisible, setIsEditPendingTradePageVisible] =
+    useState(false);
+  const [selectedPendingTradeForEdit, setSelectedPendingTradeForEdit] =
+    useState<Trade | null>(null);
+
   // Real-time polling state
   const [isPollingEnabled, setIsPollingEnabled] = useState(true);
   const [isScreenFocused, setIsScreenFocused] = useState(false);
 
   // React Query for optimized data fetching with real-time polling
   // Only poll when screen is focused AND polling is enabled
-  const { 
-    data: trades = [], 
-    isLoading, 
+  const {
+    data: trades = [],
+    isLoading,
     refetch,
-    isRefetching 
+    isRefetching,
   } = useQuery({
     queryKey: queryKeys.userTrades(),
     queryFn: tradesService.getTrades,
     staleTime: 0, // Always consider data stale for real-time updates
-    refetchInterval: (isPollingEnabled && isScreenFocused) ? 2000 : false, // Only poll when screen is focused and enabled
+    refetchInterval: isPollingEnabled && isScreenFocused ? 2000 : false, // Only poll when screen is focused and enabled
     refetchIntervalInBackground: false, // Don't poll when app is in background
     refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
-
-
   // Track screen focus state and refresh data when screen is focused
   useFocusEffect(
     useCallback(() => {
-      console.log('🔄 Trades screen focused, enabling polling and refreshing data');
+      console.log(
+        "🔄 Trades screen focused, enabling polling and refreshing data",
+      );
       setIsScreenFocused(true);
       refetch();
-      
+
       return () => {
-        console.log('⏸️ Trades screen unfocused, disabling polling');
+        console.log("⏸️ Trades screen unfocused, disabling polling");
         setIsScreenFocused(false);
       };
-    }, [refetch])
+    }, [refetch]),
   );
 
   // Log polling status changes
   React.useEffect(() => {
     const isActive = isPollingEnabled && isScreenFocused;
-    console.log(`📊 Trades polling ${isActive ? 'ACTIVE' : 'INACTIVE'} - User toggle: ${isPollingEnabled ? 'ON' : 'OFF'}, Screen: ${isScreenFocused ? 'FOCUSED' : 'UNFOCUSED'}`);
+    console.log(
+      `📊 Trades polling ${isActive ? "ACTIVE" : "INACTIVE"} - User toggle: ${isPollingEnabled ? "ON" : "OFF"}, Screen: ${isScreenFocused ? "FOCUSED" : "UNFOCUSED"}`,
+    );
   }, [isPollingEnabled, isScreenFocused]);
 
   // Log data updates
@@ -482,152 +562,168 @@ export default function TradesScreen() {
   // Memoized filtered data
   const filteredTrades = useMemo(() => {
     let filtered: Trade[] = trades;
-    
+
     // Filter by status
-    if (selectedFilter !== 'ALL') {
-      if (selectedFilter === 'ACTIVE') {
+    if (selectedFilter !== "ALL") {
+      if (selectedFilter === "ACTIVE") {
         // Show only COMPLETED status trades (active trades)
-        filtered = filtered.filter((trade: Trade) => trade.status === 'COMPLETED');
-      } else if (selectedFilter === 'COMPLETED') {
+        filtered = filtered.filter(
+          (trade: Trade) => trade.status === "COMPLETED",
+        );
+      } else if (selectedFilter === "COMPLETED") {
         // Show both COMPLETED and CANCELLED trades
-        filtered = filtered.filter((trade: Trade) => 
-          trade.status === 'COMPLETED' || trade.status === 'CANCELLED'
+        filtered = filtered.filter(
+          (trade: Trade) =>
+            trade.status === "COMPLETED" || trade.status === "CANCELLED",
         );
       } else {
         // For other filters (like PENDING), filter by exact status
-        filtered = filtered.filter((trade: Trade) => trade.status === selectedFilter);
+        filtered = filtered.filter(
+          (trade: Trade) => trade.status === selectedFilter,
+        );
       }
     }
-    
+
     // Filter by search query
     if (debouncedSearchQuery) {
       const query = debouncedSearchQuery.toLowerCase();
-      filtered = filtered.filter((trade: Trade) => 
-        trade.symbol.toLowerCase().includes(query)
+      filtered = filtered.filter((trade: Trade) =>
+        trade.symbol.toLowerCase().includes(query),
       );
     }
-    
+
     return filtered;
   }, [trades, selectedFilter, debouncedSearchQuery]);
 
   // Get completed and pending trades for square off all functionality
   const squareOffableTrades = useMemo(() => {
-    return trades.filter((trade: Trade) => 
-      (trade.status === 'COMPLETED' && trade.apiStatus.toUpperCase() === 'COMPLETE') ||
-      (trade.status === 'PENDING' && trade.apiStatus.toUpperCase() === 'OPEN')
+    return trades.filter(
+      (trade: Trade) =>
+        (trade.status === "COMPLETED" &&
+          trade.apiStatus.toUpperCase() === "COMPLETE") ||
+        (trade.status === "PENDING" &&
+          trade.apiStatus.toUpperCase() === "OPEN"),
     );
   }, [trades]);
 
   // Check if we should show "Square Off All" button
-  const showSquareOffAll = selectedFilter === 'ALL' && squareOffableTrades.length > 0;
+  const showSquareOffAll =
+    selectedFilter === "ALL" && squareOffableTrades.length > 0;
 
   // Callbacks
   const handleTradePress = useCallback((trade: Trade) => {
     // Handle trade details navigation
-    console.log('Trade selected:', trade);
+    console.log("Trade selected:", trade);
   }, []);
 
-  const handleSquareOff = useCallback(async (trade: Trade) => {
-    // Handle square off action with confirmation
-    console.log('Square off trade:', trade);
-    
-    // Show confirmation dialog
-    const confirmTitle = 'Confirm Square Off';
-    const confirmMessage = `Are you sure you want to square off ${trade.quantity} ${trade.symbol}?`;
-    
-    // Use platform-specific confirmation
-    const showConfirmation = (): Promise<boolean> => {
-      return new Promise((resolve) => {
-        if (Platform.OS === 'web') {
-          // Use browser's confirm dialog for web
-          resolve(window.confirm(confirmMessage));
-        } else {
-          // Use React Native Alert for mobile
-          Alert.alert(
-            confirmTitle,
-            confirmMessage,
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: () => resolve(false),
-              },
-              {
-                text: 'Square Off',
-                style: 'destructive',
-                onPress: () => resolve(true),
-              },
-            ],
-            { cancelable: true, onDismiss: () => resolve(false) }
-          );
-        }
-      });
-    };
-    
-    const confirmed = await showConfirmation();
-    
-    if (confirmed) {
-      try {
-        // Call square off API
-        const result = await tradingApiService.squareOffTrade(
-          trade.activeTradeID,
-          trade.apiStatus,
-          trade.quantity
-        );
-        
-        if (result.success) {
-          showNotification({
-            type: 'success',
-            title: 'Square Off Successful',
-            message: result.message
-          });
-        } else {
-          showNotification({
-            type: 'error',
-            title: 'Square Off Failed',
-            message: result.message
-          });
-        }
-        
-        // Refresh the trades list after square off attempt
-        refetch();
-      } catch (error) {
-        console.error('❌ Error in square off:', error);
-        showNotification({
-          type: 'error',
-          title: 'Square Off Failed',
-          message: 'An error occurred while placing square off order'
+  const handleSquareOff = useCallback(
+    async (trade: Trade) => {
+      // Handle square off action with confirmation
+      console.log("Square off trade:", trade);
+
+      // Show confirmation dialog
+      const confirmTitle = "Confirm Square Off";
+      const confirmMessage = `Are you sure you want to square off ${trade.quantity} ${trade.symbol}?`;
+
+      // Use platform-specific confirmation
+      const showConfirmation = (): Promise<boolean> => {
+        return new Promise((resolve) => {
+          if (Platform.OS === "web") {
+            // Use browser's confirm dialog for web
+            resolve(window.confirm(confirmMessage));
+          } else {
+            // Use React Native Alert for mobile
+            Alert.alert(
+              confirmTitle,
+              confirmMessage,
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                  onPress: () => resolve(false),
+                },
+                {
+                  text: "Square Off",
+                  style: "destructive",
+                  onPress: () => resolve(true),
+                },
+              ],
+              { cancelable: true, onDismiss: () => resolve(false) },
+            );
+          }
         });
+      };
+
+      const confirmed = await showConfirmation();
+
+      if (confirmed) {
+        try {
+          // Call square off API
+          const result = await tradingApiService.squareOffTrade(
+            trade.activeTradeID,
+            trade.apiStatus,
+            trade.quantity,
+          );
+
+          if (result.success) {
+            showNotification({
+              type: "success",
+              title: "Square Off Successful",
+              message: result.message,
+            });
+          } else {
+            showNotification({
+              type: "error",
+              title: "Square Off Failed",
+              message: result.message,
+            });
+          }
+
+          // Refresh the trades list after square off attempt
+          refetch();
+        } catch (error) {
+          console.error("❌ Error in square off:", error);
+          showNotification({
+            type: "error",
+            title: "Square Off Failed",
+            message: "An error occurred while placing square off order",
+          });
+        }
       }
-    }
-  }, [showNotification, refetch]);
+    },
+    [showNotification, refetch],
+  );
 
   const handleSquareOffAll = useCallback(async () => {
     // Handle square off all active and pending trades
     const totalCount = squareOffableTrades.length;
-    const activeCount = squareOffableTrades.filter(t => t.status === 'COMPLETED').length;
-    const pendingCount = squareOffableTrades.filter(t => t.status === 'PENDING').length;
-    
+    const activeCount = squareOffableTrades.filter(
+      (t) => t.status === "COMPLETED",
+    ).length;
+    const pendingCount = squareOffableTrades.filter(
+      (t) => t.status === "PENDING",
+    ).length;
+
     if (totalCount === 0) {
       showNotification({
-        type: 'warning',
-        title: 'No Trades to Square Off',
-        message: 'There are no active or pending trades to square off'
+        type: "warning",
+        title: "No Trades to Square Off",
+        message: "There are no active or pending trades to square off",
       });
       return;
     }
-    
+
     // Show confirmation dialog with breakdown
-    const confirmTitle = 'Confirm Square Off All';
-    let confirmMessage = `Are you sure you want to square off all ${totalCount} position${totalCount > 1 ? 's' : ''}?`;
+    const confirmTitle = "Confirm Square Off All";
+    let confirmMessage = `Are you sure you want to square off all ${totalCount} position${totalCount > 1 ? "s" : ""}?`;
     if (activeCount > 0 && pendingCount > 0) {
-      confirmMessage = `Are you sure you want to square off ${activeCount} active and ${pendingCount} pending position${totalCount > 1 ? 's' : ''}?`;
+      confirmMessage = `Are you sure you want to square off ${activeCount} active and ${pendingCount} pending position${totalCount > 1 ? "s" : ""}?`;
     }
-    
+
     // Use platform-specific confirmation
     const showConfirmation = (): Promise<boolean> => {
       return new Promise((resolve) => {
-        if (Platform.OS === 'web') {
+        if (Platform.OS === "web") {
           // Use browser's confirm dialog for web
           resolve(window.confirm(confirmMessage));
         } else {
@@ -637,70 +733,73 @@ export default function TradesScreen() {
             confirmMessage,
             [
               {
-                text: 'Cancel',
-                style: 'cancel',
+                text: "Cancel",
+                style: "cancel",
                 onPress: () => resolve(false),
               },
               {
-                text: 'Square Off All',
-                style: 'destructive',
+                text: "Square Off All",
+                style: "destructive",
                 onPress: () => resolve(true),
               },
             ],
-            { cancelable: true, onDismiss: () => resolve(false) }
+            { cancelable: true, onDismiss: () => resolve(false) },
           );
         }
       });
     };
-    
+
     const confirmed = await showConfirmation();
-    
+
     if (confirmed) {
       try {
         // Square off all active and pending trades
         const results = await Promise.allSettled(
-          squareOffableTrades.map((trade: Trade) => tradingApiService.squareOffTrade(
-            trade.activeTradeID,
-            trade.apiStatus,
-            trade.quantity
-          ))
+          squareOffableTrades.map((trade: Trade) =>
+            tradingApiService.squareOffTrade(
+              trade.activeTradeID,
+              trade.apiStatus,
+              trade.quantity,
+            ),
+          ),
         );
-        
+
         // Count successful and failed operations
-        const successful = results.filter((result: any) => 
-          result.status === 'fulfilled' && result.value.success
+        const successful = results.filter(
+          (result: any) =>
+            result.status === "fulfilled" && result.value.success,
         ).length;
         const failed = totalCount - successful;
-        
+
         // Show appropriate notification
         if (failed === 0) {
           showNotification({
-            type: 'success',
-            title: 'All Positions Squared Off',
-            message: `Successfully squared off all ${successful} position${successful > 1 ? 's' : ''} (${activeCount} active, ${pendingCount} pending)`
+            type: "success",
+            title: "All Positions Squared Off",
+            message: `Successfully squared off all ${successful} position${successful > 1 ? "s" : ""} (${activeCount} active, ${pendingCount} pending)`,
           });
         } else if (successful === 0) {
           showNotification({
-            type: 'error',
-            title: 'Square Off Failed',
-            message: `Failed to square off all ${failed} position${failed > 1 ? 's' : ''}`
+            type: "error",
+            title: "Square Off Failed",
+            message: `Failed to square off all ${failed} position${failed > 1 ? "s" : ""}`,
           });
         } else {
           showNotification({
-            type: 'warning',
-            title: 'Partial Success',
-            message: `Squared off ${successful} position${successful > 1 ? 's' : ''}, ${failed} failed`
+            type: "warning",
+            title: "Partial Success",
+            message: `Squared off ${successful} position${successful > 1 ? "s" : ""}, ${failed} failed`,
           });
         }
-        
+
         // Refresh the trades list after square off attempt
         refetch();
       } catch (error) {
-        console.error('❌ Error in square off all:', error);
+        console.error("❌ Error in square off all:", error);
         showNotification({
-          type: 'error',
-          title: 'Square Off All Failed',
-          message: 'An error occurred while placing square off orders'
+          type: "error",
+          title: "Square Off All Failed",
+          message: "An error occurred while placing square off orders",
         });
       }
     }
@@ -752,98 +851,120 @@ export default function TradesScreen() {
     refetch();
   }, [refetch]);
 
-  const handleDeleteTrade = useCallback(async (trade: Trade) => {
-    // Show confirmation dialog
-    const confirmMessage = `Are you sure you want to delete this pending order for ${trade.quantity} ${trade.symbol}?`;
-    let confirmed = false;
-    
-    if (Platform.OS === 'web') {
-      confirmed = window.confirm(confirmMessage);
-    } else {
-      // For mobile, we'll proceed directly for now
-      // In a real app, you might want to implement a custom modal
-      confirmed = true;
-    }
-    
-    if (confirmed) {
-      try {
-        // Call delete API
-        const result = await tradingApiService.deleteActiveTrade(trade.activeTradeID);
-        
-        if (result.success) {
+  const handleDeleteTrade = useCallback(
+    async (trade: Trade) => {
+      // Show confirmation dialog
+      const confirmMessage = `Are you sure you want to delete this pending order for ${trade.quantity} ${trade.symbol}?`;
+      let confirmed = false;
+
+      if (Platform.OS === "web") {
+        confirmed = window.confirm(confirmMessage);
+      } else {
+        // For mobile, we'll proceed directly for now
+        // In a real app, you might want to implement a custom modal
+        confirmed = true;
+      }
+
+      if (confirmed) {
+        try {
+          // Call delete API
+          const result = await tradingApiService.deleteActiveTrade(
+            trade.activeTradeID,
+          );
+
+          if (result.success) {
+            showNotification({
+              type: "success",
+              title: "Trade Deleted",
+              message: result.message,
+            });
+          } else {
+            showNotification({
+              type: "error",
+              title: "Delete Failed",
+              message: result.message,
+            });
+          }
+
+          // Refresh the trades list after delete attempt
+          refetch();
+        } catch (error) {
+          console.error("❌ Error deleting trade:", error);
           showNotification({
-            type: 'success',
-            title: 'Trade Deleted',
-            message: result.message
-          });
-        } else {
-          showNotification({
-            type: 'error',
-            title: 'Delete Failed',
-            message: result.message
+            type: "error",
+            title: "Delete Failed",
+            message: "An error occurred while deleting the trade",
           });
         }
-        
-        // Refresh the trades list after delete attempt
-        refetch();
-      } catch (error) {
-        console.error('❌ Error deleting trade:', error);
-        showNotification({
-          type: 'error',
-          title: 'Delete Failed',
-          message: 'An error occurred while deleting the trade'
-        });
       }
-    }
-  }, [showNotification, refetch]);
+    },
+    [showNotification, refetch],
+  );
 
   const togglePolling = useCallback(() => {
-    setIsPollingEnabled(prev => !prev);
+    setIsPollingEnabled((prev) => !prev);
   }, [isPollingEnabled, showNotification]);
 
   const onRefresh = useCallback(() => {
     refetch();
   }, [refetch]);
 
-  const renderTradeItem = useCallback(({ item }: { item: Trade }) => (
-    <MemoizedTradeCard
-      trade={item}
-      onPress={handleTradePress}
-      onSquareOff={handleSquareOff}
-      onEdit={handleEditTrade}
-      onEditPending={handleEditPendingTrade}
-      onDelete={handleDeleteTrade}
-      selectedFilter={selectedFilter}
-    />
-  ), [handleTradePress, handleSquareOff, handleEditTrade, handleEditPendingTrade, handleDeleteTrade, selectedFilter]);
+  const renderTradeItem = useCallback(
+    ({ item }: { item: Trade }) => (
+      <MemoizedTradeCard
+        trade={item}
+        onPress={handleTradePress}
+        onSquareOff={handleSquareOff}
+        onEdit={handleEditTrade}
+        onEditPending={handleEditPendingTrade}
+        onDelete={handleDeleteTrade}
+        selectedFilter={selectedFilter}
+      />
+    ),
+    [
+      handleTradePress,
+      handleSquareOff,
+      handleEditTrade,
+      handleEditPendingTrade,
+      handleDeleteTrade,
+      selectedFilter,
+    ],
+  );
 
   const keyExtractor = useCallback((item: Trade) => item.id, []);
 
   // Header component for the trades list
   const renderListHeader = useCallback(() => {
     if (!showSquareOffAll) return null;
-    
-    const activeCount = squareOffableTrades.filter(t => t.status === 'COMPLETED').length;
-    const pendingCount = squareOffableTrades.filter(t => t.status === 'PENDING').length;
-    
+
+    const activeCount = squareOffableTrades.filter(
+      (t) => t.status === "COMPLETED",
+    ).length;
+    const pendingCount = squareOffableTrades.filter(
+      (t) => t.status === "PENDING",
+    ).length;
+
     return (
       <View style={styles.listHeader}>
-        <TouchableOpacity 
-          style={[styles.squareOffAllButton, { 
-            backgroundColor: theme.colors.error + '15',
-            borderColor: theme.colors.error 
-          }]}
+        <TouchableOpacity
+          style={[
+            styles.squareOffAllButton,
+            {
+              backgroundColor: theme.colors.error + "15",
+              borderColor: theme.colors.error,
+            },
+          ]}
           onPress={handleSquareOffAll}
           activeOpacity={0.7}
         >
-          <Ionicons 
-            name="close-circle" 
-            size={16} 
-            color={theme.colors.error} 
+          <Ionicons
+            name="close-circle"
+            size={16}
+            color={theme.colors.error}
             style={{ marginRight: 6 }}
           />
-          <Text 
-            variant="body" 
+          <Text
+            variant="body"
             weight="semibold"
             style={{ color: theme.colors.error }}
           >
@@ -852,13 +973,25 @@ export default function TradesScreen() {
         </TouchableOpacity>
       </View>
     );
-  }, [showSquareOffAll, theme.colors.error, handleSquareOffAll, squareOffableTrades]);
+  }, [
+    showSquareOffAll,
+    theme.colors.error,
+    handleSquareOffAll,
+    squareOffableTrades,
+  ]);
 
   return (
     <ScreenErrorBoundary screenName="Trades">
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         {/* Fixed Header */}
-        <View style={[styles.fixedHeader, { backgroundColor: theme.colors.background + 'E6' }]}>
+        <View
+          style={[
+            styles.fixedHeader,
+            { backgroundColor: theme.colors.background + "E6" },
+          ]}
+        >
           <View style={styles.statusBarSpacer} />
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -867,42 +1000,67 @@ export default function TradesScreen() {
               </Text>
               {/* Real-time indicator */}
               <View style={styles.realtimeIndicator}>
-                <View style={[
-                  styles.realtimeDot, 
-                  { backgroundColor: isPollingEnabled ? theme.colors.success : theme.colors.textSecondary }
-                ]} />
+                <View
+                  style={[
+                    styles.realtimeDot,
+                    {
+                      backgroundColor: isPollingEnabled
+                        ? theme.colors.success
+                        : theme.colors.textSecondary,
+                    },
+                  ]}
+                />
                 <Text variant="caption" color="textSecondary">
-                  {isPollingEnabled ? 'Live' : 'Paused'}
+                  {isPollingEnabled ? "Live" : "Paused"}
                 </Text>
               </View>
             </View>
             <View style={styles.headerRight}>
               {/* Polling toggle button */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.actionButton, 
-                  { 
-                    backgroundColor: isPollingEnabled ? theme.colors.success + '20' : theme.colors.surface,
-                    borderColor: isPollingEnabled ? theme.colors.success : theme.colors.border,
-                    borderWidth: 1 
-                  }
-                ]} 
+                  styles.actionButton,
+                  {
+                    backgroundColor: isPollingEnabled
+                      ? theme.colors.success + "20"
+                      : theme.colors.surface,
+                    borderColor: isPollingEnabled
+                      ? theme.colors.success
+                      : theme.colors.border,
+                    borderWidth: 1,
+                  },
+                ]}
                 onPress={togglePolling}
               >
-                <Ionicons 
-                  name={isPollingEnabled ? "pulse" : "pause"} 
-                  size={20} 
-                  color={isPollingEnabled ? theme.colors.success : theme.colors.textSecondary} 
+                <Ionicons
+                  name={isPollingEnabled ? "pulse" : "pause"}
+                  size={20}
+                  color={
+                    isPollingEnabled
+                      ? theme.colors.success
+                      : theme.colors.textSecondary
+                  }
                 />
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]} 
+
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    borderWidth: 1,
+                  },
+                ]}
                 onPress={handleWalletPress}
               >
-                <Ionicons name="wallet" size={20} color={theme.colors.primary} />
+                <Ionicons
+                  name="wallet"
+                  size={20}
+                  color={theme.colors.primary}
+                />
               </TouchableOpacity>
-              
+
               <NotificationIcon
                 onPress={handleNotificationPress}
                 color={theme.colors.primary}
@@ -913,25 +1071,31 @@ export default function TradesScreen() {
           </View>
 
           {/* Filter Tabs */}
-          <ScrollView 
+          <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={[styles.filterContainer, { backgroundColor: 'transparent' }]}
+            style={[styles.filterContainer, { backgroundColor: "transparent" }]}
             contentContainerStyle={styles.filterContainer}
           >
-            {['ALL', 'ACTIVE', 'PENDING', 'COMPLETED'].map((filter) => (
+            {["ALL", "ACTIVE", "PENDING", "COMPLETED"].map((filter) => (
               <TouchableOpacity
                 key={filter}
                 style={[
                   styles.filterTab,
-                  selectedFilter === filter && { backgroundColor: theme.colors.primary }
+                  selectedFilter === filter && {
+                    backgroundColor: theme.colors.primary,
+                  },
                 ]}
                 onPress={() => setSelectedFilter(filter)}
               >
-                <Text 
-                  variant="caption" 
+                <Text
+                  variant="caption"
                   weight="medium"
-                  style={{ color: selectedFilter === filter ? 'white' : theme.colors.text, textAlign: 'center' }}
+                  style={{
+                    color:
+                      selectedFilter === filter ? "white" : theme.colors.text,
+                    textAlign: "center",
+                  }}
                 >
                   {filter}
                 </Text>
@@ -1001,7 +1165,7 @@ export default function TradesScreen() {
               tradinG_UNIT: selectedTradeForEdit.tradinG_UNIT,
               apiStatus: selectedTradeForEdit.apiStatus,
               intWID: selectedTradeForEdit.intWID,
-              scriptCode: selectedTradeForEdit.scriptCode
+              scriptCode: selectedTradeForEdit.scriptCode,
             }}
             onSave={handleSaveTradeEdit}
           />
@@ -1028,7 +1192,7 @@ export default function TradesScreen() {
               tradinG_UNIT: selectedPendingTradeForEdit.tradinG_UNIT,
               apiStatus: selectedPendingTradeForEdit.apiStatus,
               intWID: selectedPendingTradeForEdit.intWID,
-              scriptCode: selectedPendingTradeForEdit.scriptCode
+              scriptCode: selectedPendingTradeForEdit.scriptCode,
             }}
             onSave={handleSavePendingTradeEdit}
           />
@@ -1043,13 +1207,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fixedHeader: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
     paddingTop: 0,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1057,23 +1221,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    backdropFilter: 'blur(10px)', // Web only
+    backdropFilter: "blur(10px)", // Web only
   },
   statusBarSpacer: {
-    height: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 24,
+    height: Platform.OS === "ios" ? 44 : StatusBar.currentHeight || 24,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: Platform.OS === 'ios' ? 200 : 220, // Space for fixed header with filter tabs
+    paddingTop: Platform.OS === "ios" ? 200 : 220, // Space for fixed header with filter tabs
   },
   headerLeft: {
     flex: 1,
   },
   realtimeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginTop: 4,
   },
@@ -1083,21 +1247,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   actionButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     paddingBottom: 16,
   },
@@ -1108,7 +1272,7 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   filterContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 8,
     paddingVertical: 8,
     gap: 8,
@@ -1123,7 +1287,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tradesListContent: {
-    paddingTop: Platform.OS === 'ios' ? 180 : 200, // Reduced space for fixed header with filter tabs
+    paddingTop: Platform.OS === "ios" ? 180 : 200, // Reduced space for fixed header with filter tabs
     paddingHorizontal: 16, // Add horizontal padding for cards
     paddingBottom: 20,
   },
@@ -1132,7 +1296,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 0, // Remove horizontal margin to match other cards
     padding: 12,
     // iOS shadow
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1144,16 +1308,17 @@ const styles = StyleSheet.create({
     borderRadius: 12, // Adding border radius for better shadow appearance
   },
   tradeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 12,
+    gap: 12,
   },
   tradeLeft: {
     flex: 1,
   },
   tradeRight: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     gap: 4,
   },
   typeBadge: {
@@ -1167,37 +1332,39 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tradeDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
     paddingVertical: 0,
   },
   tradeDetailLeft: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   tradeDetailCenter: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   tradeDetailRight: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   targetStopLossRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
     paddingVertical: 8,
     paddingHorizontal: 0,
   },
   targetStopLossLeft: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   targetStopLossRight: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   tradeSymbol: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
+    flex: 1,
+    flexWrap: "wrap",
   },
   typeIndicator: {
     paddingHorizontal: 6,
@@ -1205,43 +1372,45 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   tradeStatus: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
+    marginLeft: "auto",
+    flexShrink: 0,
   },
   timestamp: {
     marginTop: 4,
     flex: 1,
   },
   tradeFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 8,
   },
   squareOffButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
   },
   listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 8,
   },
   squareOffAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
   },
   detailItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
 });
